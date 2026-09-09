@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
-import { collection, setDoc, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { collection, setDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { 
   Box, Typography, Button, Paper, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, TextField, Dialog, 
   DialogTitle, DialogContent, DialogActions, FormControl, 
-  InputLabel, Select, MenuItem, Chip, IconButton, CircularProgress
+  InputLabel, Select, MenuItem, Chip, IconButton, CircularProgress,
+  Checkbox, FormControlLabel
 } from '@mui/material';
-import { Plus, Trash2, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, ShieldAlert, CheckCircle2, AlertCircle, Globe, MessageCircle } from 'lucide-react';
 import { registrarLogAuditoria } from '../utils/auditLogger';
 
 export default function UsuariosAutorizados({ currentUserEmail, userRole }) {
@@ -19,6 +20,8 @@ export default function UsuariosAutorizados({ currentUserEmail, userRole }) {
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
   const [rol, setRol] = useState('Abogado/a');
+  const [accesoWeb, setAccesoWeb] = useState(false);
+  const [accesoWhatsapp, setAccesoWhatsapp] = useState(false);
 
   // NUEVOS ESTADOS: Control inteligente de Modales de Confirmación y Feedback
   const [openConfirm, setOpenConfirm] = useState(false);
@@ -73,6 +76,8 @@ export default function UsuariosAutorizados({ currentUserEmail, userRole }) {
         nombre: nombre.trim(), 
         correo: emailLimpio, 
         rol: rol, 
+        acceso_web: accesoWeb,
+        acceso_whatsapp: accesoWhatsapp,
         autorizado_por: currentUserEmail, 
         fecha_autorizacion: new Date().toISOString()
       });
@@ -80,18 +85,41 @@ export default function UsuariosAutorizados({ currentUserEmail, userRole }) {
       await registrarLogAuditoria(
         currentUserEmail, 
         'Autorización de Usuario', 
-        `Se habilitó acceso perimetral al correo [${emailLimpio}] con privilegios de: ${rol}`
+        `Se habilitó acceso perimetral al correo [${emailLimpio}] con privilegios de: ${rol} | Web: ${accesoWeb ? 'Sí' : 'No'} | WhatsApp: ${accesoWhatsapp ? 'Sí' : 'No'}`
       );
 
       setNombre(''); 
       setCorreo(''); 
       setRol('Abogado/a'); 
+      setAccesoWeb(false);
+      setAccesoWhatsapp(false);
       setOpenModal(false);
       
       lanzarNotificacionModal('Registro Exitoso', `El usuario [${emailLimpio}] ha sido pre-autorizado en la plataforma de manera correcta.`, 'success');
       fetchUsuarios();
     } catch (err) { 
       lanzarNotificacionModal('Error en Firestore', 'El servidor rechazó la escritura de credenciales autorizadas.', 'error'); 
+    }
+  };
+
+  const handleTogglePermiso = async (id, campo, valorActual) => {
+    try {
+      const nuevoValor = !valorActual;
+      await updateDoc(doc(db, 'usuarios_autorizados', id), {
+        [campo]: nuevoValor
+      });
+
+      const nombreModulo = campo === 'acceso_web' ? 'Sitio Web' : 'WhatsApp';
+      await registrarLogAuditoria(
+        currentUserEmail, 
+        'Modificación de Permisos', 
+        `Se ${nuevoValor ? 'habilitó' : 'deshabilitó'} el acceso a [${nombreModulo}] para el usuario: [${id}]`
+      );
+
+      setUsuarios(prev => prev.map(u => u.id === id ? { ...u, [campo]: nuevoValor } : u));
+    } catch (err) { 
+      console.error("Error al actualizar permiso:", err);
+      lanzarNotificacionModal('Error al actualizar', 'No se pudo cambiar el estado del permiso en la base de datos.', 'error'); 
     }
   };
 
@@ -143,6 +171,8 @@ export default function UsuariosAutorizados({ currentUserEmail, userRole }) {
                 <TableCell sx={{ fontWeight: 'bold' }}>Nombre Completo</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>ID Documento (Correo)</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Rol Asignado</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Sitio Web</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold' }}>WhatsApp</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Autorizado Por</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Acciones</TableCell>
               </TableRow>
@@ -153,6 +183,45 @@ export default function UsuariosAutorizados({ currentUserEmail, userRole }) {
                   <TableCell sx={{ fontWeight: 'medium' }}>{u.nombre}</TableCell>
                   <TableCell><code>{u.id}</code></TableCell>
                   <TableCell><Chip label={u.rol} size="small" color={u.rol === 'Admin' ? 'warning' : 'primary'} sx={{ fontWeight: 'bold' }} /></TableCell>
+                  
+                  {/* TAG AUTORIZACIÓN SITIO WEB */}
+                  <TableCell align="center">
+                    <Chip 
+                      icon={<Globe size={13} />}
+                      label={u.acceso_web ? "Autorizado" : "Sin Acceso"} 
+                      size="small" 
+                      color={u.acceso_web ? "primary" : "default"} 
+                      variant={u.acceso_web ? "filled" : "outlined"} 
+                      onClick={() => handleTogglePermiso(u.id, 'acceso_web', !!u.acceso_web)}
+                      title="Clic para cambiar autorización al Sitio Web"
+                      sx={{ 
+                        fontWeight: 'bold', 
+                        cursor: 'pointer', 
+                        fontSize: '0.75rem',
+                        '&:hover': { transform: 'scale(1.02)' } 
+                      }} 
+                    />
+                  </TableCell>
+
+                  {/* TAG AUTORIZACIÓN WHATSAPP */}
+                  <TableCell align="center">
+                    <Chip 
+                      icon={<MessageCircle size={13} />}
+                      label={u.acceso_whatsapp ? "Autorizado" : "Sin Acceso"} 
+                      size="small" 
+                      color={u.acceso_whatsapp ? "success" : "default"} 
+                      variant={u.acceso_whatsapp ? "filled" : "outlined"} 
+                      onClick={() => handleTogglePermiso(u.id, 'acceso_whatsapp', !!u.acceso_whatsapp)}
+                      title="Clic para cambiar autorización a WhatsApp"
+                      sx={{ 
+                        fontWeight: 'bold', 
+                        cursor: 'pointer', 
+                        fontSize: '0.75rem',
+                        '&:hover': { transform: 'scale(1.02)' } 
+                      }} 
+                    />
+                  </TableCell>
+
                   <TableCell>{u.autorizado_por}</TableCell>
                   <TableCell>
                     <IconButton color="error" onClick={() => handlePreRevocar(u.id)} sx={{ border: '1px solid #fee2e2', bgcolor: '#fef2f2', p: 1 }}>
@@ -173,7 +242,7 @@ export default function UsuariosAutorizados({ currentUserEmail, userRole }) {
           <DialogContent dividers>
             <TextField label="Nombre del Funcionario" required fullWidth value={nombre} onChange={(e) => setNombre(e.target.value)} sx={{ mb: 2.5 }} />
             <TextField label="Correo Electrónico Institucional" type="email" required fullWidth value={correo} onChange={(e) => setCorreo(e.target.value)} sx={{ mb: 2.5 }} />
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mb: 2.5 }}>
               <InputLabel>Rol y Permisos</InputLabel>
               <Select value={rol} label="Rol y Permisos" onChange={(e) => setRol(e.target.value)}>
                 {userRole === 'Superadmin' && <MenuItem value="Admin">Administrador</MenuItem>}
@@ -181,6 +250,50 @@ export default function UsuariosAutorizados({ currentUserEmail, userRole }) {
                 <MenuItem value="Administrativo">Administrativo</MenuItem>
               </Select>
             </FormControl>
+
+            {/* SECCIÓN DE MÓDULOS PERMITIDOS */}
+            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+              <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}>
+                Módulos Habilitados
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Checkbox 
+                    size="small"
+                    checked={accesoWeb} 
+                    onChange={(e) => setAccesoWeb(e.target.checked)} 
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <Globe size={15} color="#1a365d" />
+                    <Typography variant="body2" fontWeight="medium">
+                      Administrar Sitio Web (iiresodh.org)
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: 'flex', mb: 1, m: 0 }}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox 
+                    size="small"
+                    checked={accesoWhatsapp} 
+                    onChange={(e) => setAccesoWhatsapp(e.target.checked)} 
+                    color="success"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <MessageCircle size={15} color="#25D366" />
+                    <Typography variant="body2" fontWeight="medium">
+                      Acceso a WhatsApp Business API
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: 'flex', m: 0 }}
+              />
+            </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2.5 }}>
             <Button onClick={() => setOpenModal(false)} color="inherit" sx={{ textTransform: 'none' }}>Cancelar</Button>

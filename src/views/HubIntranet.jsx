@@ -3,13 +3,13 @@ import React from 'react';
 import { Box, Typography, Card, CardContent, Button, Divider } from '@mui/material';
 import { Scale, Users, ShieldCheck, FileSpreadsheet, Activity, Globe, MessageCircle } from 'lucide-react'; // 🚀 AGREGADO: Iconos Globe y MessageCircle
 
-export default function HubIntranet({ setView, userRole }) {
+export default function HubIntranet({ setView, userRole, userPermisos }) {
   
   // CONTROL PERIMETRAL: Roles autorizados para cada sección
   const tieneAccesoLitigio = userRole !== 'Invitado';
-  // 🚀 Acceso al módulo web para Superadmin, Admin y personal autorizado (con subautorización en el panel web)
-  const tieneAccesoWeb = userRole !== 'Invitado';
-  const tieneAccesoWhatsapp = userRole !== 'Invitado'; // O la lógica de acceso deseada
+  // 🚀 Acceso condicionado al permiso asignado o Superadmin
+  const tieneAccesoWeb = userRole === 'Superadmin' || userPermisos?.web === true;
+  const tieneAccesoWhatsapp = userRole === 'Superadmin' || userPermisos?.whatsapp === true;
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2, mt: 2 }}>

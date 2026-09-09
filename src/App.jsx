@@ -53,6 +53,7 @@ function App() {
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
   
   const [userRole, setUserRole] = useState('Abogado/a'); 
+  const [userPermisos, setUserPermisos] = useState({ web: false, whatsapp: false });
   const [loadingRole, setLoadingRole] = useState(true);
   const [institutionalError, setInstitutionalError] = useState('');
 
@@ -80,6 +81,7 @@ function App() {
 
       if (emailLimpio === 'webmaster@iiresodh.org') {
         setUserRole('Superadmin');
+        setUserPermisos({ web: true, whatsapp: true });
         setInstitutionalError('');
         setLoadingRole(false);
         return;
@@ -99,16 +101,23 @@ function App() {
         
         if (userDocSnap.exists()) {
           const userDoc = userDocSnap.data();
-          setUserRole(userDoc.rol || 'Abogado/a');
+          const rolAsignado = userDoc.rol || 'Abogado/a';
+          const esSuper = rolAsignado === 'Superadmin';
+          setUserRole(rolAsignado);
+          setUserPermisos({
+            web: esSuper || userDoc.acceso_web === true,
+            whatsapp: esSuper || userDoc.acceso_whatsapp === true
+          });
           setInstitutionalError('');
         } else {
           // 🚀 FLEXIBILIDAD ESTRUCTURAL: Es @iiresodh.org pero no está registrado en Litigios.
-          // Le damos acceso a la intranet general bajo el rol de 'Invitado'
           setUserRole('Invitado');
+          setUserPermisos({ web: false, whatsapp: false });
           setInstitutionalError('');
         }
       } catch (err) {
         setUserRole('Invitado');
+        setUserPermisos({ web: false, whatsapp: false });
         setInstitutionalError('');
       } finally {
         setLoadingRole(false);
@@ -120,6 +129,9 @@ function App() {
   }, [user]);
 
   // Protección de seguridad perimetral para vistas administrativas e internas
+  const tieneAccesoWeb = userRole === 'Superadmin' || userPermisos.web === true;
+  const tieneAccesoWhatsapp = userRole === 'Superadmin' || userPermisos.whatsapp === true;
+
   useEffect(() => {
     if (!loadingRole) {
       if (view === 'usuarios' && userRole !== 'Superadmin' && userRole !== 'Admin') {
@@ -128,12 +140,18 @@ function App() {
       if (view === 'logs' && userRole !== 'Superadmin') {
         setView('hub');
       }
-      // 🚀 BLINDAJE DE SEGURIDAD: Un invitado no puede entrar a la fuerza a los casos ni al sitio web
-      if ((view === 'casos' || view === 'detalle_caso' || view === 'whatsapp' || view === 'sitio_web') && userRole === 'Invitado') {
+      // 🚀 BLINDAJE DE SEGURIDAD MODULAR
+      if (view === 'sitio_web' && !tieneAccesoWeb) {
+        setView('hub');
+      }
+      if (view === 'whatsapp' && !tieneAccesoWhatsapp) {
+        setView('hub');
+      }
+      if ((view === 'casos' || view === 'detalle_caso') && userRole === 'Invitado') {
         setView('hub');
       }
     }
-  }, [view, userRole, loadingRole]);
+  }, [view, userRole, loadingRole, tieneAccesoWeb, tieneAccesoWhatsapp]);
 
   if (!user || institutionalError) {
     return (
@@ -159,15 +177,21 @@ function App() {
   if (vistaSegura === 'logs' && userRole !== 'Superadmin') {
     vistaSegura = 'hub';
   }
-  if ((vistaSegura === 'casos' || vistaSegura === 'detalle_caso' || vistaSegura === 'whatsapp' || vistaSegura === 'sitio_web') && userRole === 'Invitado') {
+  if (vistaSegura === 'sitio_web' && !tieneAccesoWeb) {
+    vistaSegura = 'hub';
+  }
+  if (vistaSegura === 'whatsapp' && !tieneAccesoWhatsapp) {
+    vistaSegura = 'hub';
+  }
+  if ((vistaSegura === 'casos' || vistaSegura === 'detalle_caso') && userRole === 'Invitado') {
     vistaSegura = 'hub';
   }
 
   return (
-    <Layout currentView={vistaSegura} setView={setView} userRole={userRole}>
+    <Layout currentView={vistaSegura} setView={setView} userRole={userRole} userPermisos={userPermisos}>
       
       {vistaSegura === 'hub' && (
-        <HubIntranet setView={setView} userRole={userRole} />
+        <HubIntranet setView={setView} userRole={userRole} userPermisos={userPermisos} />
       )}
 
       {vistaSegura === 'sitio_web' && (

@@ -5,11 +5,11 @@ import {
   ListItem, ListItemButton, ListItemIcon, ListItemText, 
   IconButton, Avatar, Divider 
 } from '@mui/material';
-import { Briefcase, ShieldAlert, LogOut, UserCheck, Home, Globe } from 'lucide-react';
+import { Briefcase, ShieldAlert, LogOut, UserCheck, Home, Globe, MessageCircle } from 'lucide-react';
 
 const drawerWidth = 260;
 
-export default function Layout({ children, currentView, setView, userRole }) {
+export default function Layout({ children, currentView, setView, userRole, userPermisos }) {
   const { user, logout } = useAuth();
 
   const esHub = currentView === 'hub';
@@ -19,10 +19,16 @@ export default function Layout({ children, currentView, setView, userRole }) {
     menuItems.push({ text: 'Menú Principal', icon: <Home size={20} />, id: 'hub' });
   }
 
+  // Módulo de Casos
   menuItems.push({ text: 'Casos y Litigios', icon: <Briefcase size={20} />, id: 'casos' });
 
+  // 🚀 Acceso al Módulo WhatsApp en la barra lateral
+  if (userRole === 'Superadmin' || userPermisos?.whatsapp === true) {
+    menuItems.push({ text: 'WhatsApp', icon: <MessageCircle size={20} />, id: 'whatsapp' });
+  }
+
   // 🚀 Acceso al Módulo Sitio Web en la barra lateral
-  if (userRole !== 'Invitado') {
+  if (userRole === 'Superadmin' || userPermisos?.web === true) {
     menuItems.push({ text: 'Sitio Web', icon: <Globe size={20} />, id: 'sitio_web' });
   }
 
