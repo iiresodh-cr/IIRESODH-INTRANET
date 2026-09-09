@@ -12,11 +12,13 @@
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
     "@mui/material": "^6.4.0",
+    "@tailwindcss/vite": "^4.3.3",
     "firebase": "^11.10.0",
     "lucide-react": "latest",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

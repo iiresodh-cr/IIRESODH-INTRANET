@@ -7,7 +7,8 @@ export default function HubIntranet({ setView, userRole }) {
   
   // CONTROL PERIMETRAL: Roles autorizados para cada sección
   const tieneAccesoLitigio = userRole !== 'Invitado';
-  const tieneAccesoWeb = userRole === 'Superadmin'; // 🚀 AGREGADO: Llave exclusiva para el Superadmin
+  // 🚀 Acceso al módulo web para Superadmin, Admin y personal autorizado (con subautorización en el panel web)
+  const tieneAccesoWeb = userRole !== 'Invitado';
   const tieneAccesoWhatsapp = userRole !== 'Invitado'; // O la lógica de acceso deseada
 
   return (
@@ -123,8 +124,7 @@ export default function HubIntranet({ setView, userRole }) {
               variant={tieneAccesoWeb ? "contained" : "outlined"} 
               fullWidth 
               disabled={!tieneAccesoWeb}
-              // Abre de forma segura el portal externo en una pestaña nueva para no sacar al usuario de la Intranet
-              onClick={() => window.open('https://iiresodh-web.web.app/admin', '_blank', 'noopener,noreferrer')} 
+              onClick={() => setView('sitio_web')} 
               sx={{ 
                 textTransform: 'none', 
                 fontWeight: 'bold', 
@@ -133,7 +133,7 @@ export default function HubIntranet({ setView, userRole }) {
                 ...(!tieneAccesoWeb && { color: 'error.main', borderColor: 'error.light' })
               }}
             >
-              {tieneAccesoWeb ? "Gestionar Sitio" : "Acceso Restringido"}
+              {tieneAccesoWeb ? "Administrar Sitio" : "Acceso Restringido"}
             </Button>
           </CardContent>
         </Card>

@@ -5,7 +5,7 @@ import {
   ListItem, ListItemButton, ListItemIcon, ListItemText, 
   IconButton, Avatar, Divider 
 } from '@mui/material';
-import { Briefcase, ShieldAlert, LogOut, UserCheck, Home } from 'lucide-react';
+import { Briefcase, ShieldAlert, LogOut, UserCheck, Home, Globe } from 'lucide-react';
 
 const drawerWidth = 260;
 
@@ -20,6 +20,11 @@ export default function Layout({ children, currentView, setView, userRole }) {
   }
 
   menuItems.push({ text: 'Casos y Litigios', icon: <Briefcase size={20} />, id: 'casos' });
+
+  // 🚀 Acceso al Módulo Sitio Web en la barra lateral
+  if (userRole !== 'Invitado') {
+    menuItems.push({ text: 'Sitio Web', icon: <Globe size={20} />, id: 'sitio_web' });
+  }
 
   if (userRole === 'Superadmin' || userRole === 'Admin') {
     menuItems.push({ text: 'Control de Usuarios', icon: <UserCheck size={20} />, id: 'usuarios' });
