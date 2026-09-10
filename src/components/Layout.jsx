@@ -3,9 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Box, Drawer, AppBar, Toolbar, List, Typography, 
   ListItem, ListItemButton, ListItemIcon, ListItemText, 
-  IconButton, Avatar, Divider 
+  IconButton, Avatar, Divider, Button 
 } from '@mui/material';
-import { Briefcase, ShieldAlert, LogOut, UserCheck, Home, Globe, MessageCircle } from 'lucide-react';
+import { Briefcase, ShieldAlert, LogOut, UserCheck, Home, Globe, MessageCircle, FolderArchive } from 'lucide-react';
 
 const drawerWidth = 260;
 
@@ -21,6 +21,9 @@ export default function Layout({ children, currentView, setView, userRole, userP
 
   // Módulo de Casos
   menuItems.push({ text: 'Casos y Litigios', icon: <Briefcase size={20} />, id: 'casos' });
+
+  // 🚀 Centro de Recursos Institucionales
+  menuItems.push({ text: 'Recursos Institucionales', icon: <FolderArchive size={20} />, id: 'recursos_institucionales' });
 
   // 🚀 Acceso al Módulo WhatsApp en la barra lateral
   if (userRole === 'Superadmin' || userPermisos?.whatsapp === true) {
@@ -81,27 +84,38 @@ export default function Layout({ children, currentView, setView, userRole, userP
             />
           </Box>
           
-          {/* SECCIÓN DERECHA: Datos del Usuario Activo */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-              <Typography variant="body2" fontWeight="medium" color="white">
-                {user?.displayName || 'Abogado Staff'}
-              </Typography>
-              <Typography variant="caption" color="rgba(255,255,255,0.6)" display="block">
-                {user?.email} ({userRole})
-              </Typography>
-            </Box>
-            
-            <Avatar 
-              src={user?.photoURL} 
-              sx={{ bgcolor: '#c5a880', width: 36, height: 36, fontSize: '0.9rem', fontWeight: 'bold' }}
+          {/* SECCIÓN DERECHA: Solo el email y el enlace para salir */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography 
+              variant="body2" 
+              color="rgba(255,255,255,0.92)" 
+              sx={{ fontSize: '0.875rem', fontWeight: 500 }}
             >
-              {user?.email?.charAt(0).toUpperCase()}
-            </Avatar>
+              {user?.email}
+            </Typography>
             
-            <IconButton color="inherit" onClick={logout} title="Cerrar Sesión" sx={{ ml: 1 }}>
-              <LogOut size={20} color="#ff8a80" />
-            </IconButton>
+            <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.25)', height: 20, my: 'auto' }} />
+            
+            <Button
+              onClick={logout}
+              startIcon={<LogOut size={16} />}
+              sx={{
+                color: '#ff8a80',
+                textTransform: 'none',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 2,
+                bgcolor: 'rgba(255, 138, 128, 0.08)',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 138, 128, 0.20)',
+                  color: '#ff5252'
+                }
+              }}
+            >
+              Salir
+            </Button>
           </Box>
         </Toolbar>
       </AppBar>

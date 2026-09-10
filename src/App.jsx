@@ -12,6 +12,7 @@ import UsuariosAutorizados from './views/UsuariosAutorizados';
 import LogsAuditoria from './views/LogsAuditoria';
 import WhatsappInterface from './views/WhatsappInterface';
 import AdminPanelWeb from './views/web/AdminPanelWeb';
+import RecursosInstitucionales from './views/RecursosInstitucionales';
 
 // Vistas del Módulo de Litigio
 import Casos from './views/litigio/Casos';
@@ -53,6 +54,7 @@ function App() {
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
   
   const [userRole, setUserRole] = useState('Abogado/a'); 
+  const [userName, setUserName] = useState('');
   const [userPermisos, setUserPermisos] = useState({ web: false, whatsapp: false });
   const [loadingRole, setLoadingRole] = useState(true);
   const [institutionalError, setInstitutionalError] = useState('');
@@ -81,6 +83,7 @@ function App() {
 
       if (emailLimpio === 'webmaster@iiresodh.org') {
         setUserRole('Superadmin');
+        setUserName(user.displayName || 'Webmaster IIRESODH');
         setUserPermisos({ web: true, whatsapp: true });
         setInstitutionalError('');
         setLoadingRole(false);
@@ -104,6 +107,7 @@ function App() {
           const rolAsignado = userDoc.rol || 'Abogado/a';
           const esSuper = rolAsignado === 'Superadmin';
           setUserRole(rolAsignado);
+          setUserName(userDoc.nombre || user.displayName || '');
           setUserPermisos({
             web: esSuper || userDoc.acceso_web === true,
             whatsapp: esSuper || userDoc.acceso_whatsapp === true
@@ -112,11 +116,13 @@ function App() {
         } else {
           // 🚀 FLEXIBILIDAD ESTRUCTURAL: Es @iiresodh.org pero no está registrado en Litigios.
           setUserRole('Invitado');
+          setUserName(user.displayName || '');
           setUserPermisos({ web: false, whatsapp: false });
           setInstitutionalError('');
         }
       } catch (err) {
         setUserRole('Invitado');
+        setUserName(user.displayName || '');
         setUserPermisos({ web: false, whatsapp: false });
         setInstitutionalError('');
       } finally {
@@ -191,7 +197,21 @@ function App() {
     <Layout currentView={vistaSegura} setView={setView} userRole={userRole} userPermisos={userPermisos}>
       
       {vistaSegura === 'hub' && (
-        <HubIntranet setView={setView} userRole={userRole} userPermisos={userPermisos} />
+        <HubIntranet 
+          setView={setView} 
+          userRole={userRole} 
+          userPermisos={userPermisos} 
+          user={user} 
+          userName={userName} 
+        />
+      )}
+
+      {vistaSegura === 'recursos_institucionales' && (
+        <RecursosInstitucionales 
+          onVolver={() => setView('hub')} 
+          currentUserEmail={user.email} 
+          userRole={userRole} 
+        />
       )}
 
       {vistaSegura === 'sitio_web' && (
