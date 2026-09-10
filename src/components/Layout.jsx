@@ -19,21 +19,21 @@ export default function Layout({ children, currentView, setView, userRole, userP
     menuItems.push({ text: 'Menú Principal', icon: <Home size={20} />, id: 'hub' });
   }
 
-  // Módulo de Casos
-  menuItems.push({ text: 'Casos y Litigios', icon: <Briefcase size={20} />, id: 'casos' });
-
-  // 🚀 Centro de Recursos Institucionales
+  // 🚀 1. Centro de Recursos Institucionales
   menuItems.push({ text: 'Recursos Institucionales', icon: <FolderArchive size={20} />, id: 'recursos_institucionales' });
 
-  // 🚀 Acceso al Módulo WhatsApp en la barra lateral
+  // 🚀 2. Acceso al Módulo Sitio Web en la barra lateral
+  if (userRole === 'Superadmin' || userPermisos?.web === true) {
+    menuItems.push({ text: 'Sitio Web', icon: <Globe size={20} />, id: 'sitio_web' });
+  }
+
+  // 🚀 3. Acceso al Módulo WhatsApp en la barra lateral
   if (userRole === 'Superadmin' || userPermisos?.whatsapp === true) {
     menuItems.push({ text: 'WhatsApp', icon: <MessageCircle size={20} />, id: 'whatsapp' });
   }
 
-  // 🚀 Acceso al Módulo Sitio Web en la barra lateral
-  if (userRole === 'Superadmin' || userPermisos?.web === true) {
-    menuItems.push({ text: 'Sitio Web', icon: <Globe size={20} />, id: 'sitio_web' });
-  }
+  // 🚀 4. Módulo de Casos (Gestión de Litigios)
+  menuItems.push({ text: 'Casos y Litigios', icon: <Briefcase size={20} />, id: 'casos' });
 
   if (userRole === 'Superadmin' || userRole === 'Admin') {
     menuItems.push({ text: 'Control de Usuarios', icon: <UserCheck size={20} />, id: 'usuarios' });

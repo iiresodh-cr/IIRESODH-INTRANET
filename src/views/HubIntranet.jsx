@@ -199,7 +199,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           mb: 6 
         }}>
           
-          {/* 🚀 MÓDULO 0: WHATSAPP */}
+          {/* 🏛️ MÓDULO 1: CENTRO DE RECURSOS INSTITUCIONALES */}
           <Card sx={{ 
             borderRadius: 3, 
             border: '1px solid rgba(226, 232, 240, 0.9)', 
@@ -207,70 +207,35 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             bgcolor: 'rgba(255, 255, 255, 0.90)',
             backdropFilter: 'blur(10px)',
             transition: 'all 0.2s',
-            ...(!tieneAccesoWhatsapp && { opacity: 0.65, bgcolor: 'rgba(248, 250, 252, 0.85)' }),
-            '&:hover': tieneAccesoWhatsapp ? { borderColor: '#25D366', bgcolor: '#ffffff', transform: 'translateY(-2px)' } : {}
+            '&:hover': { 
+              borderColor: 'primary.main', 
+              bgcolor: '#ffffff', 
+              transform: 'translateY(-2px)',
+              boxShadow: '0 8px 24px rgba(26, 54, 93, 0.10)' 
+            }
           }}>
             <CardContent sx={{ p: 3, textAlign: 'center' }}>
-              <MessageCircle size={42} style={{ color: tieneAccesoWhatsapp ? '#25D366' : '#94a3b8', marginBottom: '16px' }} />
-              <Typography variant="h6" fontWeight="bold" gutterBottom color={tieneAccesoWhatsapp ? 'text.primary' : 'text.secondary'}>
-                WhatsApp
+              <FolderArchive size={42} style={{ color: '#1a365d', marginBottom: '16px' }} />
+              <Typography variant="h6" fontWeight="bold" gutterBottom color="text.primary">
+                Centro de Recursos Institucionales
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ minHeight: 48, mb: 2 }}>
-                Comunicación oficial vía WhatsApp Business API con clientes y prospectos.
+                Material gráfico oficial (logos, isotipo), identidad visual y reglamentos internos.
               </Typography>
               
               <Button 
-                variant={tieneAccesoWhatsapp ? "contained" : "outlined"} 
+                variant="contained" 
                 fullWidth 
-                disabled={!tieneAccesoWhatsapp}
-                onClick={() => setView('whatsapp')} 
+                onClick={() => setView('recursos_institucionales')} 
                 sx={{ 
                   textTransform: 'none', 
                   fontWeight: 'bold', 
                   borderRadius: 2,
-                  ...(tieneAccesoWhatsapp && { bgcolor: '#25D366', color: '#fff', '&:hover': { bgcolor: '#20bd5a' } }),
-                  ...(!tieneAccesoWhatsapp && { color: 'error.main', borderColor: 'error.light' })
+                  bgcolor: '#1a365d',
+                  '&:hover': { bgcolor: '#0f233c' }
                 }}
               >
-                {tieneAccesoWhatsapp ? "Abrir WhatsApp" : "Acceso Restringido"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* MÓDULO 1: LITIGIOS */}
-          <Card sx={{ 
-            borderRadius: 3, 
-            border: '1px solid rgba(226, 232, 240, 0.9)', 
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)', 
-            bgcolor: 'rgba(255, 255, 255, 0.90)',
-            backdropFilter: 'blur(10px)',
-            transition: 'all 0.2s',
-            ...(!tieneAccesoLitigio && { opacity: 0.65, bgcolor: 'rgba(248, 250, 252, 0.85)' }),
-            '&:hover': tieneAccesoLitigio ? { borderColor: 'primary.main', bgcolor: '#ffffff', transform: 'translateY(-2px)' } : {}
-          }}>
-            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-              <Scale size={42} style={{ color: tieneAccesoLitigio ? '#1a365d' : '#94a3b8', marginBottom: '16px' }} />
-              <Typography variant="h6" fontWeight="bold" gutterBottom color={tieneAccesoLitigio ? 'text.primary' : 'text.secondary'}>
-                Gestión de Litigios
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 48, mb: 2 }}>
-                Control de expedientes, registro de representados, plazos fatales y comunicados.
-              </Typography>
-              
-              <Button 
-                variant={tieneAccesoLitigio ? "contained" : "outlined"} 
-                fullWidth 
-                disabled={!tieneAccesoLitigio}
-                onClick={() => setView('casos')} 
-                sx={{ 
-                  textTransform: 'none', 
-                  fontWeight: 'bold', 
-                  borderRadius: 2,
-                  ...(tieneAccesoLitigio && { bgcolor: '#1a365d', '&:hover': { bgcolor: '#0f233c' } }),
-                  ...(!tieneAccesoLitigio && { color: 'error.main', borderColor: 'error.light' })
-                }}
-              >
-                {tieneAccesoLitigio ? "Ingresar al Módulo" : "Acceso Restringido"}
+                Acceder a Recursos
               </Button>
             </CardContent>
           </Card>
@@ -313,7 +278,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             </CardContent>
           </Card>
 
-          {/* 🏛️ NUEVO MÓDULO 3: CENTRO DE RECURSOS INSTITUCIONALES */}
+          {/* 🚀 MÓDULO 3: WHATSAPP */}
           <Card sx={{ 
             borderRadius: 3, 
             border: '1px solid rgba(226, 232, 240, 0.9)', 
@@ -321,40 +286,75 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             bgcolor: 'rgba(255, 255, 255, 0.90)',
             backdropFilter: 'blur(10px)',
             transition: 'all 0.2s',
-            '&:hover': { 
-              borderColor: 'primary.main', 
-              bgcolor: '#ffffff', 
-              transform: 'translateY(-2px)',
-              boxShadow: '0 8px 24px rgba(26, 54, 93, 0.10)' 
-            }
+            ...(!tieneAccesoWhatsapp && { opacity: 0.65, bgcolor: 'rgba(248, 250, 252, 0.85)' }),
+            '&:hover': tieneAccesoWhatsapp ? { borderColor: '#25D366', bgcolor: '#ffffff', transform: 'translateY(-2px)' } : {}
           }}>
             <CardContent sx={{ p: 3, textAlign: 'center' }}>
-              <FolderArchive size={42} style={{ color: '#1a365d', marginBottom: '16px' }} />
-              <Typography variant="h6" fontWeight="bold" gutterBottom color="text.primary">
-                Centro de Recursos Institucionales
+              <MessageCircle size={42} style={{ color: tieneAccesoWhatsapp ? '#25D366' : '#94a3b8', marginBottom: '16px' }} />
+              <Typography variant="h6" fontWeight="bold" gutterBottom color={tieneAccesoWhatsapp ? 'text.primary' : 'text.secondary'}>
+                WhatsApp
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ minHeight: 48, mb: 2 }}>
-                Material gráfico oficial (logos, isotipo), identidad visual y reglamentos internos.
+                Comunicación oficial vía WhatsApp Business API con clientes y prospectos.
               </Typography>
               
               <Button 
-                variant="contained" 
+                variant={tieneAccesoWhatsapp ? "contained" : "outlined"} 
                 fullWidth 
-                onClick={() => setView('recursos_institucionales')} 
+                disabled={!tieneAccesoWhatsapp}
+                onClick={() => setView('whatsapp')} 
                 sx={{ 
                   textTransform: 'none', 
                   fontWeight: 'bold', 
                   borderRadius: 2,
-                  bgcolor: '#1a365d',
-                  '&:hover': { bgcolor: '#0f233c' }
+                  ...(tieneAccesoWhatsapp && { bgcolor: '#25D366', color: '#fff', '&:hover': { bgcolor: '#20bd5a' } }),
+                  ...(!tieneAccesoWhatsapp && { color: 'error.main', borderColor: 'error.light' })
                 }}
               >
-                Acceder a Recursos
+                {tieneAccesoWhatsapp ? "Abrir WhatsApp" : "Acceso Restringido"}
               </Button>
             </CardContent>
           </Card>
 
-          {/* MÓDULO 4: RECURSOS HUMANOS (ESTRUCTURA DE ESPERA) */}
+          {/* MÓDULO 4: LITIGIOS */}
+          <Card sx={{ 
+            borderRadius: 3, 
+            border: '1px solid rgba(226, 232, 240, 0.9)', 
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)', 
+            bgcolor: 'rgba(255, 255, 255, 0.90)',
+            backdropFilter: 'blur(10px)',
+            transition: 'all 0.2s',
+            ...(!tieneAccesoLitigio && { opacity: 0.65, bgcolor: 'rgba(248, 250, 252, 0.85)' }),
+            '&:hover': tieneAccesoLitigio ? { borderColor: 'primary.main', bgcolor: '#ffffff', transform: 'translateY(-2px)' } : {}
+          }}>
+            <CardContent sx={{ p: 3, textAlign: 'center' }}>
+              <Scale size={42} style={{ color: tieneAccesoLitigio ? '#1a365d' : '#94a3b8', marginBottom: '16px' }} />
+              <Typography variant="h6" fontWeight="bold" gutterBottom color={tieneAccesoLitigio ? 'text.primary' : 'text.secondary'}>
+                Gestión de Litigios
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 48, mb: 2 }}>
+                Control de expedientes, registro de representados, plazos fatales y comunicados.
+              </Typography>
+              
+              <Button 
+                variant={tieneAccesoLitigio ? "contained" : "outlined"} 
+                fullWidth 
+                disabled={!tieneAccesoLitigio}
+                onClick={() => setView('casos')} 
+                sx={{ 
+                  textTransform: 'none', 
+                  fontWeight: 'bold', 
+                  borderRadius: 2,
+                  ...(tieneAccesoLitigio && { bgcolor: '#1a365d', '&:hover': { bgcolor: '#0f233c' } }),
+                  ...(!tieneAccesoLitigio && { color: 'error.main', borderColor: 'error.light' })
+                }}
+              >
+                {tieneAccesoLitigio ? "Ingresar al Módulo" : "Acceso Restringido"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* MÓDULO 5: RECURSOS HUMANOS (ESTRUCTURA DE ESPERA) */}
           <Card sx={{ 
             borderRadius: 3, 
             bgcolor: 'rgba(248, 250, 252, 0.75)', 
@@ -374,7 +374,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             </CardContent>
           </Card>
 
-          {/* MÓDULO 5: FINANZAS (ESTRUCTURA DE ESPERA) */}
+          {/* MÓDULO 6: FINANZAS (ESTRUCTURA DE ESPERA) */}
           <Card sx={{ 
             borderRadius: 3, 
             bgcolor: 'rgba(248, 250, 252, 0.75)', 
