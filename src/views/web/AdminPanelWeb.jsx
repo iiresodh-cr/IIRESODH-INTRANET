@@ -84,9 +84,15 @@ export const formatearTextoConLinksYHashtags = (texto, idiomaActual = 'es') => {
   const lang = (idiomaActual || 'es').substring(0, 2).toLowerCase();
   const labelClic = lang === 'en' ? 'Click here' : (lang === 'fr' ? 'Cliquez ici' : 'Clic aquí');
 
-  const esHtml = /<\/?(p|div|h[1-6]|strong|b|em|i|blockquote|ul|ol|li|br|span|a|iframe|video|img|font)[^>]*>/i.test(texto);
+  // Decodificar entidades de comillas y apóstrofes generadas por traductores automáticos o editores
+  let procesado = String(texto)
+    .replace(/&(?:#39|#039|#x27|apos);/gi, "'")
+    .replace(/&(?:quot|#34|#034);/gi, '"')
+    .replace(/&amp;#39;/gi, "'")
+    .replace(/&amp;apos;/gi, "'")
+    .replace(/&amp;quot;/gi, '"');
 
-  let procesado = texto;
+  const esHtml = /<\/?(p|div|h[1-6]|strong|b|em|i|blockquote|ul|ol|li|br|span|a|iframe|video|img|font)[^>]*>/i.test(procesado);
 
   if (!esHtml) {
     procesado = procesado.replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -147,12 +153,11 @@ export const formatearTextoConLinksYHashtags = (texto, idiomaActual = 'es') => {
     return `\uE000${tokens.length - 1}\uE001`;
   });
 
-  // 5. Procesar Hashtags
-  procesado = procesado.replace(/(#[a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]+)/g, (match) => {
-    const term = match.substring(1);
-    const link = `<a href="https://iiresodh.org/buscar?q=${term}" target="_blank" rel="noopener noreferrer" class="text-light-blue hover:text-main-red font-bold">${match}</a>`;
+  // 5. Procesar Hashtags (debe comenzar con letra y nunca estar precedido por & ni letras/números)
+  procesado = procesado.replace(/(^|[^\w&])#([a-zA-ZáéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)/g, (match, prefix, term) => {
+    const link = `<a href="https://iiresodh.org/buscar?q=${term}" target="_blank" rel="noopener noreferrer" class="text-light-blue hover:text-main-red font-bold">#${term}</a>`;
     tokens.push(link);
-    return `\uE000${tokens.length - 1}\uE001`;
+    return `${prefix}\uE000${tokens.length - 1}\uE001`;
   });
 
   // 6. Restaurar todos los tokens protegidos
