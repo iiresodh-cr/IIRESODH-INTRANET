@@ -78,31 +78,93 @@ const generarSlug = (texto) => {
   return baseSlug ? `${baseSlug}-${randomCode}` : `item-${randomCode}`;
 };
 
-export const formatearTextoConLinksYHashtags = (texto) => {
+export const formatearTextoConLinksYHashtags = (texto, idiomaActual = 'es') => {
   if (!texto) return "";
-  let procesado = texto.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const linksGuardados = [];
 
+  const lang = (idiomaActual || 'es').substring(0, 2).toLowerCase();
+  const labelClic = lang === 'en' ? 'Click here' : (lang === 'fr' ? 'Cliquez ici' : 'Clic aquí');
+
+  const esHtml = /<\/?(p|div|h[1-6]|strong|b|em|i|blockquote|ul|ol|li|br|span|a|iframe|video|img|font)[^>]*>/i.test(texto);
+
+  let procesado = texto;
+
+  if (!esHtml) {
+    procesado = procesado.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  } else {
+    procesado = procesado
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/\bon\w+\s*=\s*(['"]).*?\1/gi, "")
+      .replace(/\bon\w+\s*=\s*[^>\s]+/gi, "")
+      .replace(/javascript:/gi, "");
+  }
+
+  const tokens = [];
+
+  // 1. Procesar y proteger enlaces <a> existentes completos
+  procesado = procesado.replace(/<a\s+([^>]*?)>([\s\S]*?)<\/a>/gi, (match, attrs, innerText) => {
+    const textOnly = innerText.replace(/<[^>]+>/g, '').trim().toLowerCase();
+    const isUrl = /^https?:\/\//i.test(textOnly);
+    const isClicGeneric = ['clic aquí', 'clic aqui', 'click here', 'cliquez ici'].includes(textOnly);
+
+    let newInner = innerText;
+    if (isUrl || isClicGeneric) {
+      newInner = labelClic;
+    }
+
+    const hrefMatch = attrs.match(/href=(["'])(.*?)\1/i);
+    const href = hrefMatch ? hrefMatch[2] : '#';
+
+    const formatted = `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-main-red font-bold underline wrap-break-words">${newInner}</a>`;
+    tokens.push(formatted);
+    return `\uE000${tokens.length - 1}\uE001`;
+  });
+
+  // 2. Proteger todas las demás etiquetas HTML (img, div, b, span, etc.)
+  procesado = procesado.replace(/<[^>]+>/g, (match) => {
+    tokens.push(match);
+    return `\uE000${tokens.length - 1}\uE001`;
+  });
+
+  // 3. Procesar Markdown: [Texto visible](URL)
   procesado = procesado.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (match, label, url) => {
-    linksGuardados.push(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-main-red font-bold underline wrap-break-words">${label}</a>`);
-    return `__LINK_${linksGuardados.length - 1}__`; 
+    const link = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-main-red font-bold underline wrap-break-words">${label}</a>`;
+    tokens.push(link);
+    return `\uE000${tokens.length - 1}\uE001`;
   });
 
-  procesado = procesado.replace(/(https?:\/\/[^\s]+)/g, (match, url) => {
-    if (url.includes("__LINK_")) return match; 
-    const textoFijo = "clic aquí";
-    linksGuardados.push(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-main-red font-bold underline wrap-break-words">${textoFijo}</a>`);
-    return `__LINK_${linksGuardados.length - 1}__`; 
+  // 4. Procesar URLs crudas pegadas en el texto
+  procesado = procesado.replace(/(https?:\/\/[^\s<>"'`\uE000\uE001]+)/g, (match, url) => {
+    let cleanUrl = url;
+    let suffix = '';
+    const trailingPunct = /[.,;:)!]+$/;
+    const punctMatch = cleanUrl.match(trailingPunct);
+    if (punctMatch) {
+      suffix = punctMatch[0];
+      cleanUrl = cleanUrl.slice(0, -punctMatch[0].length);
+    }
+    const link = `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-main-red font-bold underline wrap-break-words">${labelClic}</a>${suffix}`;
+    tokens.push(link);
+    return `\uE000${tokens.length - 1}\uE001`;
   });
 
+  // 5. Procesar Hashtags
   procesado = procesado.replace(/(#[a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]+)/g, (match) => {
     const term = match.substring(1);
-    return `<a href="https://iiresodh.org/buscar?q=${term}" target="_blank" rel="noopener noreferrer" class="text-light-blue hover:text-main-red font-bold">${match}</a>`;
+    const link = `<a href="https://iiresodh.org/buscar?q=${term}" target="_blank" rel="noopener noreferrer" class="text-light-blue hover:text-main-red font-bold">${match}</a>`;
+    tokens.push(link);
+    return `\uE000${tokens.length - 1}\uE001`;
   });
 
-  procesado = procesado.replace(/__LINK_(\d+)__/g, (match, i) => linksGuardados[i]);
-  const parrafos = procesado.split(/\n\s*\n/);
-  return parrafos.map(p => `<p>${p.replace(/\n/g, '<br />')}</p>`).join('');
+  // 6. Restaurar todos los tokens protegidos
+  procesado = procesado.replace(/\uE000(\d+)\uE001/g, (_, index) => tokens[Number(index)]);
+
+  // 7. Si no era HTML originalmente, convertir saltos de línea a párrafos
+  if (!esHtml) {
+    const parrafos = procesado.split(/\n\s*\n/);
+    return parrafos.map(p => `<p>${p.replace(/\n/g, '<br />')}</p>`).join('');
+  }
+
+  return procesado;
 };
 
 const convertirAWebp = (file, calidad = 0.8) => {
