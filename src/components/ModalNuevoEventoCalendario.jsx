@@ -186,10 +186,10 @@ export default function ModalNuevoEventoCalendario({ open, onClose, onEventoCrea
           </Box>
           <Box>
             <Typography variant="h6" fontWeight="bold" color="#1a365d" sx={{ fontSize: '1.15rem' }}>
-              Nuevo Evento Institucional
+              Nuevo Evento - Calendario IIRESODH
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Se sincronizará en tiempo real con el Calendario Institucional
+              Se sincronizará en tiempo real con el Calendario IIRESODH
             </Typography>
           </Box>
         </Box>

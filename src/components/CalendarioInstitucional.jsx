@@ -167,7 +167,7 @@ export default function CalendarioInstitucional() {
     cargarEventos();
     setSnackbar({
       open: true,
-      message: 'Evento agendado exitosamente en el Calendario Institucional.',
+      message: 'Evento agendado exitosamente en el Calendario IIRESODH.',
       severity: 'success'
     });
   };
@@ -176,7 +176,7 @@ export default function CalendarioInstitucional() {
     setEvents((prev) => prev.filter((ev) => ev.id !== idEliminado));
     setSnackbar({
       open: true,
-      message: 'Evento eliminado del Calendario Institucional.',
+      message: 'Evento eliminado del Calendario IIRESODH.',
       severity: 'success'
     });
   };
@@ -185,7 +185,7 @@ export default function CalendarioInstitucional() {
     cargarEventos();
     setSnackbar({
       open: true,
-      message: 'Evento actualizado exitosamente en el Calendario Institucional.',
+      message: 'Evento actualizado exitosamente en el Calendario IIRESODH.',
       severity: 'success'
     });
   };
@@ -241,12 +241,12 @@ export default function CalendarioInstitucional() {
               variant="h6"
               fontWeight="bold"
               color="#0f233c"
-              sx={{ fontSize: { xs: '1.05rem', sm: '1.2rem' }, textTransform: 'capitalize' }}
+              sx={{ fontSize: { xs: '1.05rem', sm: '1.2rem' } }}
             >
-              {nombreMes}
+              Calendario IIRESODH
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Calendario Institucional • contacto@iiresodh.org
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize', fontWeight: '500' }}>
+              {nombreMes}
             </Typography>
           </Box>
 

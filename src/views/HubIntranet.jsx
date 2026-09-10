@@ -185,7 +185,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           </Box>
         </Card>
 
-        {/* 📅 CALENDARIO INSTITUCIONAL (contacto@iiresodh.org) */}
+        {/* 📅 CALENDARIO IIRESODH */}
         <Box sx={{ mb: 5 }}>
           <CalendarioInstitucional />
         </Box>

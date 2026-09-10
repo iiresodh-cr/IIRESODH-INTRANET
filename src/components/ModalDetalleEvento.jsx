@@ -308,7 +308,7 @@ export default function ModalDetalleEvento({
               {isEditing ? <Edit3 size={22} /> : <Calendar size={22} />}
             </Box>
             <Typography variant="h6" fontWeight="bold" color="#1a365d" sx={{ fontSize: '1.15rem' }}>
-              {isEditing ? 'Modificar Evento Institucional' : 'Detalle del Evento Institucional'}
+              {isEditing ? 'Modificar Evento - Calendario IIRESODH' : 'Detalle del Evento - Calendario IIRESODH'}
             </Typography>
           </Box>
 
@@ -675,7 +675,7 @@ export default function ModalDetalleEvento({
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
-            Esta acción eliminará el evento <strong>"{evento.summary}"</strong> de forma permanente del Calendario Institucional de <strong>contacto@iiresodh.org</strong>.
+            Esta acción eliminará el evento <strong>"{evento.summary}"</strong> de forma permanente del <strong>Calendario IIRESODH</strong>.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
