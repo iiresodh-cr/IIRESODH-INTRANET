@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Verificación básica de sesión activa
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 2. Reconocimiento inmutable de la raíz del sistema
+    function isSuperadmin() {
+      return isAuthenticated() && request.auth.token.email == 'webmaster@iiresodh.org';
+    }
+
+    // 3. BLINDAJE CORPORATIVO: Comprueba si el email real del usuario es el ID de un documento autorizado
+    function isAuthorized() {
+      return isSuperadmin() || (
+        isAuthenticated() && 
+        exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.token.email))
+      );
+    }
+
+    // 4. EXTRACCIÓN TRANSACCIONAL: Obtiene el rol directamente del servidor de Google sin confiar en el cliente
+    function getRole() {
+      return get(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.token.email)).data.rol;
+    }
+
+    // 5. Jerarquía de privilegios administrativos
+    function isAdmin() {
+      return isSuperadmin() || (isAuthorized() && getRole() == 'Admin');
+    }
+
+    // =================================================================
+    // SEGURIDAD: LOGS DE AUDITORÍA
+    // =================================================================
+    match /logs_auditoria/{logId} {
+      allow create: if isAuthenticated();
+      allow read, delete: if isSuperadmin();
+      allow update: if false; // Inmutabilidad total
+    }
+
+    // =================================================================
+    // SEGURIDAD: LISTA BLANCA DE USUARIOS (ID del doc es el EMAIL)
+    // =================================================================
+    match /usuarios_autorizados/{emailId} {
+      allow read: if isAuthenticated();
+      
+      // El Superadmin puede todo. Los Admins pueden autorizar siempre y cuando no intenten escalar roles a Admin o Superadmin
+      allow create, update: if isSuperadmin() || (
+        isAdmin() && 
+        request.resource.data.rol != 'Admin' && 
+        request.resource.data.rol != 'Superadmin'
+      );
+      
+      allow delete: if isSuperadmin() || isAdmin();
+    }
+
+    // =================================================================
+    // SEGURIDAD: CENTRO DE RECURSOS INSTITUCIONALES
+    // =================================================================
+    match /recursos_institucionales/{recursoId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // =================================================================
+    // SEGURIDAD: PLANTILLAS DE CORREO MASIVO
+    // =================================================================
+    match /plantillas_correo/{templateId} {
+      allow read, write: if isAuthorized();
+    }
+
+    // =================================================================
+    // SEGURIDAD: EXPEDIENTES JURÍDICOS Y LITIGIOS
+    // =================================================================
+    match /casos/{casoId} {
+      allow read, create, update: if isAuthorized();
+      allow delete: if isAdmin();
+
+      match /clientes/{clienteId} {
+        allow read, write: if isAuthorized();
+        
+        match /notas/{notaId} { allow read, write: if isAuthorized(); }
+        match /documentos/{docId} { allow read, write: if isAuthorized(); }
+        match /historial_comunicados/{comunicadoId} { allow read, write: if isAuthorized(); }
+      }
+      
+      match /documentos_comunes/{docId} {
+        allow read, write: if isAuthorized();
+      }
+
+      match /comunicados/{comunicadoId} {
+        allow read, write: if isAuthorized();
+      }
+    }
+    
+  }
+}

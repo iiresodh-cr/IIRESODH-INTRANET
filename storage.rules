@@ -1,0 +1,36 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Función de validación de sesión institucional
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 🏛️ Centro de Recursos Institucionales (Material Gráfico y Reglamentos Internos)
+    match /recursos_institucionales/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write, delete: if isAuthenticated();
+    }
+
+    // ⚖️ Regla jerárquica para el Control de Expedientes de Litigio (IIRESODH)
+    match /casos/{casoId} {
+      
+      // Protección para la nueva carpeta unificada de Documentos y Pruebas Probatorias
+      match /documentos/{fileId} {
+        allow read, write: if isAuthenticated();
+      }
+      
+      // Protección para los Escritos y Documentos Comunes de la pestaña global (Histórico)
+      match /documentos_comunes/{fileId} {
+        allow read, write: if isAuthenticated();
+      }
+      
+      // Protección para los Poderes y PDFs individuales dentro del expediente de cada representado
+      match /clientes/{clienteId}/{fileId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+    
+  }
+}
