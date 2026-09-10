@@ -1,12 +1,13 @@
 // src/views/HubIntranet.jsx
-import React from 'react';
-import { Box, Typography, Card, CardContent, Button, Divider, Avatar, Chip } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, Card, CardContent, Button, Divider, Avatar, Chip, Snackbar, Alert } from '@mui/material';
 import { 
   Scale, Users, ShieldCheck, FileSpreadsheet, Activity, 
   Globe, MessageCircle, FolderArchive, Calendar, Sparkles,
-  CalendarDays, ExternalLink, Plus
+  CalendarDays, Plus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import CalendarioInstitucional from '../components/CalendarioInstitucional';
 
 export default function HubIntranet({ setView, userRole, userPermisos, user: propUser, userName }) {
   const { user: authUser } = useAuth();
@@ -38,9 +39,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
   }).format(new Date());
   const fechaCapitalizada = fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1);
 
-  // Zona horaria y URL del Calendario Institucional (contacto@iiresodh.org)
-  const zonaHoraria = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Costa_Rica';
-  const calendarUrl = `https://calendar.google.com/calendar/embed?src=contacto%40iiresodh.org&ctz=${encodeURIComponent(zonaHoraria)}&hl=es&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&showTz=1&bgcolor=%23ffffff`;
+
 
   return (
     <Box sx={{ position: 'relative', minHeight: 'calc(100vh - 120px)', py: 1 }}>
@@ -187,125 +186,9 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
         </Card>
 
         {/* 📅 CALENDARIO INSTITUCIONAL (contacto@iiresodh.org) */}
-        <Card sx={{ 
-          mb: 5, 
-          borderRadius: 3, 
-          border: '1px solid rgba(226, 232, 240, 0.9)', 
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)', 
-          bgcolor: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          overflow: 'hidden'
-        }}>
-          {/* ENCABEZADO DEL CALENDARIO */}
-          <Box sx={{ 
-            p: { xs: 2, sm: 2.5 }, 
-            display: 'flex', 
-            flexDirection: { xs: 'column', md: 'row' }, 
-            justifyContent: 'space-between', 
-            alignItems: { xs: 'flex-start', md: 'center' },
-            gap: 2,
-            borderBottom: '1px solid #e2e8f0',
-            bgcolor: 'rgba(248, 250, 252, 0.7)'
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box sx={{ 
-                p: 1, 
-                borderRadius: 2, 
-                bgcolor: 'rgba(26, 54, 93, 0.08)', 
-                color: '#1a365d',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <CalendarDays size={22} />
-              </Box>
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography variant="h6" fontWeight="bold" color="#1a365d" sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
-                    Calendario Institucional
-                  </Typography>
-                  <Chip 
-                    label="contacto@iiresodh.org" 
-                    size="small" 
-                    sx={{ 
-                      fontSize: '0.72rem', 
-                      fontWeight: 600, 
-                      height: 20, 
-                      bgcolor: 'rgba(26, 54, 93, 0.06)',
-                      color: '#1a365d'
-                    }} 
-                  />
-                </Box>
-                <Typography variant="caption" color="text.secondary">
-                  Agenda de audiencias, plazos procesales, reuniones y actividades del equipo
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* BOTONES DE ACCIÓN RÁPIDA */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', width: { xs: '100%', md: 'auto' } }}>
-              <Button
-                component="a"
-                href="https://calendar.google.com/calendar/render?action=TEMPLATE&add=contacto@iiresodh.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="outlined"
-                size="small"
-                startIcon={<Plus size={15} />}
-                sx={{ 
-                  borderRadius: 2, 
-                  textTransform: 'none', 
-                  fontWeight: 'bold',
-                  borderColor: '#cbd5e1',
-                  color: '#1a365d',
-                  fontSize: '0.8rem',
-                  '&:hover': { borderColor: '#1a365d', bgcolor: 'rgba(26, 54, 93, 0.04)' }
-                }}
-              >
-                Nuevo Evento
-              </Button>
-
-              <Button
-                component="a"
-                href="https://calendar.google.com/calendar/r?cid=contacto@iiresodh.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="contained"
-                size="small"
-                endIcon={<ExternalLink size={14} />}
-                sx={{ 
-                  borderRadius: 2, 
-                  textTransform: 'none', 
-                  fontWeight: 'bold',
-                  bgcolor: '#1a365d',
-                  fontSize: '0.8rem',
-                  '&:hover': { bgcolor: '#0f233c' }
-                }}
-              >
-                Abrir en Google Calendar
-              </Button>
-            </Box>
-          </Box>
-
-          {/* CONTENEDOR DEL IFRAME DE GOOGLE CALENDAR */}
-          <Box sx={{ 
-            position: 'relative', 
-            width: '100%', 
-            height: { xs: '460px', sm: '540px', md: '580px' },
-            bgcolor: '#ffffff'
-          }}>
-            <iframe
-              src={calendarUrl}
-              style={{ 
-                border: 0, 
-                width: '100%', 
-                height: '100%', 
-                display: 'block' 
-              }}
-              title="Calendario Institucional IIRESODH"
-            />
-          </Box>
-        </Card>
+        <Box sx={{ mb: 5 }}>
+          <CalendarioInstitucional />
+        </Box>
 
         {/* TÍTULO DE MÓDULOS */}
         <Box sx={{ mb: 4, textAlign: 'center' }}>
@@ -553,6 +436,8 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           </>
         )}
       </Box>
+
+
     </Box>
   );
 }
