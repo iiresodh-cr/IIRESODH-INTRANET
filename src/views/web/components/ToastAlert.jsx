@@ -5,7 +5,7 @@ export default function ToastAlert({ message, isError, open, onClose }) {
   return (
     <Snackbar 
       open={open} 
-      autoHideDuration={4000} 
+      autoHideDuration={isError ? 7000 : 4000} 
       onClose={onClose} 
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       sx={{ top: { xs: 80, sm: 100 } }}

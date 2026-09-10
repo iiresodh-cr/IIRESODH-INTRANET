@@ -221,6 +221,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
   
   const [imagenPrincipal, setImagenPrincipal] = useState(null);
   const [mainImagePreviewUrl, setMainImagePreviewUrl] = useState(null);
+  const [errorPortada, setErrorPortada] = useState(false);
   const [imagenesCarrusel, setImagenesCarrusel] = useState([]);
   
   const [editandoId, setEditandoId] = useState(null);
@@ -928,6 +929,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
     setTagsSeleccionados([]);
     setPersistente(false);
+    setErrorPortada(false);
     setMainImagePreviewUrl(null);
     setImagenPrincipal(null);
     setImagenPrincipalAnterior(null);
@@ -1026,6 +1028,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
         setMensaje("Optimizando imagen a WebP...");
         const webpFile = await convertirAWebp(file);
         setImagenPrincipal(webpFile);
+        setErrorPortada(false);
         setMainImagePreviewUrl(URL.createObjectURL(webpFile));
         setMensaje(""); 
       } catch (error) {
@@ -1059,8 +1062,14 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
     if (!editandoId) {
       if (vistaActiva !== "incidencia" && !imagenPrincipalAnterior && !imagenPrincipal) {
+        setErrorPortada(true);
         setMensaje("Error: Por favor selecciona una imagen para la portada.");
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        const elPortada = document.getElementById("seccion-portada-principal");
+        if (elPortada) {
+          elPortada.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
         return;
       }
       if (vistaActiva === "libros" && !archivoLibroAnterior && !archivoLibro) {
@@ -1076,6 +1085,18 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
       if (vistaActiva === "incidencia" && !archivoIncidenciaAnterior && !archivoIncidencia) {
         setMensaje("Error: Por favor selecciona el archivo PDF del documento.");
         window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+    }
+
+    if (vistaActiva === "comunicaciones") {
+      const contenidoTexto = (contenido || "").replace(/<[^>]*>?/gm, '').trim();
+      if (!contenidoTexto) {
+        setMensaje("Error: Por favor redacta el cuerpo de la noticia.");
+        const elEditor = document.getElementById("editor-cuerpo-noticia");
+        if (elEditor) {
+          elEditor.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
         return;
       }
     }
@@ -1298,11 +1319,23 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
       limpiarFormulario();
       cargarItems(); 
     } catch (err) {
-      console.error(err);
-      setMensaje("Error en el proceso.");
+      console.error("[AdminPanelWeb] Error al procesar publicación:", err);
+      let errorMsg = "Error en el proceso.";
+      if (err?.code === 'storage/unauthorized') {
+        errorMsg = "Error de permisos en Storage: Tu cuenta no tiene autorización para subir archivos a iiresodh.org.";
+      } else if (err?.code === 'permission-denied') {
+        errorMsg = "Error de permisos en Firestore: Tu cuenta no tiene autorización para escribir en la base de datos de iiresodh.org.";
+      } else if (err?.code === 'storage/canceled') {
+        errorMsg = "Error: La carga del archivo fue cancelada.";
+      } else if (err?.message) {
+        errorMsg = `Error: ${err.message}`;
+      }
+      setMensaje(errorMsg);
     } finally {
       setLoading(false);
-      setTimeout(() => setMensaje(""), 3000);
+      setTimeout(() => {
+        setMensaje(current => (current && !current.includes("Error") ? "" : current));
+      }, 4000);
     }
   };
 
@@ -2082,7 +2115,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     )}
 
                     {vistaActiva === "comunicaciones" && (
-                      <div>
+                      <div id="editor-cuerpo-noticia">
                         <label className="block text-sm font-bold text-gray-800 mb-2">
                           Cuerpo de la Noticia *
                         </label>
@@ -2114,10 +2147,15 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     <div className="bg-white border border-gray-200 rounded-xl p-6">
                       <h3 className="text-sm font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Archivos Multimedia</h3>
                       
-                      <div className="mb-6">
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                          {vistaActiva === "cursos" ? "Flyer o Portada del Curso" : (vistaActiva === "libros" ? "Portada del Libro" : (vistaActiva === "informes" ? "Portada del Informe" : "Portada principal"))}
+                      <div id="seccion-portada-principal" className={`mb-6 p-4 rounded-xl transition-all ${errorPortada ? 'border-2 border-red-500 bg-red-50/50 ring-2 ring-red-200' : ''}`}>
+                        <label className={`block text-xs font-semibold uppercase tracking-wider mb-3 ${errorPortada ? 'text-red-700 font-bold' : 'text-gray-500'}`}>
+                          {vistaActiva === "cursos" ? "Flyer o Portada del Curso *" : (vistaActiva === "libros" ? "Portada del Libro *" : (vistaActiva === "informes" ? "Portada del Informe *" : "Portada principal *"))}
                         </label>
+                        {errorPortada && (
+                          <p className="text-xs text-red-600 font-bold mb-3 flex items-center gap-1">
+                            ⚠️ Por favor selecciona una imagen para la portada.
+                          </p>
+                        )}
                         <div className="flex flex-col sm:flex-row items-start gap-4">
                           {mainImagePreviewUrl ? (
                             <div className="flex flex-col items-center gap-2">

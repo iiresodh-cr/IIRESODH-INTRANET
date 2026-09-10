@@ -18,7 +18,7 @@ import RecursosInstitucionales from './views/RecursosInstitucionales';
 import Casos from './views/litigio/Casos';
 import DetalleCaso from './views/litigio/DetalleCaso';
 
-// FILTRO DE CONSOLA: Mantiene el perímetro limpio bloqueando trazas automáticas de persistencia del SDK
+// FILTRO DE CONSOLA: Mantiene el perímetro limpio bloqueando solo advertencias automáticas de reconexión del SDK
 const originalConsoleError = console.error;
 
 console.error = (...args) => {
@@ -37,9 +37,8 @@ console.error = (...args) => {
   }).join(' ');
 
   if (
-    cadenaError.includes('FirebaseError') || 
-    cadenaError.includes('permissions') || 
-    cadenaError.includes('insufficient')
+    cadenaError.includes('could not be reached') || 
+    cadenaError.includes('Failed to get document because the client is offline')
   ) {
     return; 
   }

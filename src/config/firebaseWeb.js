@@ -1,11 +1,7 @@
 // src/config/firebaseWeb.js
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
-} from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 
@@ -27,10 +23,6 @@ const webApp = getApps().some(app => app.name === WEB_APP_NAME)
 export const webAuth = getAuth(webApp);
 export const webStorage = getStorage(webApp);
 export const webFunctions = getFunctions(webApp);
-export const webDb = initializeFirestore(webApp, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
+export const webDb = getFirestore(webApp);
 
 export default webApp;
