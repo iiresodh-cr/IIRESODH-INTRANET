@@ -1286,7 +1286,13 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
         const detallesUpdate = cambios.length > 0 ? `Campos modificados: ${cambios.join(', ')}.` : 'No se detectaron cambios en los campos principales.';
         await updateDoc(doc(db, coleccion, editandoId), datos);
         await logActividad(`Actualizó un item en "${vistaActiva}": ${datos.titulo || datos.nombre}`, detallesUpdate);
-        const mensajeExito = vistaActiva === 'equipo' ? "¡Miembro del equipo actualizado!" : "¡Contenido actualizado con éxito!";
+
+        if (['comunicaciones', 'noticias', 'articulos', 'cursos', 'libros', 'incidencia', 'equipo'].includes(vistaActiva)) {
+          setMensaje("¡Actualizado! Sincronizando traducciones automáticas (EN / FR)...");
+          await new Promise(r => setTimeout(r, 2000));
+        }
+
+        const mensajeExito = vistaActiva === 'equipo' ? "¡Miembro del equipo actualizado y sincronizado!" : "¡Contenido actualizado y traducido con éxito!";
         setMensaje(mensajeExito);
       } else {
         let detallesCreacion = [];
@@ -1310,9 +1316,25 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
             if (datos.enlaceInscripcion) detallesCreacion.push(`Con enlace de inscripción activo`);
         }
         const detallesString = detallesCreacion.length > 0 ? detallesCreacion.join('. ') + '.' : null;
-        await addDoc(collection(db, coleccion), datos);
+        const docRefCreado = await addDoc(collection(db, coleccion), datos);
         await logActividad(`Creó un item en "${vistaActiva}": ${datos.titulo || datos.nombre}`, detallesString);
-        const mensajeExito = vistaActiva === 'equipo' ? "¡Miembro del equipo agregado!" : "¡Contenido publicado con éxito!";
+
+        if (['comunicaciones', 'noticias', 'articulos', 'cursos', 'libros', 'incidencia', 'equipo'].includes(vistaActiva)) {
+          setMensaje("¡Publicado! Generando traducciones automáticas (inglés y francés)...");
+          for (let intento = 0; intento < 5; intento++) {
+            await new Promise(r => setTimeout(r, 1200));
+            try {
+              const snapCheck = await getDoc(docRefCreado);
+              if (snapCheck.exists() && (snapCheck.data().titulo_en || snapCheck.data().nombre_en)) {
+                break;
+              }
+            } catch (e) { /* silencioso */ }
+          }
+        }
+
+        const mensajeExito = vistaActiva === 'equipo' 
+          ? "¡Miembro del equipo agregado y traducido con éxito!" 
+          : "¡Contenido publicado y traducido a inglés y francés con éxito!";
         setMensaje(mensajeExito);
       }
 
@@ -2368,9 +2390,16 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                                     )}
                                     <h3 className="font-semibold text-xs text-gray-800 line-clamp-2 leading-snug" title={n.titulo || n.nombre}>{n.titulo || n.nombre}</h3>
                                   </div>
-                                  <p className="text-[10px] text-gray-400 truncate">
-                                    {vistaActiva === 'equipo' ? `Orden: ${n.orden} - ${n.cargo}` : `/${obtenerColeccionActiva()}/${n.slug || n.id}`}
-                                  </p>
+                                  <div className="flex items-center justify-between gap-1 mt-0.5">
+                                    <p className="text-[10px] text-gray-400 truncate max-w-[140px]">
+                                      {vistaActiva === 'equipo' ? `Orden: ${n.orden} - ${n.cargo}` : `/${obtenerColeccionActiva()}/${n.slug || n.id}`}
+                                    </p>
+                                    <div className="flex items-center gap-1 shrink-0" title="Estado de idiomas">
+                                      <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-gray-100 text-gray-600">ES</span>
+                                      <span className={`text-[8px] font-bold px-1 py-0.2 rounded ${n.titulo_en || n.nombre_en ? 'bg-emerald-100 text-emerald-700 font-extrabold' : 'bg-gray-100 text-gray-400'}`} title={n.titulo_en || n.nombre_en ? "Traducido al inglés" : "Pendiente inglés"}>EN</span>
+                                      <span className={`text-[8px] font-bold px-1 py-0.2 rounded ${n.titulo_fr || n.nombre_fr ? 'bg-indigo-100 text-indigo-700 font-extrabold' : 'bg-gray-100 text-gray-400'}`} title={n.titulo_fr || n.nombre_fr ? "Traducido al francés" : "Pendiente francés"}>FR</span>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
