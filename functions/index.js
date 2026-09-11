@@ -135,7 +135,20 @@ exports.webhookSendGrid = functions.https.onRequest(async (req, res) => {
 // 📅 CREAR EVENTO EN GOOGLE CALENDAR (contacto@iiresodh.org)
 // =========================================================================
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { google } = require('googleapis');
+
+// Carga perezosa (lazy-loading) de googleapis para evitar el timeout de 10s al analizar el backend
+let _cachedCalendar = null;
+let _cachedAuth = null;
+function getGoogleCalendar() {
+  const { google } = require('googleapis');
+  if (!_cachedCalendar) {
+    _cachedAuth = new google.auth.GoogleAuth({
+      scopes: ['https://www.googleapis.com/auth/calendar']
+    });
+    _cachedCalendar = google.calendar({ version: 'v3', auth: _cachedAuth });
+  }
+  return { calendar: _cachedCalendar, auth: _cachedAuth };
+}
 
 exports.crearEventoCalendario = onCall(
   {
@@ -153,25 +166,21 @@ exports.crearEventoCalendario = onCall(
 
     const { titulo, descripcion, ubicacion, fechaInicio, fechaFin, todoElDia } = request.data || {};
 
-    if (!titulo || !fechaInicio || !fechaFin) {
+    if (!titulo || !fechaInicio || (!todoElDia && !fechaFin)) {
       throw new HttpsError(
         'invalid-argument',
-        'El título y las fechas de inicio y fin son obligatorios.'
+        'El título y las fechas son obligatorios.'
       );
     }
 
     let saEmail = '';
     try {
       // 2. Inicializar cliente con las credenciales de Google Cloud
-      const auth = new google.auth.GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/calendar']
-      });
+      const { calendar, auth } = getGoogleCalendar();
 
       const client = await auth.getClient();
       saEmail = client.email || (client.credentials && client.credentials.client_email) || '';
       console.log('🤖 Cuenta de servicio autenticada:', saEmail);
-
-      const calendar = google.calendar({ version: 'v3', auth });
 
       const emailUsuario = request.auth.token.email || 'Usuario de la Intranet';
       const nombreUsuario = request.auth.token.name || emailUsuario;
@@ -188,9 +197,21 @@ exports.crearEventoCalendario = onCall(
       };
 
       if (todoElDia) {
-        // Formato YYYY-MM-DD para eventos de día completo
-        eventResource.start = { date: fechaInicio.split('T')[0] };
-        eventResource.end = { date: fechaFin.split('T')[0] };
+        // Google Calendar API v3 requiere start.date y end.date exclusivo (YYYY-MM-DD)
+        const startDateStr = fechaInicio.split('T')[0];
+        let endDateStr = (fechaFin || fechaInicio).split('T')[0];
+
+        if (endDateStr <= startDateStr) {
+          const parts = startDateStr.split('-').map(Number);
+          const nextDay = new Date(parts[0], parts[1] - 1, parts[2] + 1);
+          const yyyy = nextDay.getFullYear();
+          const mm = String(nextDay.getMonth() + 1).padStart(2, '0');
+          const dd = String(nextDay.getDate()).padStart(2, '0');
+          endDateStr = `${yyyy}-${mm}-${dd}`;
+        }
+
+        eventResource.start = { date: startDateStr };
+        eventResource.end = { date: endDateStr };
       } else {
         // Formato ISO string con zona horaria de Costa Rica
         eventResource.start = { dateTime: new Date(fechaInicio).toISOString(), timeZone: 'America/Costa_Rica' };
@@ -258,10 +279,7 @@ exports.obtenerEventosCalendario = onCall(
     const { timeMin, timeMax } = request.data || {};
 
     try {
-      const auth = new google.auth.GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/calendar']
-      });
-      const calendar = google.calendar({ version: 'v3', auth });
+      const { calendar } = getGoogleCalendar();
 
       const now = new Date();
       const minDate = timeMin || new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString();
@@ -321,10 +339,7 @@ exports.eliminarEventoCalendario = onCall(
     }
 
     try {
-      const auth = new google.auth.GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/calendar']
-      });
-      const calendar = google.calendar({ version: 'v3', auth });
+      const { calendar } = getGoogleCalendar();
 
       await calendar.events.delete({
         calendarId: 'contacto@iiresodh.org',
@@ -374,7 +389,7 @@ exports.actualizarEventoCalendario = onCall(
 
     const { eventId, titulo, descripcion, ubicacion, fechaInicio, fechaFin, todoElDia } = request.data || {};
 
-    if (!eventId || !titulo || !fechaInicio || !fechaFin) {
+    if (!eventId || !titulo || !fechaInicio || (!todoElDia && !fechaFin)) {
       throw new HttpsError(
         'invalid-argument',
         'El ID del evento, título y fechas son obligatorios.'
@@ -382,10 +397,7 @@ exports.actualizarEventoCalendario = onCall(
     }
 
     try {
-      const auth = new google.auth.GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/calendar']
-      });
-      const calendar = google.calendar({ version: 'v3', auth });
+      const { calendar } = getGoogleCalendar();
 
       const emailUsuario = request.auth.token.email || 'Usuario de la Intranet';
       const nombreUsuario = request.auth.token.name || emailUsuario;
@@ -399,8 +411,21 @@ exports.actualizarEventoCalendario = onCall(
       };
 
       if (todoElDia) {
-        eventResource.start = { date: fechaInicio.split('T')[0] };
-        eventResource.end = { date: fechaFin.split('T')[0] };
+        // Google Calendar API v3 requiere start.date y end.date exclusivo (YYYY-MM-DD)
+        const startDateStr = fechaInicio.split('T')[0];
+        let endDateStr = (fechaFin || fechaInicio).split('T')[0];
+
+        if (endDateStr <= startDateStr) {
+          const parts = startDateStr.split('-').map(Number);
+          const nextDay = new Date(parts[0], parts[1] - 1, parts[2] + 1);
+          const yyyy = nextDay.getFullYear();
+          const mm = String(nextDay.getMonth() + 1).padStart(2, '0');
+          const dd = String(nextDay.getDate()).padStart(2, '0');
+          endDateStr = `${yyyy}-${mm}-${dd}`;
+        }
+
+        eventResource.start = { date: startDateStr };
+        eventResource.end = { date: endDateStr };
       } else {
         eventResource.start = { dateTime: new Date(fechaInicio).toISOString(), timeZone: 'America/Costa_Rica' };
         eventResource.end = { dateTime: new Date(fechaFin).toISOString(), timeZone: 'America/Costa_Rica' };

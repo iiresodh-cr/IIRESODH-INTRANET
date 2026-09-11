@@ -178,6 +178,25 @@ export default function ModalDetalleEvento({
     (evento.location.startsWith('http://') ||
       evento.location.startsWith('https://'));
 
+  // Helper para sumar 1 hora a un string datetime-local (YYYY-MM-DDTHH:mm)
+  const sumarUnaHora = (fechaHoraStr) => {
+    if (!fechaHoraStr) return '';
+    try {
+      const d = new Date(fechaHoraStr);
+      if (isNaN(d.getTime())) return '';
+      const unaHoraDespues = new Date(d.getTime() + 60 * 60 * 1000);
+      const pad = (n) => String(n).padStart(2, '0');
+      const anioFin = unaHoraDespues.getFullYear();
+      const mesFin = pad(unaHoraDespues.getMonth() + 1);
+      const diaFin = pad(unaHoraDespues.getDate());
+      const horaFin = pad(unaHoraDespues.getHours());
+      const minFin = pad(unaHoraDespues.getMinutes());
+      return `${anioFin}-${mesFin}-${diaFin}T${horaFin}:${minFin}`;
+    } catch {
+      return '';
+    }
+  };
+
   // Manejar cambios en edición
   const handleEditChange = (e) => {
     const { name, value, checked, type } = e.target;
@@ -189,6 +208,21 @@ export default function ModalDetalleEvento({
         fechaInicio: formatForInput(prev.fechaInicio, nuevoTodoElDia),
         fechaFin: formatForInput(prev.fechaFin, nuevoTodoElDia)
       }));
+    } else if (name === 'fechaInicio') {
+      if (editForm.todoElDia) {
+        setEditForm((prev) => ({
+          ...prev,
+          fechaInicio: value,
+          fechaFin: value
+        }));
+      } else {
+        const finSugerido = sumarUnaHora(value);
+        setEditForm((prev) => ({
+          ...prev,
+          fechaInicio: value,
+          fechaFin: finSugerido || prev.fechaFin
+        }));
+      }
     } else {
       setEditForm((prev) => ({
         ...prev,
@@ -206,13 +240,20 @@ export default function ModalDetalleEvento({
       setError('El título del evento es obligatorio.');
       return;
     }
-    if (!editForm.fechaInicio || !editForm.fechaFin) {
-      setError('Las fechas de inicio y fin son obligatorias.');
-      return;
-    }
-    if (editForm.fechaFin < editForm.fechaInicio) {
-      setError('La fecha de fin debe ser posterior a la de inicio.');
-      return;
+    if (editForm.todoElDia) {
+      if (!editForm.fechaInicio) {
+        setError('La fecha del evento es obligatoria.');
+        return;
+      }
+    } else {
+      if (!editForm.fechaInicio || !editForm.fechaFin) {
+        setError('Las fechas y horas de inicio y fin son obligatorias.');
+        return;
+      }
+      if (editForm.fechaFin <= editForm.fechaInicio) {
+        setError('La fecha y hora de fin debe ser posterior a la de inicio.');
+        return;
+      }
     }
 
     setLoadingSave(true);
@@ -223,7 +264,7 @@ export default function ModalDetalleEvento({
         titulo: editForm.titulo.trim(),
         todoElDia: editForm.todoElDia,
         fechaInicio: editForm.fechaInicio,
-        fechaFin: editForm.fechaFin,
+        fechaFin: editForm.todoElDia ? editForm.fechaInicio : editForm.fechaFin,
         ubicacion: editForm.ubicacion.trim() || undefined,
         descripcion: editForm.descripcion.trim() || undefined
       });
@@ -378,11 +419,11 @@ export default function ModalDetalleEvento({
               </Box>
 
               {/* FECHAS */}
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              {editForm.todoElDia ? (
                 <TextField
                   name="fechaInicio"
-                  label="Fecha y hora de inicio"
-                  type={editForm.todoElDia ? 'date' : 'datetime-local'}
+                  label="Fecha del evento"
+                  type="date"
                   value={editForm.fechaInicio}
                   onChange={handleEditChange}
                   required
@@ -393,22 +434,39 @@ export default function ModalDetalleEvento({
                     input: { sx: { borderRadius: 2 } }
                   }}
                 />
+              ) : (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField
+                    name="fechaInicio"
+                    label="Fecha y hora de inicio"
+                    type="datetime-local"
+                    value={editForm.fechaInicio}
+                    onChange={handleEditChange}
+                    required
+                    fullWidth
+                    disabled={loadingSave}
+                    slotProps={{
+                      inputLabel: { shrink: true },
+                      input: { sx: { borderRadius: 2 } }
+                    }}
+                  />
 
-                <TextField
-                  name="fechaFin"
-                  label="Fecha y hora de fin"
-                  type={editForm.todoElDia ? 'date' : 'datetime-local'}
-                  value={editForm.fechaFin}
-                  onChange={handleEditChange}
-                  required
-                  fullWidth
-                  disabled={loadingSave}
-                  slotProps={{
-                    inputLabel: { shrink: true },
-                    input: { sx: { borderRadius: 2 } }
-                  }}
-                />
-              </Box>
+                  <TextField
+                    name="fechaFin"
+                    label="Fecha y hora de fin"
+                    type="datetime-local"
+                    value={editForm.fechaFin}
+                    onChange={handleEditChange}
+                    required
+                    fullWidth
+                    disabled={loadingSave}
+                    slotProps={{
+                      inputLabel: { shrink: true },
+                      input: { sx: { borderRadius: 2 } }
+                    }}
+                  />
+                </Box>
+              )}
 
               {/* UBICACIÓN */}
               <TextField

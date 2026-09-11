@@ -80,6 +80,25 @@ export default function ModalNuevoEventoCalendario({ open, onClose, onEventoCrea
     }
   }, [open]);
 
+  // Helper para sumar 1 hora a un string datetime-local (YYYY-MM-DDTHH:mm)
+  const sumarUnaHora = (fechaHoraStr) => {
+    if (!fechaHoraStr) return '';
+    try {
+      const d = new Date(fechaHoraStr);
+      if (isNaN(d.getTime())) return '';
+      const unaHoraDespues = new Date(d.getTime() + 60 * 60 * 1000);
+      const pad = (n) => String(n).padStart(2, '0');
+      const anioFin = unaHoraDespues.getFullYear();
+      const mesFin = pad(unaHoraDespues.getMonth() + 1);
+      const diaFin = pad(unaHoraDespues.getDate());
+      const horaFin = pad(unaHoraDespues.getHours());
+      const minFin = pad(unaHoraDespues.getMinutes());
+      return `${anioFin}-${mesFin}-${diaFin}T${horaFin}:${minFin}`;
+    } catch {
+      return '';
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
     if (name === 'todoElDia') {
@@ -91,6 +110,22 @@ export default function ModalNuevoEventoCalendario({ open, onClose, onEventoCrea
         fechaInicio: inicio,
         fechaFin: fin
       }));
+    } else if (name === 'fechaInicio') {
+      if (form.todoElDia) {
+        setForm((prev) => ({
+          ...prev,
+          fechaInicio: value,
+          fechaFin: value
+        }));
+      } else {
+        // Al seleccionar el inicio, la finalización queda en un default de 1 hora adelante
+        const finSugerido = sumarUnaHora(value);
+        setForm((prev) => ({
+          ...prev,
+          fechaInicio: value,
+          fechaFin: finSugerido || prev.fechaFin
+        }));
+      }
     } else {
       setForm((prev) => ({
         ...prev,
@@ -108,13 +143,20 @@ export default function ModalNuevoEventoCalendario({ open, onClose, onEventoCrea
       setError('Por favor ingrese el título del evento.');
       return;
     }
-    if (!form.fechaInicio || !form.fechaFin) {
-      setError('Por favor seleccione la fecha de inicio y de finalización.');
-      return;
-    }
-    if (form.fechaFin < form.fechaInicio) {
-      setError('La fecha y hora de finalización debe ser posterior a la de inicio.');
-      return;
+    if (form.todoElDia) {
+      if (!form.fechaInicio) {
+        setError('Por favor seleccione la fecha del evento.');
+        return;
+      }
+    } else {
+      if (!form.fechaInicio || !form.fechaFin) {
+        setError('Por favor seleccione la fecha y hora de inicio y de finalización.');
+        return;
+      }
+      if (form.fechaFin <= form.fechaInicio) {
+        setError('La fecha y hora de finalización debe ser posterior a la de inicio.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -124,7 +166,7 @@ export default function ModalNuevoEventoCalendario({ open, onClose, onEventoCrea
         titulo: form.titulo.trim(),
         todoElDia: form.todoElDia,
         fechaInicio: form.fechaInicio,
-        fechaFin: form.fechaFin,
+        fechaFin: form.todoElDia ? form.fechaInicio : form.fechaFin,
         ubicacion: form.ubicacion.trim() || undefined,
         descripcion: form.descripcion.trim() || undefined
       };
@@ -249,11 +291,11 @@ export default function ModalNuevoEventoCalendario({ open, onClose, onEventoCrea
           </Box>
 
           {/* FECHAS */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+          {form.todoElDia ? (
             <TextField
               name="fechaInicio"
-              label="Fecha y hora de inicio"
-              type={form.todoElDia ? 'date' : 'datetime-local'}
+              label="Fecha del evento"
+              type="date"
               value={form.fechaInicio}
               onChange={handleChange}
               required
@@ -264,22 +306,39 @@ export default function ModalNuevoEventoCalendario({ open, onClose, onEventoCrea
                 input: { sx: { borderRadius: 2 } }
               }}
             />
+          ) : (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                name="fechaInicio"
+                label="Fecha y hora de inicio"
+                type="datetime-local"
+                value={form.fechaInicio}
+                onChange={handleChange}
+                required
+                fullWidth
+                disabled={loading}
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  input: { sx: { borderRadius: 2 } }
+                }}
+              />
 
-            <TextField
-              name="fechaFin"
-              label="Fecha y hora de fin"
-              type={form.todoElDia ? 'date' : 'datetime-local'}
-              value={form.fechaFin}
-              onChange={handleChange}
-              required
-              fullWidth
-              disabled={loading}
-              slotProps={{
-                inputLabel: { shrink: true },
-                input: { sx: { borderRadius: 2 } }
-              }}
-            />
-          </Box>
+              <TextField
+                name="fechaFin"
+                label="Fecha y hora de fin"
+                type="datetime-local"
+                value={form.fechaFin}
+                onChange={handleChange}
+                required
+                fullWidth
+                disabled={loading}
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  input: { sx: { borderRadius: 2 } }
+                }}
+              />
+            </Box>
+          )}
 
           {/* UBICACIÓN O ENLACE */}
           <TextField
