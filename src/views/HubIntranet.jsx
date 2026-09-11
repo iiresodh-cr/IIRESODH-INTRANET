@@ -7,7 +7,7 @@ import {
   CalendarDays, Plus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import CalendarioInstitucional from '../components/CalendarioInstitucional';
+import AcordeonHerramientas from '../components/AcordeonHerramientas';
 
 export default function HubIntranet({ setView, userRole, userPermisos, user: propUser, userName }) {
   const { user: authUser } = useAuth();
@@ -185,9 +185,9 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           </Box>
         </Card>
 
-        {/* 📅 CALENDARIO IIRESODH */}
+        {/* 📅 & 💬 HERRAMIENTAS INSTITUCIONALES (CALENDARIO & GOOGLE CHAT) */}
         <Box sx={{ mb: { xs: 3.5, sm: 5 } }}>
-          <CalendarioInstitucional />
+          <AcordeonHerramientas />
         </Box>
 
         {/* TÍTULO DE MÓDULOS */}

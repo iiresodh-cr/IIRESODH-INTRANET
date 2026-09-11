@@ -31,7 +31,7 @@ import ModalDetalleEvento from './ModalDetalleEvento';
 
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-export default function CalendarioInstitucional() {
+export default function CalendarioInstitucional({ insideAccordion = false }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [vista, setVista] = useState('mes'); // 'mes' | 'agenda'
   const [events, setEvents] = useState([]);
@@ -201,11 +201,11 @@ export default function CalendarioInstitucional() {
     <Paper
       elevation={0}
       sx={{
-        borderRadius: 4,
+        borderRadius: insideAccordion ? 0 : 4,
         overflow: 'hidden',
-        border: '1px solid #e2e8f0',
+        border: insideAccordion ? 'none' : '1px solid #e2e8f0',
         bgcolor: '#ffffff',
-        boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)'
+        boxShadow: insideAccordion ? 'none' : '0 4px 20px -2px rgba(0, 0, 0, 0.05)'
       }}
     >
       {/* CABECERA DEL CALENDARIO */}
@@ -231,36 +231,49 @@ export default function CalendarioInstitucional() {
             width: { xs: '100%', md: 'auto' }
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                p: 1.2,
-                borderRadius: 2.5,
-                bgcolor: 'rgba(26, 54, 93, 0.07)',
-                color: '#1a365d',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}
-            >
-              <CalendarIcon size={22} />
-            </Box>
-
-            <Box>
+          {insideAccordion ? (
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Typography
                 variant="h6"
                 fontWeight="bold"
-                color="#0f233c"
-                sx={{ fontSize: { xs: '1.05rem', sm: '1.2rem' } }}
+                color="#1a365d"
+                sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' }, textTransform: 'capitalize' }}
               >
-                Calendario Institucional IIRESODH
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize', fontWeight: '500' }}>
                 {nombreMes}
               </Typography>
             </Box>
-          </Box>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                sx={{
+                  p: 1.2,
+                  borderRadius: 2.5,
+                  bgcolor: 'rgba(26, 54, 93, 0.07)',
+                  color: '#1a365d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <CalendarIcon size={22} />
+              </Box>
+
+              <Box>
+                <Typography
+                  variant="h6"
+                  fontWeight="bold"
+                  color="#0f233c"
+                  sx={{ fontSize: { xs: '1.05rem', sm: '1.2rem' } }}
+                >
+                  Calendario Institucional IIRESODH
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize', fontWeight: '500' }}>
+                  {nombreMes}
+                </Typography>
+              </Box>
+            </Box>
+          )}
 
           {/* CONTROLES DE NAVEGACIÓN */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: { xs: 'flex-end', sm: 'center' } }}>
