@@ -221,11 +221,11 @@ export default function CalendarioInstitucional() {
         }}
       >
         {/* TÍTULO Y NAVEGACIÓN */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
+        <Box
+          sx={{
+            display: 'flex',
             flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: { xs: 'flex-start', sm: 'center' }, 
+            alignItems: { xs: 'flex-start', sm: 'center' },
             justifyContent: 'space-between',
             gap: 1.5,
             width: { xs: '100%', md: 'auto' }
@@ -305,10 +305,10 @@ export default function CalendarioInstitucional() {
         </Box>
 
         {/* ACCIONES Y SELECTOR DE VISTA */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: { xs: 'space-between', sm: 'flex-end' },
             gap: 1.5,
             width: { xs: '100%', md: 'auto' }
@@ -460,8 +460,8 @@ export default function CalendarioInstitucional() {
                           color: esHoy
                             ? '#ffffff'
                             : celda.esMesActual
-                            ? '#1e293b'
-                            : '#94a3b8'
+                              ? '#1e293b'
+                              : '#94a3b8'
                         }}
                       >
                         {celda.diaNum}
@@ -487,9 +487,9 @@ export default function CalendarioInstitucional() {
                             onClick={() => abrirDetalle(ev)}
                             sx={{
                               p: 0.6,
-                              borderRadius: 1.5,
+                              borderRadius: '0 6px 6px 0',
                               bgcolor: 'rgba(26, 54, 93, 0.08)',
-                              borderLeft: '3px solid #1a365d',
+                              borderLeft: '3px solid #e63946',
                               cursor: 'pointer',
                               display: 'flex',
                               flexDirection: 'column',
