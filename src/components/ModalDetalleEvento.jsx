@@ -277,7 +277,8 @@ export default function ModalDetalleEvento({
         PaperProps={{
           sx: {
             borderRadius: 3,
-            p: 1,
+            p: { xs: 0.5, sm: 1 },
+            m: { xs: 1.5, sm: 2 },
             boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
             overflow: 'hidden'
           }

@@ -78,7 +78,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
       />
 
       {/* CONTENIDO DEL HUB */}
-      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 1200, mx: 'auto', p: 2, mt: 1 }}>
+      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 1200, mx: 'auto', p: { xs: 0.5, sm: 1.5, md: 2 }, mt: { xs: 0.5, md: 1 } }}>
         
         {/* 🌟 BANNER DE SALUDO PERSONALIZADO CON AVATAR */}
         <Card
@@ -88,13 +88,13 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             boxShadow: '0 8px 28px rgba(26, 54, 93, 0.06)',
             bgcolor: 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(12px)',
-            p: { xs: 2.5, sm: 3.5 },
-            mb: 5,
+            p: { xs: 2, sm: 3, md: 3.5 },
+            mb: { xs: 3, sm: 5 },
             display: 'flex',
             flexDirection: { xs: 'column', md: 'row' },
             alignItems: { xs: 'flex-start', md: 'center' },
             justifyContent: 'space-between',
-            gap: 3,
+            gap: { xs: 2, sm: 3 },
             position: 'relative',
             overflow: 'hidden'
           }}
@@ -186,16 +186,16 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
         </Card>
 
         {/* 📅 CALENDARIO IIRESODH */}
-        <Box sx={{ mb: 5 }}>
+        <Box sx={{ mb: { xs: 3.5, sm: 5 } }}>
           <CalendarioInstitucional />
         </Box>
 
         {/* TÍTULO DE MÓDULOS */}
-        <Box sx={{ mb: 4, textAlign: 'center' }}>
-          <Typography variant="h5" fontWeight="bold" color="primary.main" gutterBottom>
+        <Box sx={{ mb: { xs: 2.5, sm: 4 }, textAlign: 'center' }}>
+          <Typography variant="h5" fontWeight="bold" color="primary.main" gutterBottom sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
             Módulos Operativos Institucionales
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' } }}>
             Seleccione el módulo al que desea ingresar para gestionar sus actividades
           </Typography>
         </Box>
@@ -204,8 +204,8 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
         <Box sx={{ 
           display: 'grid', 
           gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, 
-          gap: 3, 
-          mb: 6 
+          gap: { xs: 2, sm: 3 }, 
+          mb: { xs: 4, sm: 6 } 
         }}>
           
           {/* 🏛️ MÓDULO 1: CENTRO DE RECURSOS INSTITUCIONALES */}
@@ -229,7 +229,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
                 Centro de Recursos Institucionales
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ minHeight: 48, mb: 2 }}>
-                Material gráfico oficial (logos, isotipo), identidad visual y reglamentos internos.
+                Reglamentos y normativas internas, material gráfico oficial (logos, isotipo) e identidad visual.
               </Typography>
               
               <Button 

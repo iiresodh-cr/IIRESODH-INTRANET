@@ -416,21 +416,23 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 2fr' }, gap: 3 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 2fr' }, gap: { xs: 2, sm: 3 } }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 } }}>
           
-          <Paper component="form" onSubmit={handleUpdateDatos} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, color: 'primary.main' }}>
+          <Paper component="form" onSubmit={handleUpdateDatos} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5, color: 'primary.main' }}>
               <User size={20} />
-              <Typography variant="h6" fontWeight="bold">Datos del Representado & Contacto</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                Datos del Representado & Contacto
+              </Typography>
             </Box>
             
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
               <TextField label="Nombres" fullWidth value={nombres} onChange={(e) => setNombres(e.target.value)} required />
               <TextField label="Apellidos" fullWidth value={apellidos} onChange={(e) => setApellidos(e.target.value)} required />
             </Box>
             
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
               <FormControl fullWidth>
                 <InputLabel>Tipo Identificación</InputLabel>
                 <Select value={tipoIdentificacion} label="Tipo Identificación" onChange={(e) => setTipoIdentificacion(e.target.value)}>
@@ -466,14 +468,14 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             
             <Divider sx={{ my: 2.5 }}>Direcciones de Correo</Divider>
             
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
               <TextField label="Email Principal" type="email" fullWidth value={correoPrincipal} onChange={(e) => setCorreoPrincipal(e.target.value)} required />
               <TextField label="Email Secundario" type="email" fullWidth value={correoSecundario} onChange={(e) => setCorreoSecundario(e.target.value)} />
             </Box>
             
             <Divider sx={{ my: 2.5 }}>Números Telefónicos Internacionales</Divider>
             
-            <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 2, mb: 2.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '140px 1fr' }, gap: 2, mb: 2.5 }}>
               <FormControl fullWidth>
                 <InputLabel>Cód. Principal</InputLabel>
                 <Select value={codigoTelefonoPrincipal} label="Cód. Principal" onChange={(e) => setCodigoTelefonoPrincipal(e.target.value)}>
@@ -483,7 +485,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               <TextField label="Teléfono Principal" fullWidth value={telefonoPrincipal} onChange={(e) => setTelefonoPrincipal(e.target.value)} />
             </Box>
             
-            <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 2, mb: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '140px 1fr' }, gap: 2, mb: 3 }}>
               <FormControl fullWidth>
                 <InputLabel>Cód. Secundario</InputLabel>
                 <Select value={codigoTelefonoSecundario} label="Cód. Secundario" onChange={(e) => setCodigoTelefonoSecundario(e.target.value)}>
@@ -493,12 +495,17 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               <TextField label="Teléfono Secundario" fullWidth value={telefonoSecundario} onChange={(e) => setTelefonoSecundario(e.target.value)} />
             </Box>
             
-            <Button type="submit" variant="contained" startIcon={<Save size={16} />}>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              startIcon={<Save size={16} />}
+              sx={{ width: { xs: '100%', sm: 'auto' }, textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+            >
               Guardar Cambios del Expediente
             </Button>
           </Paper>
 
-          <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: 'primary.main' }}>
               <StickyNote size={20} />
               <Typography variant="h6" fontWeight="bold">Notas del Caso e Historial Jurídico</Typography>
@@ -530,8 +537,8 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
           </Paper>
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 } }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: 'primary.main' }}>
               <CreditCard size={20} />
               <Typography variant="h6" fontWeight="bold">Control de Pago</Typography>
@@ -542,7 +549,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             </Box>
           </Paper>
 
-          <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: 'primary.main' }}>
               <File size={20} />
               <Typography variant="h6" fontWeight="bold">Documentos y Poderes</Typography>
@@ -583,7 +590,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             </List>
           </Paper>
 
-          <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: 'primary.main' }}>
               <Mail size={20} />
               <Typography variant="h6" fontWeight="bold">Historial de Notificaciones</Typography>

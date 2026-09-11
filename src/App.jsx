@@ -104,6 +104,16 @@ function App() {
         if (userDocSnap.exists()) {
           const userDoc = userDocSnap.data();
           const rolAsignado = userDoc.rol || 'Abogado/a';
+          
+          // 🚀 LISTA BLANCA ESTRICTA: Solo entran Superadmin, Admin, Abogado/a o Administrativo
+          const ROLES_OPERATIVOS = ['Superadmin', 'Admin', 'Abogado/a', 'Administrativo'];
+          if (!ROLES_OPERATIVOS.includes(rolAsignado)) {
+            await logout();
+            setInstitutionalError('Acceso denegado: Su cuenta institucional no tiene un rol operativo activo (Admin, Abogado/a o Administrativo). Contacte a la administración.');
+            setLoadingRole(false);
+            return;
+          }
+
           const esSuper = rolAsignado === 'Superadmin';
           setUserRole(rolAsignado);
           setUserName(userDoc.nombre || user.displayName || '');
@@ -113,17 +123,16 @@ function App() {
           });
           setInstitutionalError('');
         } else {
-          // 🚀 FLEXIBILIDAD ESTRUCTURAL: Es @iiresodh.org pero no está registrado en Litigios.
-          setUserRole('Invitado');
-          setUserName(user.displayName || '');
-          setUserPermisos({ web: false, whatsapp: false });
-          setInstitutionalError('');
+          // 🚀 BLOQUEO PERIMETRAL: Aunque sea @iiresodh.org, si no está en usuarios_autorizados NO PUEDE INGRESAR
+          await logout();
+          setInstitutionalError('Acceso restringido: Su cuenta institucional (@iiresodh.org) aún no ha sido autorizada en la Intranet. Contacte a un Administrador para habilitar su acceso.');
+          setLoadingRole(false);
+          return;
         }
       } catch (err) {
-        setUserRole('Invitado');
-        setUserName(user.displayName || '');
-        setUserPermisos({ web: false, whatsapp: false });
-        setInstitutionalError('');
+        console.error("Error verificando autorización:", err);
+        await logout();
+        setInstitutionalError('Error verificando autorización de cuenta. Intente nuevamente o contacte a la administración.');
       } finally {
         setLoadingRole(false);
       }
@@ -150,9 +159,6 @@ function App() {
         setView('hub');
       }
       if (view === 'whatsapp' && !tieneAccesoWhatsapp) {
-        setView('hub');
-      }
-      if ((view === 'casos' || view === 'detalle_caso') && userRole === 'Invitado') {
         setView('hub');
       }
     }

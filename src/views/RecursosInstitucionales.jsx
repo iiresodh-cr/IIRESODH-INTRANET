@@ -24,7 +24,7 @@ import { registrarLogAuditoria } from '../utils/auditLogger';
 export default function RecursosInstitucionales({ onVolver, currentUserEmail, userRole }) {
   const esAdmin = userRole === 'Superadmin' || userRole === 'Admin';
 
-  const [tabActual, setTabActual] = useState(0); // 0: Material Gráfico, 1: Reglamentos Internos
+  const [tabActual, setTabActual] = useState(0); // 0: Reglamentos & Normativas Internas, 1: Material Gráfico & Identidad
   const [recursos, setRecursos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -34,7 +34,7 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
   const [modalSubidaOpen, setModalSubidaOpen] = useState(false);
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [seccion, setSeccion] = useState('grafico'); // 'grafico' | 'reglamento'
+  const [seccion, setSeccion] = useState('reglamento'); // 'reglamento' | 'grafico'
   const [categoria, setCategoria] = useState('');
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
@@ -237,7 +237,7 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
   };
 
   // Filtrado de recursos
-  const seccionActualKey = tabActual === 0 ? 'grafico' : 'reglamento';
+  const seccionActualKey = tabActual === 0 ? 'reglamento' : 'grafico';
   const recursosFiltrados = recursos.filter((rec) => {
     const coincideSeccion = (rec.seccion || 'grafico') === seccionActualKey;
     const coincideBusqueda = 
@@ -263,9 +263,16 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
   return (
     <Box sx={{ maxWidth: 1300, mx: 'auto', p: { xs: 1, md: 2 } }}>
       
-      {/* BARRA SUPERIOR DE NAVEGACIÓN Y ACCIONES */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      {/* CABECERA DE LA VISTA */}
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'stretch', sm: 'center' }, 
+        gap: 2, 
+        mb: { xs: 2.5, sm: 4 } 
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2 } }}>
           <Button
             variant="outlined"
             startIcon={<ArrowLeft size={18} />}
@@ -276,17 +283,18 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
               borderColor: '#cbd5e1',
               color: '#334155',
               fontWeight: 600,
+              flexShrink: 0,
               '&:hover': { borderColor: '#94a3b8', bgcolor: 'rgba(0,0,0,0.03)' }
             }}
           >
-            Volver al Hub
+            Volver
           </Button>
           <Box>
-            <Typography variant="h5" fontWeight="bold" color="primary.main" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <FolderArchive size={26} color="#1a365d" />
+            <Typography variant="h5" fontWeight="bold" color="primary.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.15rem', sm: '1.45rem' } }}>
+              <FolderArchive size={24} color="#1a365d" />
               Centro de Recursos Institucionales
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
               Identidad visual oficial, material de diseño y reglamentos internos de IIRESODH
             </Typography>
           </Box>
@@ -297,7 +305,7 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
             variant="contained"
             startIcon={<Plus size={18} />}
             onClick={() => {
-              setSeccion(tabActual === 0 ? 'grafico' : 'reglamento');
+              setSeccion(tabActual === 0 ? 'reglamento' : 'grafico');
               setModalSubidaOpen(true);
             }}
             sx={{
@@ -305,6 +313,7 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
               borderRadius: 2,
               bgcolor: '#1a365d',
               fontWeight: 'bold',
+              alignSelf: { xs: 'stretch', sm: 'center' },
               boxShadow: '0 4px 12px rgba(26, 54, 93, 0.25)',
               '&:hover': { bgcolor: '#0f233c' }
             }}
@@ -331,34 +340,37 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
             setTabActual(v);
             setCategoriaFiltro('todas');
           }}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           textColor="primary"
           indicatorColor="primary"
           sx={{
-            px: 2,
+            px: { xs: 1, sm: 2 },
             borderBottom: '1px solid #e2e8f0',
             '& .MuiTab-root': {
               textTransform: 'none',
               fontWeight: 600,
-              fontSize: '0.95rem',
-              py: 2,
-              minHeight: 56
+              fontSize: { xs: '0.85rem', sm: '0.95rem' },
+              py: 1.8,
+              minHeight: 50
             }
           }}
         >
-          <Tab 
-            icon={<Palette size={18} />} 
-            iconPosition="start" 
-            label="Material Gráfico & Identidad" 
-          />
           <Tab 
             icon={<BookOpen size={18} />} 
             iconPosition="start" 
             label="Reglamentos & Normativas Internas" 
           />
+          <Tab 
+            icon={<Palette size={18} />} 
+            iconPosition="start" 
+            label="Material Gráfico & Identidad" 
+          />
         </Tabs>
 
         {/* BARRA DE BÚSQUEDA Y FILTRO DE CATEGORÍAS */}
-        <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', bgcolor: '#f8fafc' }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', bgcolor: '#f8fafc' }}>
           <TextField
             size="small"
             placeholder="Buscar por título o descripción..."
@@ -372,7 +384,8 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
               ),
             }}
             sx={{ 
-              minWidth: { xs: '100%', sm: 280 }, 
+              minWidth: { xs: '100%', sm: 260 }, 
+              flexGrow: { xs: 1, sm: 0 },
               bgcolor: '#ffffff',
               borderRadius: 2,
               '& .MuiOutlinedInput-root': { borderRadius: 2 }
@@ -380,7 +393,7 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
           />
 
           {categoriasFiltro.length > 0 && (
-            <FormControl size="small" sx={{ minWidth: 200, bgcolor: '#ffffff', borderRadius: 2 }}>
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 }, bgcolor: '#ffffff', borderRadius: 2 }}>
               <InputLabel>Categoría</InputLabel>
               <Select
                 value={categoriaFiltro}
@@ -402,8 +415,8 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
         </Box>
       </Paper>
 
-      {/* CONTENIDO: MATERIAL GRÁFICO (TAB 0) */}
-      {tabActual === 0 && (
+      {/* CONTENIDO: MATERIAL GRÁFICO (TAB 1) */}
+      {tabActual === 1 && (
         <Box>
           {loading ? (
             <Box sx={{ py: 8, textAlign: 'center' }}>
@@ -606,8 +619,8 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
         </Box>
       )}
 
-      {/* CONTENIDO: REGLAMENTOS Y NORMATIVAS (TAB 1) */}
-      {tabActual === 1 && (
+      {/* CONTENIDO: REGLAMENTOS Y NORMATIVAS (TAB 0) */}
+      {tabActual === 0 && (
         <Box>
           {loading ? (
             <Box sx={{ py: 8, textAlign: 'center' }}>
@@ -810,8 +823,8 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
                 }}
                 disabled={subiendo}
               >
-                <MenuItem value="grafico">Material Gráfico & Identidad Visual</MenuItem>
                 <MenuItem value="reglamento">Reglamentos & Normativas Internas</MenuItem>
+                <MenuItem value="grafico">Material Gráfico & Identidad Visual</MenuItem>
               </Select>
             </FormControl>
 

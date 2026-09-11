@@ -185,16 +185,16 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, mb: 4 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold" color="text.primary">Casos y Litigios</Typography>
+          <Typography variant="h4" fontWeight="bold" color="text.primary" sx={{ fontSize: { xs: '1.4rem', sm: '2.125rem' } }}>Casos y Litigios</Typography>
           <Typography variant="body2" color="text.secondary">Selecciona un caso para gestionar sus clientes, documentos y pagos.</Typography>
         </Box>
         <Button 
           variant="contained" 
           startIcon={<Plus size={18} />} 
           onClick={() => setOpenModal(true)}
-          sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+          sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
         >
           Nuevo Caso
         </Button>
@@ -259,7 +259,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
       )}
 
       {/* MODAL CREAR */}
-      <Dialog open={openModal} onClose={() => setOpenModal(false)} fullWidth maxWidth="xs" slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
+      <Dialog open={openModal} onClose={() => setOpenModal(false)} fullWidth maxWidth="xs" slotProps={{ paper: { sx: { borderRadius: 3, m: { xs: 1.5, sm: 3 } } } }}>
         <DialogTitle fontWeight="bold">Crear Nuevo Litigio</DialogTitle>
         <Box component="form" onSubmit={handleCreateCaso}>
           <DialogContent dividers>
@@ -274,7 +274,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
       </Dialog>
 
       {/* MODAL EDICIÓN */}
-      <Dialog open={openEditModal} onClose={() => setOpenEditModal(false)} fullWidth maxWidth="xs" slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
+      <Dialog open={openEditModal} onClose={() => setOpenEditModal(false)} fullWidth maxWidth="xs" slotProps={{ paper: { sx: { borderRadius: 3, m: { xs: 1.5, sm: 3 } } } }}>
         <DialogTitle fontWeight="bold">Configuración del Litigio</DialogTitle>
         <Box component="form" onSubmit={handleUpdateCaso}>
           <DialogContent dividers>

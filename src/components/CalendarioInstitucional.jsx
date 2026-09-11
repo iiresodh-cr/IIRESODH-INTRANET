@@ -213,45 +213,57 @@ export default function CalendarioInstitucional() {
         sx={{
           p: { xs: 2, sm: 2.5 },
           display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { xs: 'stretch', md: 'center' },
           justifyContent: 'space-between',
           gap: 2,
           borderBottom: '1px solid #f1f5f9'
         }}
       >
         {/* TÍTULO Y NAVEGACIÓN */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <Box
-            sx={{
-              p: 1.2,
-              borderRadius: 2.5,
-              bgcolor: 'rgba(26, 54, 93, 0.07)',
-              color: '#1a365d',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <CalendarIcon size={22} />
-          </Box>
-
-          <Box>
-            <Typography
-              variant="h6"
-              fontWeight="bold"
-              color="#0f233c"
-              sx={{ fontSize: { xs: '1.05rem', sm: '1.2rem' } }}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' }, 
+            justifyContent: 'space-between',
+            gap: 1.5,
+            width: { xs: '100%', md: 'auto' }
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              sx={{
+                p: 1.2,
+                borderRadius: 2.5,
+                bgcolor: 'rgba(26, 54, 93, 0.07)',
+                color: '#1a365d',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
             >
-              Calendario IIRESODH
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize', fontWeight: '500' }}>
-              {nombreMes}
-            </Typography>
+              <CalendarIcon size={22} />
+            </Box>
+
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight="bold"
+                color="#0f233c"
+                sx={{ fontSize: { xs: '1.05rem', sm: '1.2rem' } }}
+              >
+                Calendario IIRESODH
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize', fontWeight: '500' }}>
+                {nombreMes}
+              </Typography>
+            </Box>
           </Box>
 
           {/* CONTROLES DE NAVEGACIÓN */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: { xs: 0, sm: 2 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: { xs: 'flex-end', sm: 'center' } }}>
             <Tooltip title="Mes anterior">
               <IconButton size="small" onClick={irMesAnterior} sx={{ border: '1px solid #e2e8f0' }}>
                 <ChevronLeft size={18} />
@@ -293,7 +305,15 @@ export default function CalendarioInstitucional() {
         </Box>
 
         {/* ACCIONES Y SELECTOR DE VISTA */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: { xs: 'space-between', sm: 'flex-end' },
+            gap: 1.5,
+            width: { xs: '100%', md: 'auto' }
+          }}
+        >
           <ToggleButtonGroup
             value={vista}
             exclusive
@@ -306,7 +326,7 @@ export default function CalendarioInstitucional() {
               borderRadius: 2,
               '& .MuiToggleButton-root': {
                 border: 'none',
-                px: 1.5,
+                px: { xs: 1.2, sm: 1.5 },
                 py: 0.5,
                 textTransform: 'none',
                 fontWeight: 600,
@@ -342,8 +362,9 @@ export default function CalendarioInstitucional() {
               textTransform: 'none',
               fontWeight: 'bold',
               borderRadius: 2.5,
-              px: 2.2,
+              px: { xs: 1.8, sm: 2.2 },
               py: 0.8,
+              fontSize: { xs: '0.82rem', sm: '0.875rem' },
               boxShadow: '0 2px 8px rgba(26, 54, 93, 0.25)',
               '&:hover': { bgcolor: '#0f233c' }
             }}

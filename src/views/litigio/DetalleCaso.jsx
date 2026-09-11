@@ -755,8 +755,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         Volver a todos los casos
       </Button>
 
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-        <Typography variant="h4" fontWeight="bold" color="primary.main" gutterBottom>
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+        <Typography variant="h4" fontWeight="bold" color="primary.main" gutterBottom sx={{ fontSize: { xs: '1.35rem', sm: '2rem' } }}>
           {caso.nombre}
         </Typography>
         <Typography variant="body2" color="text.secondary">
@@ -771,7 +771,22 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       )}
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={activeTab} onChange={(e, val) => setActiveTab(val)} textColor="primary" indicatorColor="primary">
+        <Tabs 
+          value={activeTab} 
+          onChange={(e, val) => setActiveTab(val)} 
+          textColor="primary" 
+          indicatorColor="primary"
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{
+            '& .MuiTab-root': {
+              minHeight: 48,
+              fontSize: { xs: '0.82rem', sm: '0.9rem' },
+              whiteSpace: 'nowrap'
+            }
+          }}
+        >
           <Tab icon={<Users size={18} />} iconPosition="start" label="Fichas de Clientes" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
           <Tab icon={<FileText size={18} />} iconPosition="start" label="Documentos Comunes" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
           <Tab icon={<CreditCard size={18} />} iconPosition="start" label="Control de Pagos" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
@@ -791,13 +806,13 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
       {/* PESTAÑA 1: RECONSTRUCCIÓN VERTICAL TABLA DE REPRESETADOS */}
       <TabPanel value={activeTab} index={0}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
           <Typography variant="h6" fontWeight="bold">Representados en el Litigio</Typography>
           <Button 
             variant="contained" 
             startIcon={<Plus size={18} />} 
             onClick={() => setOpenModal(true)} 
-            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', width: { xs: '100%', sm: 'auto' } }}
           >
             Agregar Cliente
           </Button>
@@ -832,8 +847,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           </Alert>
         ) : (
           <>
-            <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-              <Table>
+            <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none', overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 650 }}>
                 <TableHead sx={{ bgcolor: '#f8fafc' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>Apellidos y Nombres</TableCell>
@@ -912,7 +927,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDropDocComun}
           sx={{ 
-            p: 3, 
+            p: { xs: 2, sm: 3 }, 
             borderRadius: 3, 
             border: isDragging ? '2px dashed #1a365d' : '1px solid #e2e8f0', 
             bgcolor: isDragging ? '#f0f4f8' : '#ffffff',
@@ -920,7 +935,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             transition: 'all 0.2s ease'
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
             <Box>
               <Typography variant="h6" fontWeight="bold">Escritos y Respuestas de Instancias Internacionales</Typography>
               <Typography variant="caption" color="text.secondary">Puede arrastrar y soltar archivos PDF directamente sobre este panel.</Typography>
@@ -930,7 +945,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
               component="label" 
               startIcon={<Upload size={18} />} 
               disabled={uploadingDoc} 
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', width: { xs: '100%', sm: 'auto' } }}
             >
               {uploadingDoc ? 'Subiendo...' : 'Subir Documento Común'}
               <input type="file" accept="application/pdf,image/*" hidden onChange={handleUploadDocComun} />
@@ -950,7 +965,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           ) : (
             <List>
               {docsComunes.map((d) => (
-                <ListItem key={d.id} disablePadding sx={{ mb: 1, display: 'flex', gap: 2 }}>
+                <ListItem key={d.id} disablePadding sx={{ mb: 1, display: 'flex', gap: { xs: 1, sm: 2 } }}>
                   <Button 
                     component="a" 
                     href={d.url} 
@@ -991,7 +1006,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
       {/* PESTAÑA 3: PAGOS */}
       <TabPanel value={activeTab} index={2}>
-        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
           <Typography variant="h6" fontWeight="bold" gutterBottom>Pasarela de Stripe</Typography>
           <Typography variant="body2" color="text.secondary">Registro general de conciliación de pagos de este litigio.</Typography>
         </Paper>
@@ -999,8 +1014,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
       {/* PESTAÑA 4: CONTROL DE VENCIMIENTOS PROCESALES */}
       <TabPanel value={activeTab} index={3}>
-        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
             <Box>
               <Typography variant="h6" fontWeight="bold">Fechas Fatales y Plazos Judiciales</Typography>
               <Typography variant="body2" color="text.secondary">Seguimiento de términos perentorios asociados a las notificaciones oficiales.</Typography>
@@ -1009,7 +1024,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
               variant="contained" 
               startIcon={<Calendar size={18} />} 
               onClick={() => setOpenPlazoModal(true)} 
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', width: { xs: '100%', sm: 'auto' } }}
             >
               Cargar Fecha Fatal
             </Button>
@@ -1018,8 +1033,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           {localPlazos.length === 0 ? (
             <Alert severity="info" sx={{ borderRadius: 2 }}>No hay plazos procesales configurados para este litigio.</Alert>
           ) : (
-            <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-              <Table size="small">
+            <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none', overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 650 }}>
                 <TableHead sx={{ bgcolor: '#f8fafc' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>Término Procesal / Descripción</TableCell>
@@ -1105,8 +1120,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
       {/* PESTAÑA 5: COMUNICADOS ENVIADOS (BITÁCORA DE MAILING MASIVO) */}
       <TabPanel value={activeTab} index={4}>
-        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
             <Box>
               <Typography variant="h6" fontWeight="bold">Historial de Comunicados Enviados</Typography>
               <Typography variant="body2" color="text.secondary">Registro de circulares y comunicados enviados por correo a los representados.</Typography>
@@ -1120,7 +1135,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
                 setTipoDestinatario('todos');
                 setOpenComunicadoModal(true);
               }} 
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', width: { xs: '100%', sm: 'auto' } }}
             >
               Redactar Comunicado
             </Button>
@@ -1152,18 +1167,18 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           paper: { 
             component: 'form',
             onSubmit: handleCreateCliente,
-            sx: { borderRadius: 3 } 
+            sx: { borderRadius: 3, m: { xs: 1.5, sm: 3 } } 
           } 
         }}
       >
         <DialogTitle fontWeight="bold">Nueva Ficha de Cliente</DialogTitle>
         <DialogContent dividers>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
             <TextField label="Nombres" autoFocus required fullWidth value={nombres} onChange={(e) => setNombres(e.target.value)} />
             <TextField label="Apellidos" required fullWidth value={apellidos} onChange={(e) => setApellidos(e.target.value)} />
           </Box>
           
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
             <FormControl fullWidth>
               <InputLabel>Tipo Identificación</InputLabel>
               <Select value={tipoIdentificacion} label="Tipo Identificación" onChange={(e) => setTipoIdentificacion(e.target.value)}>
@@ -1173,7 +1188,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             <TextField label="Número de Identificación" required fullWidth value={identificacion} onChange={(e) => setIdentificacion(e.target.value)} />
           </Box>
           
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
             <FormControl fullWidth>
               <InputLabel>País de Residencia</InputLabel>
               <Select 
@@ -1191,7 +1206,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             <TextField label="Email Principal" type="email" required fullWidth value={correoPrincipal} onChange={(e) => setCorreoPrincipal(e.target.value)} />
           </Box>
           
-          <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 2, mb: 2.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '140px 1fr' }, gap: 2, mb: 2.5 }}>
             <FormControl fullWidth>
               <InputLabel>Código</InputLabel>
               <Select value={codigoTelefonoPrincipal} label="Código" onChange={(e) => setCodigoTelefonoPrincipal(e.target.value)}>
