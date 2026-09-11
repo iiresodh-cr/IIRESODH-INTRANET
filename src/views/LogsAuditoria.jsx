@@ -51,20 +51,20 @@ export default function LogsAuditoria({ currentUserEmail, userRole }) {
     }
     setLoading(true);
     try {
-      const q = query(
-        collection(db, 'logs_auditoria'), 
-        orderBy('fecha', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      
-      setLogs(
-        snapshot.docs.map((d) => {
-          return {
-            id: d.id,
-            ...d.data()
-          };
-        })
-      );
+      const snapshot = await getDocs(collection(db, 'logs_auditoria'));
+      const rawLogs = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+      // Ordenar cronológicamente descendente soportando tanto 'fecha' como 'timestamp'
+      rawLogs.sort((a, b) => {
+        const timeA = (a.fecha?.toMillis ? a.fecha.toMillis() : (a.timestamp?.toMillis ? a.timestamp.toMillis() : 0));
+        const timeB = (b.fecha?.toMillis ? b.fecha.toMillis() : (b.timestamp?.toMillis ? b.timestamp.toMillis() : 0));
+        return timeB - timeA;
+      });
+
+      setLogs(rawLogs);
     } catch (err) {
       console.error(err);
       setError('Error de lectura al consultar los registros de auditoría institucional.');
@@ -119,6 +119,36 @@ export default function LogsAuditoria({ currentUserEmail, userRole }) {
     }
   };
 
+  const getAccionChipProps = (accion = '') => {
+    const act = (accion || '').toLowerCase();
+    if (act.includes('denegado') || act.includes('revocación') || act.includes('eliminación') || act.includes('suprim')) {
+      return {
+        bgcolor: '#fef2f2',
+        color: '#b91c1c',
+        borderColor: '#fca5a5'
+      };
+    }
+    if (act.includes('inicio de sesión') || act.includes('autorización') || act.includes('creación') || act.includes('resolución')) {
+      return {
+        bgcolor: '#f0fdf4',
+        color: '#15803d',
+        borderColor: '#86efac'
+      };
+    }
+    if (act.includes('modificación') || act.includes('actualización') || act.includes('cierre de sesión')) {
+      return {
+        bgcolor: '#fefce8',
+        color: '#a16207',
+        borderColor: '#fde047'
+      };
+    }
+    return {
+      bgcolor: '#eff6ff',
+      color: '#1d4ed8',
+      borderColor: '#93c5fd'
+    };
+  };
+
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
@@ -156,22 +186,28 @@ export default function LogsAuditoria({ currentUserEmail, userRole }) {
             <TableBody>
               {logs.map((logItem) => (
                 <TableRow key={logItem.id} hover>
-                  <TableCell sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'text.secondary' }}>
-                    {logItem.fecha?.toDate ? logItem.fecha.toDate().toLocaleString() : 'Procesando...'}
+                  <TableCell sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                    {logItem.fecha?.toDate 
+                      ? logItem.fecha.toDate().toLocaleString() 
+                      : (logItem.timestamp?.toDate ? logItem.timestamp.toDate().toLocaleString() : 'Reciente')}
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 'medium' }}>
-                    {logItem.usuario}
+                  <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>
+                    {logItem.usuario || logItem.usuarioEmail || 'Sistema'}
                   </TableCell>
                   <TableCell>
                     <Chip 
                       label={logItem.accion} 
                       size="small" 
                       variant="outlined" 
-                      sx={{ fontWeight: 'bold', color: '#1a365d', borderColor: '#1a365d' }} 
+                      sx={{ 
+                        fontWeight: 'bold', 
+                        fontSize: '0.78rem',
+                        ...getAccionChipProps(logItem.accion)
+                      }} 
                     />
                   </TableCell>
                   <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
-                    {logItem.detalles || 'Sin metadatos adicionales'}
+                    {logItem.detalles || logItem.titulo || 'Sin metadatos adicionales'}
                   </TableCell>
                   <TableCell>
                     <IconButton size="small" color="error" title="Eliminar Registro Puntual" onClick={() => handleOpenWarning(logItem)}>

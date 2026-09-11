@@ -10,6 +10,7 @@ import {
   Briefcase, ShieldAlert, LogOut, UserCheck, Home, 
   Globe, MessageCircle, FolderArchive, Menu, X 
 } from 'lucide-react';
+import { registrarLogAuditoria } from '../utils/auditLogger';
 
 const drawerWidth = 260;
 
@@ -186,7 +187,20 @@ export default function Layout({ children, currentView, setView, userRole, userP
             <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.25)', height: 20, my: 'auto' }} />
             
             <Button
-              onClick={logout}
+              onClick={async () => {
+                if (user?.email) {
+                  try {
+                    await registrarLogAuditoria(
+                      user.email,
+                      'Cierre de Sesión',
+                      'El usuario cerró sesión voluntariamente en la Intranet.'
+                    );
+                  } catch (e) {
+                    console.error('Error registrando log de salida:', e);
+                  }
+                }
+                logout();
+              }}
               startIcon={<LogOut size={15} />}
               sx={{
                 color: '#ff8a80',

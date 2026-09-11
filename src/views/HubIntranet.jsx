@@ -1,17 +1,42 @@
 // src/views/HubIntranet.jsx
-import React, { useState } from 'react';
-import { Box, Typography, Card, CardContent, Button, Divider, Avatar, Chip, Snackbar, Alert } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Card, CardContent, Button, Divider, Avatar, Chip, Snackbar, Alert, Tooltip } from '@mui/material';
 import { 
   Scale, Users, ShieldCheck, FileSpreadsheet, Activity, 
   Globe, MessageCircle, FolderArchive, Calendar, Sparkles,
-  CalendarDays, Plus
+  CalendarDays, Plus, Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { usePendingApprovals } from '../hooks/usePendingApprovals';
 import AcordeonHerramientas from '../components/AcordeonHerramientas';
 
 export default function HubIntranet({ setView, userRole, userPermisos, user: propUser, userName }) {
   const { user: authUser } = useAuth();
   const currentUser = propUser || authUser;
+
+  // 🔔 SUSCRIPCIÓN EN TIEMPO REAL: Bandeja de Aprobaciones / Revisiones
+  const { pendingApprovals, pendingCount, submitReviewAction } = usePendingApprovals();
+
+  // Estado del panel activo en AcordeonHerramientas ('aprobaciones' | 'chat' | 'calendario' | false)
+  const [activePanel, setActivePanel] = useState('chat');
+
+  // Si hay tareas de revisión pendientes, expandir automáticamente la bandeja de aprobaciones
+  useEffect(() => {
+    if (pendingCount > 0) {
+      setActivePanel('aprobaciones');
+    }
+  }, [pendingCount]);
+
+  // Al hacer clic en el badge superior del saludo, expande el acordeón y hace scroll suave
+  const handleScrollToApprovals = () => {
+    setActivePanel('aprobaciones');
+    setTimeout(() => {
+      const el = document.getElementById('acordeon-aprobaciones');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
 
   // CONTROL PERIMETRAL: Roles autorizados para cada sección
   const tieneAccesoLitigio = userRole !== 'Invitado';
@@ -159,6 +184,35 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
                     height: 22
                   }}
                 />
+
+                {/* 🔔 BADGE CONTADOR DE APROBACIONES PENDIENTES */}
+                {pendingCount > 0 && (
+                  <Tooltip title="Haga clic para ver sus documentos pendientes de revisión">
+                    <Chip
+                      icon={<Bell size={13} style={{ color: '#b45309' }} />}
+                      label={`${pendingCount} Pendiente${pendingCount > 1 ? 's' : ''}`}
+                      size="small"
+                      onClick={handleScrollToApprovals}
+                      clickable
+                      sx={{
+                        bgcolor: '#fffbeb',
+                        color: '#b45309',
+                        border: '1px solid #fde68a',
+                        fontWeight: '800',
+                        fontSize: '0.72rem',
+                        height: 22,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)',
+                        transition: 'all 0.15s ease',
+                        '&:hover': {
+                          bgcolor: '#fef3c7',
+                          borderColor: '#f59e0b',
+                          transform: 'translateY(-1px)'
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                )}
               </Typography>
             </Box>
           </Box>
@@ -185,9 +239,15 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           </Box>
         </Card>
 
-        {/* 📅 & 💬 HERRAMIENTAS INSTITUCIONALES (CALENDARIO & GOOGLE CHAT) */}
+        {/* 📅 & 💬 HERRAMIENTAS INSTITUCIONALES (APROBACIONES, CALENDARIO & GOOGLE CHAT) */}
         <Box sx={{ mb: { xs: 3.5, sm: 5 } }}>
-          <AcordeonHerramientas />
+          <AcordeonHerramientas
+            pendingApprovals={pendingApprovals}
+            pendingCount={pendingCount}
+            onSubmitAction={submitReviewAction}
+            activePanel={activePanel}
+            onPanelChange={setActivePanel}
+          />
         </Box>
 
         {/* TÍTULO DE MÓDULOS */}

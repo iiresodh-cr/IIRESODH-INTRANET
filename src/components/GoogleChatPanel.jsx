@@ -31,15 +31,20 @@ export default function GoogleChatPanel() {
   };
 
   const handleAbrirVentanaFlotante = () => {
-    const width = 480;
-    const height = 750;
-    const left = window.screen.width - width - 40;
-    const top = 60;
+    // Dimensiones óptimas para desplegar el panel de contactos y la conversación de Google Chat sin cortes
+    const screenWidth = window.screen.availWidth || window.screen.width;
+    const screenHeight = window.screen.availHeight || window.screen.height;
+
+    const width = Math.min(1060, Math.max(920, Math.floor(screenWidth * 0.72)));
+    const height = Math.min(860, Math.max(720, Math.floor(screenHeight * 0.88)));
+    const left = Math.max(20, Math.floor((screenWidth - width) / 2));
+    const top = Math.max(20, Math.floor((screenHeight - height) / 2));
+
     const url = getChatUrl();
     window.open(
       url,
       'GoogleChatIIRESODH',
-      `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`
+      `popup=yes,width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`
     );
   };
 
@@ -192,7 +197,7 @@ export default function GoogleChatPanel() {
         >
           <Info size={17} color="#1a365d" style={{ flexShrink: 0 }} />
           <Typography variant="caption" color="#475569" sx={{ lineHeight: 1.4 }}>
-            <strong>Modo Ventana Flotante:</strong> Abre una ventana compacta de Google Chat que puedes ubicar al lado de tu navegador para comunicarte con el equipo en tiempo real mientras continúas trabajando en la Intranet.
+            <strong>Ventana de Google Chat:</strong> Se abre en dimensiones amplias para ver la lista de chats y la conversación en curso sin cortes. <em>(Tip: Si deseas ver Google Chat como una aplicación de escritorio pura sin barra de URL, puedes hacer clic en el botón de pantalla con flecha 'Instalar / Abrir en app' que aparece en la barra superior de esa ventana).</em>
           </Typography>
         </Box>
       </Paper>

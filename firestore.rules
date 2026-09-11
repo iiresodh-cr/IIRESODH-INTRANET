@@ -64,6 +64,18 @@ service cloud.firestore {
     }
 
     // =================================================================
+    // SEGURIDAD: BANDEJA DE APROBACIONES / REVISIONES DE DOCUMENTOS
+    // =================================================================
+    match /approvals/{approvalId} {
+      allow read, create, update: if isAuthorized();
+      allow delete: if isAdmin();
+
+      match /responses/{reviewerUid} {
+        allow read, write: if isAuthorized();
+      }
+    }
+
+    // =================================================================
     // SEGURIDAD: PLANTILLAS DE CORREO MASIVO
     // =================================================================
     match /plantillas_correo/{templateId} {

@@ -227,7 +227,10 @@ exports.crearEventoCalendario = onCall(
       // 5. Registrar en la bitácora interna de auditoría de la intranet
       try {
         await db.collection('logs_auditoria').add({
-          accion: 'CREAR_EVENTO_CALENDARIO',
+          usuario: emailUsuario,
+          accion: 'Creación de Evento en Calendario',
+          detalles: `Se programó el evento: "${titulo}" (ID: ${respuesta.data.id}) en el Calendario Institucional`,
+          fecha: admin.firestore.FieldValue.serverTimestamp(),
           modulo: 'CALENDARIO_INSTITUCIONAL',
           titulo: titulo,
           eventoId: respuesta.data.id,
@@ -350,7 +353,10 @@ exports.eliminarEventoCalendario = onCall(
 
       try {
         await db.collection('logs_auditoria').add({
-          accion: 'ELIMINAR_EVENTO_CALENDARIO',
+          usuario: emailUsuario,
+          accion: 'Eliminación de Evento en Calendario',
+          detalles: `Se eliminó el evento con ID: ${eventId} del Calendario Institucional`,
+          fecha: admin.firestore.FieldValue.serverTimestamp(),
           modulo: 'CALENDARIO_INSTITUCIONAL',
           eventoId: eventId,
           usuarioEmail: emailUsuario,
@@ -439,7 +445,10 @@ exports.actualizarEventoCalendario = onCall(
 
       try {
         await db.collection('logs_auditoria').add({
-          accion: 'ACTUALIZAR_EVENTO_CALENDARIO',
+          usuario: emailUsuario,
+          accion: 'Actualización de Evento en Calendario',
+          detalles: `Se modificó el evento: "${titulo}" (ID: ${eventId}) en el Calendario Institucional`,
+          fecha: admin.firestore.FieldValue.serverTimestamp(),
           modulo: 'CALENDARIO_INSTITUCIONAL',
           eventoId: eventId,
           titulo: titulo,

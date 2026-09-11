@@ -17,6 +17,7 @@ import RecursosInstitucionales from './views/RecursosInstitucionales';
 // Vistas del Módulo de Litigio
 import Casos from './views/litigio/Casos';
 import DetalleCaso from './views/litigio/DetalleCaso';
+import { registrarLogAuditoria } from './utils/auditLogger';
 
 // FILTRO DE CONSOLA: Mantiene el perímetro limpio bloqueando solo advertencias automáticas de reconexión del SDK
 const originalConsoleError = console.error;
@@ -86,11 +87,26 @@ function App() {
         setUserPermisos({ web: true, whatsapp: true });
         setInstitutionalError('');
         setLoadingRole(false);
+
+        const sessionKey = `audit_login_${user.uid}`;
+        if (!sessionStorage.getItem(sessionKey)) {
+          sessionStorage.setItem(sessionKey, 'true');
+          registrarLogAuditoria(
+            emailLimpio,
+            'Inicio de Sesión',
+            'Acceso autenticado y autorizado a la Intranet con rol [Superadmin]'
+          );
+        }
         return;
       }
 
       // 🚀 EXCLUSIÓN ABSOLUTA: Si no pertenece al dominio institucional, fuera inmediatamente
       if (!emailLimpio.endsWith('@iiresodh.org')) {
+        await registrarLogAuditoria(
+          emailLimpio,
+          'Acceso Denegado',
+          'Bloqueo perimetral: Intento de ingreso con dominio no institucional'
+        );
         await logout();
         setInstitutionalError('Acceso denegado: Solo se permiten cuentas institucionales de IIRESODH.');
         setLoadingRole(false);
@@ -108,6 +124,11 @@ function App() {
           // 🚀 LISTA BLANCA ESTRICTA: Solo entran Superadmin, Admin, Abogado/a o Administrativo
           const ROLES_OPERATIVOS = ['Superadmin', 'Admin', 'Abogado/a', 'Administrativo'];
           if (!ROLES_OPERATIVOS.includes(rolAsignado)) {
+            await registrarLogAuditoria(
+              emailLimpio,
+              'Acceso Denegado',
+              `Bloqueo perimetral: Cuenta con rol inactivo o no operativo [${rolAsignado}]`
+            );
             await logout();
             setInstitutionalError('Acceso denegado: Su cuenta institucional no tiene un rol operativo activo (Admin, Abogado/a o Administrativo). Contacte a la administración.');
             setLoadingRole(false);
@@ -122,8 +143,23 @@ function App() {
             whatsapp: esSuper || userDoc.acceso_whatsapp === true
           });
           setInstitutionalError('');
+
+          const sessionKey = `audit_login_${user.uid}`;
+          if (!sessionStorage.getItem(sessionKey)) {
+            sessionStorage.setItem(sessionKey, 'true');
+            registrarLogAuditoria(
+              emailLimpio,
+              'Inicio de Sesión',
+              `Acceso autenticado y autorizado a la Intranet con rol [${rolAsignado}]`
+            );
+          }
         } else {
           // 🚀 BLOQUEO PERIMETRAL: Aunque sea @iiresodh.org, si no está en usuarios_autorizados NO PUEDE INGRESAR
+          await registrarLogAuditoria(
+            emailLimpio,
+            'Acceso Denegado',
+            'Bloqueo perimetral: Cuenta institucional (@iiresodh.org) no pre-autorizada en lista blanca'
+          );
           await logout();
           setInstitutionalError('Acceso restringido: Su cuenta institucional (@iiresodh.org) aún no ha sido autorizada en la Intranet. Contacte a un Administrador para habilitar su acceso.');
           setLoadingRole(false);
