@@ -407,7 +407,7 @@ export default function CalendarioInstitucional({ insideAccordion = false }) {
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
+                gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
                 bgcolor: '#f8fafc',
                 borderBottom: '1px solid #e2e8f0'
               }}
@@ -421,7 +421,8 @@ export default function CalendarioInstitucional({ insideAccordion = false }) {
                     fontWeight: '700',
                     fontSize: '0.78rem',
                     color: idx >= 5 ? '#94a3b8' : '#475569',
-                    letterSpacing: 0.5
+                    letterSpacing: 0.5,
+                    overflow: 'hidden'
                   }}
                 >
                   {dia.toUpperCase()}
@@ -433,7 +434,7 @@ export default function CalendarioInstitucional({ insideAccordion = false }) {
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
+                gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
                 gridAutoRows: 'minmax(110px, auto)'
               }}
             >
@@ -451,6 +452,8 @@ export default function CalendarioInstitucional({ insideAccordion = false }) {
                       bgcolor: celda.esMesActual ? '#ffffff' : '#fafafa',
                       display: 'flex',
                       flexDirection: 'column',
+                      minWidth: 0,
+                      overflow: 'hidden',
                       transition: 'background-color 0.2s',
                       '&:hover': {
                         bgcolor: celda.esMesActual ? '#f8fafc' : '#f5f5f5'
@@ -482,7 +485,7 @@ export default function CalendarioInstitucional({ insideAccordion = false }) {
                     </Box>
 
                     {/* EVENTOS EN EL DÍA */}
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flexGrow: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flexGrow: 1, minWidth: 0, overflow: 'hidden' }}>
                       {eventosDia.slice(0, 3).map((ev) => {
                         let horaStr = '';
                         if (ev.start?.dateTime) {
@@ -498,15 +501,20 @@ export default function CalendarioInstitucional({ insideAccordion = false }) {
                           <Box
                             key={ev.id}
                             onClick={() => abrirDetalle(ev)}
+                            title={horaStr ? `${horaStr} - ${ev.summary || '(Sin título)'}` : (ev.summary || '(Sin título)')}
                             sx={{
-                              p: 0.6,
+                              px: 0.8,
+                              py: 0.4,
                               borderRadius: '0 6px 6px 0',
                               bgcolor: 'rgba(26, 54, 93, 0.08)',
                               borderLeft: '3px solid #e63946',
                               cursor: 'pointer',
                               display: 'flex',
-                              flexDirection: 'column',
-                              gap: 0.2,
+                              alignItems: 'center',
+                              gap: 0.6,
+                              minWidth: 0,
+                              maxWidth: '100%',
+                              overflow: 'hidden',
                               transition: 'all 0.15s ease',
                               '&:hover': {
                                 bgcolor: 'rgba(26, 54, 93, 0.18)',
@@ -514,24 +522,39 @@ export default function CalendarioInstitucional({ insideAccordion = false }) {
                               }
                             }}
                           >
-                            <Typography
-                              variant="caption"
-                              fontWeight="600"
-                              color="#1a365d"
-                              noWrap
-                              sx={{ fontSize: '0.73rem', lineHeight: 1.2 }}
-                            >
-                              {ev.summary || '(Sin título)'}
-                            </Typography>
                             {horaStr && (
                               <Typography
+                                component="span"
                                 variant="caption"
-                                color="#64748b"
-                                sx={{ fontSize: '0.68rem', lineHeight: 1 }}
+                                sx={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: '700',
+                                  color: '#64748b',
+                                  flexShrink: 0,
+                                  lineHeight: 1
+                                }}
                               >
                                 {horaStr}
                               </Typography>
                             )}
+                            <Typography
+                              component="span"
+                              variant="caption"
+                              noWrap
+                              sx={{
+                                fontSize: '0.73rem',
+                                fontWeight: '600',
+                                color: '#1a365d',
+                                lineHeight: 1.2,
+                                minWidth: 0,
+                                flexGrow: 1,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {ev.summary || '(Sin título)'}
+                            </Typography>
                           </Box>
                         );
                       })}
