@@ -254,7 +254,7 @@ export default function CalendarioInstitucional() {
                 color="#0f233c"
                 sx={{ fontSize: { xs: '1.05rem', sm: '1.2rem' } }}
               >
-                Calendario IIRESODH
+                Calendario Institucional IIRESODH
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize', fontWeight: '500' }}>
                 {nombreMes}
