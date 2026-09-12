@@ -17,19 +17,15 @@ import {
 } from 'lucide-react';
 import CalendarioInstitucional from './CalendarioInstitucional';
 import GoogleChatPanel from './GoogleChatPanel';
-import PendingApprovalsAccordion from './approvals/PendingApprovalsAccordion';
 import { useAuth } from '../context/AuthContext';
 
 export default function AcordeonHerramientas({
-  pendingApprovals = [],
-  pendingCount = 0,
-  onSubmitAction,
   activePanel,
   onPanelChange
 }) {
   const { user } = useAuth();
 
-  // Estado del acordeón controlado o interno: 'aprobaciones' | 'chat' | 'calendario' | false
+  // Estado del acordeón controlado o interno: 'chat' | 'calendario' | false
   const [internalExpanded, setInternalExpanded] = useState('chat');
   const expanded = activePanel !== undefined ? activePanel : internalExpanded;
   const setExpanded = onPanelChange || setInternalExpanded;
@@ -40,18 +36,6 @@ export default function AcordeonHerramientas({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      {/* ======================================================== */}
-      {/* 📋 PANEL 0: BANDEJA DE APROBACIONES / REVISIONES (PRIMER LUGAR) */}
-      {/* ======================================================== */}
-      {pendingCount > 0 && (
-        <PendingApprovalsAccordion
-          pendingApprovals={pendingApprovals}
-          pendingCount={pendingCount}
-          expanded={expanded === 'aprobaciones'}
-          onToggle={handleChange('aprobaciones')}
-          onSubmitAction={onSubmitAction}
-        />
-      )}
 
       {/* ======================================================== */}
       {/* 💬 PANEL 1: GOOGLE CHAT INSTITUCIONAL */}
