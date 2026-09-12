@@ -480,3 +480,114 @@ exports.actualizarEventoCalendario = onCall(
     }
   }
 );
+
+// =================================================================
+// 🚀 ENDPOINT HTTPS: SOLICITAR APROBACIÓN DESDE GOOGLE DOCS (APPS SCRIPT)
+// =================================================================
+exports.solicitarAprobacionDocs = functions.https.onRequest(async (req, res) => {
+  // Encabezados CORS
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Método no permitido. Solo se acepta POST.' });
+    return;
+  }
+
+  try {
+    const {
+      title,
+      driveFileUrl,
+      driveFileId,
+      authorEmail,
+      reviewerEmail,
+      comment
+    } = req.body;
+
+    if (!title || !driveFileUrl || !reviewerEmail) {
+      res.status(400).json({
+        error: 'Faltan campos obligatorios: title, driveFileUrl y reviewerEmail son requeridos.'
+      });
+      return;
+    }
+
+    const cleanReviewer = reviewerEmail.trim().toLowerCase();
+    const cleanAuthor = (authorEmail || 'solicitante@iiresodh.org').trim().toLowerCase();
+
+    // 🔍 Resolver el UID exacto de Firebase Auth para el revisor
+    let targetUid = null;
+    try {
+      const userRecord = await admin.auth().getUserByEmail(cleanReviewer);
+      if (userRecord && userRecord.uid) {
+        targetUid = userRecord.uid;
+      }
+    } catch (authErr) {
+      console.warn('No se pudo resolver UID en Auth para:', cleanReviewer, authErr.message);
+    }
+
+    const reviewerUids = targetUid ? [targetUid, cleanReviewer] : [cleanReviewer];
+
+    // Crear el documento en la colección approvals
+    const approvalDoc = {
+      title: title.trim(),
+      driveFileUrl: driveFileUrl.trim(),
+      driveFileId: driveFileId || ('drive_' + Date.now()),
+      authorEmail: cleanAuthor,
+      authorUid: cleanAuthor,
+      status: 'PENDING',
+      reviewerEmails: [cleanReviewer],
+      reviewerEmail: cleanReviewer,
+      reviewerUids: reviewerUids,
+      initialComment: (comment || '').trim(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    const docRef = await db.collection('approvals').add(approvalDoc);
+
+    // Actualizar también documentos previos existentes para que contengan el UID
+    if (targetUid) {
+      try {
+        const prevSnaps = await db.collection('approvals')
+          .where('reviewerEmail', '==', cleanReviewer)
+          .where('status', '==', 'PENDING')
+          .get();
+        for (const pDoc of prevSnaps.docs) {
+          await pDoc.ref.update({
+            reviewerUids: admin.firestore.FieldValue.arrayUnion(targetUid)
+          });
+        }
+      } catch (backfillErr) {
+        console.warn('Error en backfill de approvals previas:', backfillErr.message);
+      }
+    }
+
+    // Registrar en log de auditoría institucional
+    try {
+      await db.collection('logs_auditoria').add({
+        usuario: cleanAuthor,
+        accion: 'Solicitud de Aprobación desde Google Docs',
+        detalles: `Se envió a revisión el documento "${title.trim()}" asignado a [${cleanReviewer}]. ID: ${docRef.id}`,
+        fecha: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (logErr) {
+      console.warn('No se pudo registrar log de auditoría:', logErr);
+    }
+
+    res.status(200).json({
+      success: true,
+      approvalId: docRef.id,
+      message: `Solicitud de aprobación para "${title}" enviada exitosamente a ${cleanReviewer}.`
+    });
+  } catch (error) {
+    console.error('Error al procesar solicitud de aprobación desde Google Docs:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor al procesar la aprobación: ' + error.message
+    });
+  }
+});

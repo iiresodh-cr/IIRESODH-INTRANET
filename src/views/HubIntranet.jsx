@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { usePendingApprovals } from '../hooks/usePendingApprovals';
 import AcordeonHerramientas from '../components/AcordeonHerramientas';
+import NewApprovalModal from '../components/approvals/NewApprovalModal';
 
 export default function HubIntranet({ setView, userRole, userPermisos, user: propUser, userName }) {
   const { user: authUser } = useAuth();
@@ -19,6 +20,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
 
   // Estado del panel activo en AcordeonHerramientas ('aprobaciones' | 'chat' | 'calendario' | false)
   const [activePanel, setActivePanel] = useState('chat');
+  const [openNewApprovalModal, setOpenNewApprovalModal] = useState(false);
 
   // Si hay tareas de revisión pendientes, expandir automáticamente la bandeja de aprobaciones
   useEffect(() => {
@@ -239,8 +241,9 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           </Box>
         </Card>
 
-        {/* 📅 & 💬 HERRAMIENTAS INSTITUCIONALES (APROBACIONES, CALENDARIO & GOOGLE CHAT) */}
+        {/* 📅 & 💬 HERRAMIENTAS INSTITUCIONALES (BANDEJA DE REVISIÓN, CALENDARIO & GOOGLE CHAT) */}
         <Box sx={{ mb: { xs: 3.5, sm: 5 } }}>
+
           <AcordeonHerramientas
             pendingApprovals={pendingApprovals}
             pendingCount={pendingCount}
