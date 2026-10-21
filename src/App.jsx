@@ -276,7 +276,12 @@ function App() {
       )}
 
       {vistaSegura === 'whatsapp' && (
-        <WhatsappInterface onVolver={() => setView('hub')} />
+        <WhatsappInterface 
+          onVolver={() => setView('hub')} 
+          currentUserEmail={user?.email}
+          userName={userName || user?.displayName || user?.email?.split('@')[0]}
+          userRole={userRole}
+        />
       )}
     </Layout>
   );
