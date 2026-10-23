@@ -14,7 +14,7 @@ except Exception:
 db = firestore.client()
 
 DEFAULT_VERIFY_TOKEN = "mi_codigo_secreto_123"
-DEFAULT_TOKEN = "EAANXNDTIJbEBS2Tsbjnm8jO8lJMWlhYQSgBY5abrLnjXZBrZA3CPmPPrEb5aNAIKVYqr0dZChjMJvhSKDSp2P97rVnMJfHFrQYsqmzIFt11tgH8MZAZBfAzG5WImhtZCIZBSDDmMZAqTYoQEDILKDdvMAPAEwr3A0Jg6RSZCBSGYQulze0BqW3FfZC0DZAcr4hbjsNsoC2nEbfRDYlvbmvcpzQIhgdrQYtiyuZBs5ZAKGXHEYseS90CcZCC93akdcn4DwBe2jlN7tHrA0vvHCQElzfQnAZCeTdgRf64H0EZD"
+DEFAULT_TOKEN = "EAANXNDTIJbEBSZBSCJYkmRppLlnZClHmoNrPXv4NUZAvnrAKRbt3SHKAofljjNHHLPNxNw5dAa6nbptUVihprd0ScNCRPQZCgdn9vDtpeWfwGqZBZAa3W1q3dxZCfY8gsJbAKBMCEMQiqZCEtS78ZB9dXvmoJsuZBARg1i7DaSk5NgBay0ZCE2yvh5raFxFY0yku9alWjZBSsvZC1AP3QLqaKVnYSkeff4WWY6nSmCaYQntAewkACmq5xqYca7A6NZBQYay3mCMQbes9Gx7vFdzRcaShZCZBfAZDZD"
 
 def obtener_credenciales_meta():
     """
@@ -39,9 +39,9 @@ def obtener_credenciales_meta():
     except Exception as e:
         print("⚠️ Error leyendo credenciales de Firestore:", str(e))
 
-    # Fallbacks predeterminados (número de prueba actual)
+    # Fallbacks predeterminados (número oficial permanente: +506 4081 6188)
     token = token or DEFAULT_TOKEN
-    phone_id = phone_id or "1416703958187602"
+    phone_id = phone_id or "1429140810275241"
     waba_id = waba_id or "28701773989517598"
 
     return {

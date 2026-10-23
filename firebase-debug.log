@@ -1,23 +1,92 @@
-[debug] [2026-10-23T01:04:44.773Z] ----------------------------------------------------------------------
-[debug] [2026-10-23T01:04:44.775Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions:whatsapp
-[debug] [2026-10-23T01:04:44.775Z] CLI Version:   15.34.0
-[debug] [2026-10-23T01:04:44.775Z] Platform:      win32
-[debug] [2026-10-23T01:04:44.775Z] Node Version:  v22.18.0
-[debug] [2026-10-23T01:04:44.775Z] Detected Agent: antigravity
-[debug] [2026-10-23T01:04:44.776Z] Time:          Thu Oct 22 2026 19:04:44 GMT-0600 (hora estándar central)
-[debug] [2026-10-23T01:04:44.776Z] ----------------------------------------------------------------------
+[debug] [2026-10-23T18:35:41.690Z] ----------------------------------------------------------------------
+[debug] [2026-10-23T18:35:41.692Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-10-23T18:35:41.692Z] CLI Version:   15.34.0
+[debug] [2026-10-23T18:35:41.692Z] Platform:      win32
+[debug] [2026-10-23T18:35:41.692Z] Node Version:  v22.18.0
+[debug] [2026-10-23T18:35:41.693Z] Detected Agent: antigravity
+[debug] [2026-10-23T18:35:41.693Z] Time:          Fri Oct 23 2026 12:35:41 GMT-0600 (hora estándar central)
+[debug] [2026-10-23T18:35:41.693Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-10-23T01:04:45.879Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-10-23T01:04:45.880Z] > authorizing via signed-in user (webmaster@iiresodh.org)
-[debug] [2026-10-23T01:04:45.880Z] [iam] checking project litigio-management for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
-[debug] [2026-10-23T01:04:45.886Z] Checked if tokens are valid: true, expires at: 1792720697063
-[debug] [2026-10-23T01:04:45.886Z] Checked if tokens are valid: true, expires at: 1792720697063
-[debug] [2026-10-23T01:04:45.887Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions [none]
-[debug] [2026-10-23T01:04:45.887Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions  x-goog-user-project=litigio-management
-[debug] [2026-10-23T01:04:45.887Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
-[debug] [2026-10-23T01:04:46.243Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions 200
-[debug] [2026-10-23T01:04:46.244Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
-[debug] [2026-10-23T01:04:46.244Z] Checked if tokens are valid: true, expires at: 1792720697063
-[debug] [2026-10-23T01:04:46.244Z] Checked if tokens are valid: true, expires at: 1792720697063
-[debug] [2026-10-23T01:04:46.244Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/litigio-management/serviceAccounts/litigio-management@appspot.gserviceaccount.com:testIamPermissions [none]
-[debug] [2026-10-23T01:04:46.244Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/litigio-management/serviceAccounts/litigio-management@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-10-23T18:35:59.415Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-23T18:35:59.416Z] > authorizing via signed-in user (webmaster@iiresodh.org)
+[debug] [2026-10-23T18:35:59.416Z] [iam] checking project litigio-management for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-10-23T18:35:59.424Z] Checked if tokens are valid: false, expires at: 1792720697063
+[debug] [2026-10-23T18:35:59.424Z] Checked if tokens are valid: false, expires at: 1792720697063
+[debug] [2026-10-23T18:35:59.424Z] > refreshing access token with scopes: []
+[debug] [2026-10-23T18:35:59.425Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-10-23T18:35:59.426Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-23T18:35:59.673Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-10-23T18:35:59.673Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-10-23T18:35:59.673Z] [iam] error while checking permissions, command may fail: Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-10-23T18:35:59.673Z] Checked if tokens are valid: false, expires at: 1792720697063
+[debug] [2026-10-23T18:35:59.673Z] Checked if tokens are valid: false, expires at: 1792720697063
+[debug] [2026-10-23T18:35:59.673Z] > refreshing access token with scopes: []
+[debug] [2026-10-23T18:35:59.674Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-10-23T18:35:59.674Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-23T18:35:59.810Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-10-23T18:35:59.811Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-10-23T18:35:59.811Z] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[error] 
+[error] Error: Assertion failed: resolving hosting target of a site with no site name or target name. This should have caused an error earlier
+[debug] [2026-10-23T18:36:10.968Z] ----------------------------------------------------------------------
+[debug] [2026-10-23T18:36:10.969Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-10-23T18:36:10.970Z] CLI Version:   15.34.0
+[debug] [2026-10-23T18:36:10.970Z] Platform:      win32
+[debug] [2026-10-23T18:36:10.970Z] Node Version:  v22.18.0
+[debug] [2026-10-23T18:36:10.970Z] Detected Agent: antigravity
+[debug] [2026-10-23T18:36:10.970Z] Time:          Fri Oct 23 2026 12:36:10 GMT-0600 (hora estándar central)
+[debug] [2026-10-23T18:36:10.970Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-23T18:36:12.167Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-23T18:36:12.167Z] > authorizing via signed-in user (webmaster@iiresodh.org)
+[debug] [2026-10-23T18:36:12.168Z] [iam] checking project litigio-management for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-10-23T18:36:12.174Z] Checked if tokens are valid: false, expires at: 1792720697063
+[debug] [2026-10-23T18:36:12.174Z] Checked if tokens are valid: false, expires at: 1792720697063
+[debug] [2026-10-23T18:36:12.174Z] > refreshing access token with scopes: []
+[debug] [2026-10-23T18:36:12.176Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-10-23T18:36:12.176Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-23T18:36:12.402Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-10-23T18:36:12.402Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-10-23T18:36:12.403Z] [iam] error while checking permissions, command may fail: Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-10-23T18:36:12.403Z] Checked if tokens are valid: false, expires at: 1792720697063
+[debug] [2026-10-23T18:36:12.403Z] Checked if tokens are valid: false, expires at: 1792720697063
+[debug] [2026-10-23T18:36:12.403Z] > refreshing access token with scopes: []
+[debug] [2026-10-23T18:36:12.404Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-10-23T18:36:12.404Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-23T18:36:12.493Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-10-23T18:36:12.493Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-10-23T18:36:12.493Z] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[error] 
+[error] Error: Assertion failed: resolving hosting target of a site with no site name or target name. This should have caused an error earlier
