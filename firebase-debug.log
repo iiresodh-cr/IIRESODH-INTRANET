@@ -1,45 +1,23 @@
-[debug] [2026-10-23T00:51:11.347Z] ----------------------------------------------------------------------
-[debug] [2026-10-23T00:51:11.349Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js projects:list
-[debug] [2026-10-23T00:51:11.349Z] CLI Version:   15.34.0
-[debug] [2026-10-23T00:51:11.350Z] Platform:      win32
-[debug] [2026-10-23T00:51:11.350Z] Node Version:  v22.18.0
-[debug] [2026-10-23T00:51:11.350Z] Detected Agent: antigravity
-[debug] [2026-10-23T00:51:11.350Z] Time:          Thu Oct 22 2026 18:51:11 GMT-0600 (hora estándar central)
-[debug] [2026-10-23T00:51:11.350Z] ----------------------------------------------------------------------
+[debug] [2026-10-23T01:04:44.773Z] ----------------------------------------------------------------------
+[debug] [2026-10-23T01:04:44.775Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions:whatsapp
+[debug] [2026-10-23T01:04:44.775Z] CLI Version:   15.34.0
+[debug] [2026-10-23T01:04:44.775Z] Platform:      win32
+[debug] [2026-10-23T01:04:44.775Z] Node Version:  v22.18.0
+[debug] [2026-10-23T01:04:44.775Z] Detected Agent: antigravity
+[debug] [2026-10-23T01:04:44.776Z] Time:          Thu Oct 22 2026 19:04:44 GMT-0600 (hora estándar central)
+[debug] [2026-10-23T01:04:44.776Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-10-23T00:51:11.357Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
-[debug] [2026-10-23T00:51:11.517Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-10-23T00:51:11.517Z] > authorizing via signed-in user (webmaster@iiresodh.org)
-[debug] [2026-10-23T00:51:11.520Z] Checked if tokens are valid: false, expires at: 1792626633956
-[debug] [2026-10-23T00:51:11.520Z] Checked if tokens are valid: false, expires at: 1792626633956
-[debug] [2026-10-23T00:51:11.520Z] > refreshing access token with scopes: []
-[debug] [2026-10-23T00:51:11.521Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
-[debug] [2026-10-23T00:51:11.521Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2026-10-23T00:51:11.826Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
-[debug] [2026-10-23T00:51:11.826Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
-
-For CI servers and headless environments, generate a new token with firebase login:ci
-[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
-
-For CI servers and headless environments, generate a new token with firebase login:ci
-[debug] [2026-10-23T00:51:11.827Z] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
-
-For CI servers and headless environments, generate a new token with firebase login:ci
-[debug] [2026-10-23T00:51:11.850Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
-[debug] [2026-10-23T00:51:11.850Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
-[debug] [2026-10-23T00:51:12.085Z] FirebaseError: Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
-
-For CI servers and headless environments, generate a new token with firebase login:ci
-    at invalidCredentialError (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\auth.js:178:12)
-    at refreshTokens (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\auth.js:607:15)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async getAccessToken (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\apiv2.js:53:18)
-    at async Client.addAuthHeader (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\apiv2.js:209:21)
-    at async Client.request (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\apiv2.js:156:34)
-    at async getProjectPage (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\management\projects.js:301:17)
-    at async getFirebaseProjectPage (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\management\projects.js:318:23)
-    at async listFirebaseProjects (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\management\projects.js:347:29)
-    at async Command.actionFn (C:\Users\durquilla\AppData\Roaming\npm\node_modules\firebase-tools\lib\commands\projects-list.js:51:20)
-[error] 
-[error] Error: Failed to list Firebase projects. See firebase-debug.log for more info.
+[debug] [2026-10-23T01:04:45.879Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-23T01:04:45.880Z] > authorizing via signed-in user (webmaster@iiresodh.org)
+[debug] [2026-10-23T01:04:45.880Z] [iam] checking project litigio-management for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-10-23T01:04:45.886Z] Checked if tokens are valid: true, expires at: 1792720697063
+[debug] [2026-10-23T01:04:45.886Z] Checked if tokens are valid: true, expires at: 1792720697063
+[debug] [2026-10-23T01:04:45.887Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions [none]
+[debug] [2026-10-23T01:04:45.887Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions  x-goog-user-project=litigio-management
+[debug] [2026-10-23T01:04:45.887Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-10-23T01:04:46.243Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions 200
+[debug] [2026-10-23T01:04:46.244Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/litigio-management:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-10-23T01:04:46.244Z] Checked if tokens are valid: true, expires at: 1792720697063
+[debug] [2026-10-23T01:04:46.244Z] Checked if tokens are valid: true, expires at: 1792720697063
+[debug] [2026-10-23T01:04:46.244Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/litigio-management/serviceAccounts/litigio-management@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-10-23T01:04:46.244Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/litigio-management/serviceAccounts/litigio-management@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}

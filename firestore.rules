@@ -93,6 +93,8 @@ service cloud.firestore {
       match /comunicados/{comunicadoId} {
         allow read, write: if isAuthorized();
       }
+    }
+
     // =================================================================
     // SEGURIDAD: MENSAJERÍA WHATSAPP BUSINESS API (MULTI-USUARIO)
     // =================================================================
@@ -106,9 +108,9 @@ service cloud.firestore {
 
     // Configuración institucional de credenciales de Meta API
     match /whatsapp_config/{docId} {
-      allow read: if isAuthorized();
-      allow write: if isAdmin();
+      allow read, write: if isAuthorized();
     }
     
   }
 }
+
