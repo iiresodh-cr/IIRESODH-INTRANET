@@ -13,7 +13,8 @@ except Exception:
 
 db = firestore.client()
 
-DEFAULT_VERIFY_TOKEN = "iiresodh_webhook_secret_2026"
+DEFAULT_VERIFY_TOKEN = "mi_codigo_secreto_123"
+DEFAULT_TOKEN = "EAANXNDTIJbEBS2Tsbjnm8jO8lJMWlhYQSgBY5abrLnjXZBrZA3CPmPPrEb5aNAIKVYqr0dZChjMJvhSKDSp2P97rVnMJfHFrQYsqmzIFt11tgH8MZAZBfAzG5WImhtZCIZBSDDmMZAqTYoQEDILKDdvMAPAEwr3A0Jg6RSZCBSGYQulze0BqW3FfZC0DZAcr4hbjsNsoC2nEbfRDYlvbmvcpzQIhgdrQYtiyuZBs5ZAKGXHEYseS90CcZCC93akdcn4DwBe2jlN7tHrA0vvHCQElzfQnAZCeTdgRf64H0EZD"
 
 def obtener_credenciales_meta():
     """
@@ -27,17 +28,21 @@ def obtener_credenciales_meta():
     waba_id = os.environ.get("WABA_ID")
 
     # Si falta alguna credencial principal, consultar en Firestore
-    if not token or not phone_id:
-        try:
-            cfg_doc = db.collection("whatsapp_config").document("credenciales").get()
-            if cfg_doc.exists:
-                datos = cfg_doc.to_dict() or {}
-                token = token or datos.get("whatsapp_token")
-                phone_id = phone_id or datos.get("phone_number_id")
-                verify_token = datos.get("verify_token") or verify_token
-                waba_id = waba_id or datos.get("waba_id")
-        except Exception as e:
-            print("⚠️ Error leyendo credenciales de Firestore:", str(e))
+    try:
+        cfg_doc = db.collection("whatsapp_config").document("credenciales").get()
+        if cfg_doc.exists:
+            datos = cfg_doc.to_dict() or {}
+            token = token or datos.get("whatsapp_token")
+            phone_id = datos.get("phone_number_id") or phone_id
+            verify_token = datos.get("verify_token") or verify_token
+            waba_id = datos.get("waba_id") or waba_id
+    except Exception as e:
+        print("⚠️ Error leyendo credenciales de Firestore:", str(e))
+
+    # Fallbacks predeterminados (número de prueba actual)
+    token = token or DEFAULT_TOKEN
+    phone_id = phone_id or "1416703958187602"
+    waba_id = waba_id or "28701773989517598"
 
     return {
         "whatsapp_token": token,
@@ -64,7 +69,8 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
         token = req.args.get("hub.verify_token")
         challenge = req.args.get("hub.challenge")
 
-        if mode == "subscribe" and token == creds["verify_token"]:
+        tokens_validos = {creds["verify_token"], "iiresodh_webhook_secret_2026", "mi_codigo_secreto_123"}
+        if mode == "subscribe" and token in tokens_validos:
             print("✅ Webhook de WhatsApp verificado exitosamente con Meta.")
             return https_fn.Response(challenge, status=200, mimetype="text/plain")
 

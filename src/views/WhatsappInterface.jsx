@@ -63,7 +63,10 @@ import { db } from '../config/firebase';
 const CLOUD_FUNCTION_BASE = 'https://us-central1-litigio-management.cloudfunctions.net';
 const BACKEND_SEND_URL = `${CLOUD_FUNCTION_BASE}/enviar_mensaje`;
 const WEBHOOK_CALLBACK_URL = `${CLOUD_FUNCTION_BASE}/whatsapp_webhook`;
-const DEFAULT_VERIFY_TOKEN = 'iiresodh_webhook_secret_2026';
+const DEFAULT_VERIFY_TOKEN = 'mi_codigo_secreto_123';
+const DEFAULT_PHONE_ID = '1416703958187602';
+const DEFAULT_WABA_ID = '28701773989517598';
+const DEFAULT_TOKEN = 'EAANXNDTIJbEBS2Tsbjnm8jO8lJMWlhYQSgBY5abrLnjXZBrZA3CPmPPrEb5aNAIKVYqr0dZChjMJvhSKDSp2P97rVnMJfHFrQYsqmzIFt11tgH8MZAZBfAzG5WImhtZCIZBSDDmMZAqTYoQEDILKDdvMAPAEwr3A0Jg6RSZCBSGYQulze0BqW3FfZC0DZAcr4hbjsNsoC2nEbfRDYlvbmvcpzQIhgdrQYtiyuZBs5ZAKGXHEYseS90CcZCC93akdcn4DwBe2jlN7tHrA0vvHCQElzfQnAZCeTdgRf64H0EZD';
 
 export default function WhatsappInterface({ 
   onVolver, 
@@ -102,10 +105,10 @@ export default function WhatsappInterface({
 
   // --- Formulario Configuración Meta API ---
   const [metaConfig, setMetaConfig] = useState({
-    phone_number_id: '',
-    whatsapp_token: '',
+    phone_number_id: DEFAULT_PHONE_ID,
+    whatsapp_token: DEFAULT_TOKEN,
     verify_token: DEFAULT_VERIFY_TOKEN,
-    waba_id: ''
+    waba_id: DEFAULT_WABA_ID
   });
   const [guardandoConfig, setGuardandoConfig] = useState(false);
   const [configCargada, setConfigCargada] = useState(false);
@@ -135,10 +138,10 @@ export default function WhatsappInterface({
       if (snap.exists()) {
         const data = snap.data();
         setMetaConfig({
-          phone_number_id: data.phone_number_id || '',
-          whatsapp_token: data.whatsapp_token || '',
+          phone_number_id: data.phone_number_id || DEFAULT_PHONE_ID,
+          whatsapp_token: data.whatsapp_token || DEFAULT_TOKEN,
           verify_token: data.verify_token || DEFAULT_VERIFY_TOKEN,
-          waba_id: data.waba_id || ''
+          waba_id: data.waba_id || DEFAULT_WABA_ID
         });
       }
       setConfigCargada(true);
@@ -276,6 +279,8 @@ export default function WhatsappInterface({
     try {
       // 🚀 Intento 1: Llamada a la Cloud Function de Backend
       let enviadoPorFunction = false;
+      let metaMessageId = null;
+
       try {
         const res = await fetch(BACKEND_SEND_URL, {
           method: 'POST',
@@ -291,27 +296,76 @@ export default function WhatsappInterface({
         if (res.ok) {
           const data = await res.json();
           enviadoPorFunction = true;
-          if (!data.meta_api_conectada) {
-            setNotificacion({
-              tipo: 'info',
-              mensaje: 'Mensaje registrado internamente. Para entrega real al teléfono, conecta las llaves de Meta en "⚙️ Conexión Meta API".'
-            });
-          }
+          metaMessageId = data.id_mensaje;
         }
       } catch (errFunc) {
-        console.warn('Cloud Function no disponible o en desarrollo, aplicando guardado directo en Firestore:', errFunc);
+        console.warn('Cloud Function no disponible o en desarrollo, aplicando fallback directo:', errFunc);
       }
 
-      // 🛡️ Fallback Directo a Firestore (asegura multiusuario instantáneo incluso antes del deploy)
+      // 🌐 Intento 2: Si el backend no completó el envío y tenemos credenciales en el cliente, entrega directa a Meta Graph API
+      let entregadoAMeta = false;
+      if (!enviadoPorFunction && metaConfig.whatsapp_token && metaConfig.phone_number_id) {
+        try {
+          const telClean = String(telefonoDestino).replace(/\D/g, '');
+          const metaRes = await fetch(`https://graph.facebook.com/v21.0/${metaConfig.phone_number_id}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${metaConfig.whatsapp_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: telClean,
+              type: 'text',
+              text: { body: textoAEnviar }
+            })
+          });
+
+          const metaData = await metaRes.json();
+          if (metaRes.ok) {
+            entregadoAMeta = true;
+            metaMessageId = metaData.messages?.[0]?.id || null;
+            console.log('✅ Mensaje entregado a WhatsApp vía Meta API:', metaData);
+          } else {
+            console.warn('⚠️ Meta API devolvió respuesta:', metaData);
+            if (metaData?.error?.code === 131030) {
+              setNotificacion({
+                tipo: 'warning',
+                mensaje: '⚠️ En modo de prueba de Meta, debes agregar este número en Meta Developers > WhatsApp > Primeros pasos > Administrar lista de números de teléfono.'
+              });
+            } else if (metaData?.error?.code === 190) {
+              setNotificacion({
+                tipo: 'warning',
+                mensaje: '⚠️ El token de Meta ha expirado. Por favor renuévalo en Meta for Developers.'
+              });
+            } else if (metaData?.error?.message) {
+              setNotificacion({
+                tipo: 'error',
+                mensaje: `Error Meta API: ${metaData.error.message}`
+              });
+            }
+          }
+        } catch (eMeta) {
+          console.warn('Error conectando directamente con Meta Graph API:', eMeta);
+        }
+      }
+
+      // 🛡️ Sincronización en Firestore (asegura multiusuario instantáneo para todos los operadores)
       if (!enviadoPorFunction) {
+        const estadoFinal = entregadoAMeta 
+          ? 'enviado' 
+          : (metaConfig.whatsapp_token ? 'enviado' : 'esperando_meta_api');
+
         const msgRef = collection(db, 'whatsapp_chats', telefonoDestino, 'mensajes');
         await addDoc(msgRef, {
+          id_meta: metaMessageId,
           texto: textoAEnviar,
           es_mio: true,
           agente_nombre: userName,
           agente_email: currentUserEmail,
           fecha: serverTimestamp(),
-          estado: metaConfig.whatsapp_token ? 'enviado' : 'esperando_meta_api',
+          estado: estadoFinal,
           tipo: 'text'
         });
 
@@ -364,9 +418,42 @@ export default function WhatsappInterface({
         creado_por: currentUserEmail
       }, { merge: true });
 
+      // Intento de envío a Meta
+      let metaPrimerMsgId = null;
+      if (metaConfig.whatsapp_token && metaConfig.phone_number_id) {
+        try {
+          const metaRes = await fetch(`https://graph.facebook.com/v21.0/${metaConfig.phone_number_id}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${metaConfig.whatsapp_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: telLimpio,
+              type: 'text',
+              text: { body: primerMensaje }
+            })
+          });
+          const metaData = await metaRes.json();
+          if (metaRes.ok) {
+            metaPrimerMsgId = metaData.messages?.[0]?.id || null;
+          } else if (metaData?.error?.code === 131030) {
+            setNotificacion({
+              tipo: 'warning',
+              mensaje: '⚠️ En modo de prueba, debes agregar este número a la lista permitida en Meta Developers > WhatsApp > Primeros pasos.'
+            });
+          }
+        } catch (eMeta) {
+          console.warn('Error enviando primer mensaje a Meta:', eMeta);
+        }
+      }
+
       // Enviar el mensaje inicial a la subcolección
       const msgRef = collection(db, 'whatsapp_chats', telLimpio, 'mensajes');
       await addDoc(msgRef, {
+        id_meta: metaPrimerMsgId,
         texto: primerMensaje,
         es_mio: true,
         agente_nombre: userName,
