@@ -44,7 +44,9 @@ import {
   Key, 
   RefreshCw,
   Edit3,
-  Sparkles
+  Sparkles,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   collection, 
@@ -56,9 +58,13 @@ import {
   updateDoc, 
   serverTimestamp, 
   addDoc, 
-  getDoc 
+  getDoc,
+  deleteDoc,
+  writeBatch,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { registrarLogAuditoria } from '../utils/auditLogger';
 
 const CLOUD_FUNCTION_BASE = 'https://us-central1-litigio-management.cloudfunctions.net';
 const BACKEND_SEND_URL = `${CLOUD_FUNCTION_BASE}/enviar_mensaje`;
@@ -74,6 +80,12 @@ export default function WhatsappInterface({
   userName = 'Operador IIRESODH',
   userRole = 'Operador'
 }) {
+  // --- Control de Privilegios Administrativos ---
+  const esAdmin = 
+    userRole === 'Admin' || 
+    userRole === 'Superadmin' || 
+    currentUserEmail?.toLowerCase() === 'webmaster@iiresodh.org';
+
   // --- Estados de Datos ---
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
@@ -94,6 +106,9 @@ export default function WhatsappInterface({
   const [openConfigModal, setOpenConfigModal] = useState(false);
   const [openNuevoChatModal, setOpenNuevoChatModal] = useState(false);
   const [openEditContactoModal, setOpenEditContactoModal] = useState(false);
+  const [openDeleteChatModal, setOpenDeleteChatModal] = useState(false);
+  const [chatAEliminar, setChatAEliminar] = useState(null);
+  const [eliminandoChat, setEliminandoChat] = useState(false);
 
   // --- Formulario Nuevo Chat ---
   const [nuevoTelefono, setNuevoTelefono] = useState('');
@@ -156,6 +171,13 @@ export default function WhatsappInterface({
   }, []);
 
   const handleGuardarConfigMeta = async () => {
+    if (!esAdmin) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'Acción denegada: Solo los administradores pueden modificar las credenciales de WhatsApp Meta API.'
+      });
+      return;
+    }
     setGuardandoConfig(true);
     try {
       const cfgRef = doc(db, 'whatsapp_config', 'credenciales');
@@ -167,6 +189,13 @@ export default function WhatsappInterface({
         actualizado_por: currentUserEmail,
         actualizado_en: serverTimestamp()
       }, { merge: true });
+
+      // 🛡️ Registro de Auditoría Inmutable
+      await registrarLogAuditoria(
+        currentUserEmail,
+        'Actualización de Credenciales Meta API',
+        `El usuario [${userName}] (${currentUserEmail}) actualizó la configuración de Meta Cloud API. Phone Number ID: [${metaConfig.phone_number_id.trim()}], WABA ID: [${metaConfig.waba_id.trim() || 'No asignado'}].`
+      );
 
       setNotificacion({
         tipo: 'success',
@@ -181,6 +210,59 @@ export default function WhatsappInterface({
       });
     } finally {
       setGuardandoConfig(false);
+    }
+  };
+
+  // ==============================================================
+  // ELIMINACIÓN DE CONVERSACIÓN (SOLO ADMINISTRADORES + AUDITORÍA)
+  // ==============================================================
+  const handleEliminarChat = async () => {
+    const chatTarget = chatAEliminar || selectedChat;
+    if (!chatTarget || !esAdmin) return;
+    setEliminandoChat(true);
+    try {
+      const chatId = chatTarget.id;
+      const chatNombre = chatTarget.nombre || `+${chatTarget.telefono}`;
+      const chatTelefono = chatTarget.telefono || chatTarget.id;
+
+      // 1. Eliminar mensajes de la subcolección en lotes (batch)
+      const mensajesRef = collection(db, 'whatsapp_chats', chatId, 'mensajes');
+      const mensajesSnap = await getDocs(mensajesRef);
+      if (!mensajesSnap.empty) {
+        const batch = writeBatch(db);
+        mensajesSnap.forEach((docSnap) => {
+          batch.delete(docSnap.ref);
+        });
+        await batch.commit();
+      }
+
+      // 2. Eliminar el documento de la conversación
+      await deleteDoc(doc(db, 'whatsapp_chats', chatId));
+
+      // 3. Registrar en logs de auditoría inmutables de la institución
+      await registrarLogAuditoria(
+        currentUserEmail,
+        'Eliminación de Conversación WhatsApp',
+        `El usuario [${userName}] (${currentUserEmail}) eliminó permanentemente la conversación con [${chatNombre}] (Tel: +${chatTelefono}) y su historial de ${mensajesSnap.size} mensajes.`
+      );
+
+      if (selectedChat?.id === chatId) {
+        setSelectedChat(null);
+      }
+      setOpenDeleteChatModal(false);
+      setChatAEliminar(null);
+      setNotificacion({
+        tipo: 'success',
+        mensaje: `Conversación con ${chatNombre} eliminada correctamente.`
+      });
+    } catch (error) {
+      console.error('Error al eliminar conversación:', error);
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'Error eliminando la conversación: ' + error.message
+      });
+    } finally {
+      setEliminandoChat(false);
     }
   };
 
@@ -616,9 +698,9 @@ export default function WhatsappInterface({
               icon={tieneApiConectada ? <ShieldCheck size={14} color="#16a34a" /> : <Clock size={14} color="#d97706" />}
               label={tieneApiConectada ? "API Meta Conectada" : "Modo En Espera de Llaves"}
               size="small"
-              onClick={() => setOpenConfigModal(true)}
+              onClick={esAdmin ? () => setOpenConfigModal(true) : undefined}
               sx={{ 
-                cursor: 'pointer',
+                cursor: esAdmin ? 'pointer' : 'default',
                 bgcolor: tieneApiConectada ? '#dcfce7' : '#fef3c7', 
                 color: tieneApiConectada ? '#15803d' : '#b45309',
                 fontWeight: 600,
@@ -628,23 +710,25 @@ export default function WhatsappInterface({
             />
           </Tooltip>
 
-          <Button 
-            variant="contained" 
-            size="small" 
-            startIcon={<Settings size={15} />}
-            onClick={() => setOpenConfigModal(true)}
-            sx={{ 
-              bgcolor: '#0f766e', 
-              color: '#fff', 
-              fontSize: '12px',
-              textTransform: 'none',
-              fontWeight: 600,
-              boxShadow: 'none',
-              '&:hover': { bgcolor: '#115e59' } 
-            }}
-          >
-            Conexión Meta API
-          </Button>
+          {esAdmin && (
+            <Button 
+              variant="contained" 
+              size="small" 
+              startIcon={<Settings size={15} />}
+              onClick={() => setOpenConfigModal(true)}
+              sx={{ 
+                bgcolor: '#0f766e', 
+                color: '#fff', 
+                fontSize: '12px',
+                textTransform: 'none',
+                fontWeight: 600,
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#115e59' } 
+              }}
+            >
+              Conexión Meta API
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -769,10 +853,34 @@ export default function WhatsappInterface({
                   <ListItem 
                     button 
                     onClick={() => setSelectedChat(contact)}
+                    secondaryAction={
+                      esAdmin ? (
+                        <Tooltip title="Eliminar conversación (Solo Administradores)">
+                          <IconButton 
+                            edge="end" 
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setChatAEliminar(contact);
+                              setOpenDeleteChatModal(true);
+                            }}
+                            sx={{ 
+                              color: '#94a3b8', 
+                              mr: -0.5,
+                              opacity: { xs: 1, md: 0 },
+                              transition: 'opacity 0.2s',
+                              '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' }
+                            }}
+                          >
+                            <Trash2 size={15} />
+                          </IconButton>
+                        </Tooltip>
+                      ) : null
+                    }
                     sx={{ 
                       bgcolor: selectedChat?.id === contact.id ? '#f1f5f9' : 'transparent',
                       borderLeft: selectedChat?.id === contact.id ? '4px solid #25D366' : '4px solid transparent',
-                      '&:hover': { bgcolor: '#f8fafc' },
+                      '&:hover': { bgcolor: '#f8fafc', '& .MuiIconButton-root': { opacity: 1 } },
                       py: 1.2
                     }}
                   >
@@ -890,6 +998,25 @@ export default function WhatsappInterface({
                   >
                     Respuestas Rápidas
                   </Button>
+
+                  {esAdmin && (
+                    <Tooltip title="Eliminar conversación (Solo Administradores)">
+                      <IconButton 
+                        size="small"
+                        onClick={() => {
+                          setChatAEliminar(selectedChat);
+                          setOpenDeleteChatModal(true);
+                        }}
+                        sx={{ 
+                          color: '#94a3b8', 
+                          p: 0.8,
+                          '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' } 
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               </Box>
 
@@ -1082,10 +1209,56 @@ export default function WhatsappInterface({
       </Box>
 
       {/* ============================================================== */}
+      {/* MODAL 0: CONFIRMAR ELIMINACIÓN DE CONVERSACIÓN (SOLO ADMINS)    */}
+      {/* ============================================================== */}
+      <Dialog 
+        open={esAdmin && openDeleteChatModal} 
+        onClose={() => !eliminandoChat && setOpenDeleteChatModal(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#b91c1c', fontWeight: 700 }}>
+          <AlertTriangle size={22} color="#dc2626" />
+          Eliminar Conversación
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body2" color="#334155" sx={{ mb: 2 }}>
+            ¿Estás seguro de que deseas eliminar permanentemente la conversación con{' '}
+            <strong>{(chatAEliminar || selectedChat)?.nombre || `+${(chatAEliminar || selectedChat)?.telefono}`}</strong>?
+          </Typography>
+          <Alert severity="warning" sx={{ fontSize: '12px' }}>
+            Esta acción borrará el contacto de la bandeja y todo su historial de mensajes. Este movimiento quedará registrado con tu cuenta en los <strong>Logs de Auditoría</strong>.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+          <Button 
+            onClick={() => {
+              setOpenDeleteChatModal(false);
+              setChatAEliminar(null);
+            }} 
+            disabled={eliminandoChat}
+            sx={{ textTransform: 'none', color: '#64748b' }}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={handleEliminarChat}
+            disabled={eliminandoChat}
+            startIcon={eliminandoChat ? <CircularProgress size={14} color="inherit" /> : <Trash2 size={16} />}
+            sx={{ textTransform: 'none', fontWeight: 600, bgcolor: '#dc2626', '&:hover': { bgcolor: '#b91c1c' } }}
+          >
+            {eliminandoChat ? 'Eliminando...' : 'Eliminar Conversación'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ============================================================== */}
       {/* MODAL 1: CONFIGURACIÓN Y CREDENCIALES DE META CLOUD API        */}
       {/* ============================================================== */}
       <Dialog 
-        open={openConfigModal} 
+        open={esAdmin && openConfigModal} 
         onClose={() => setOpenConfigModal(false)}
         maxWidth="md"
         fullWidth

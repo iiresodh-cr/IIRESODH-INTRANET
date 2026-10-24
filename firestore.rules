@@ -99,16 +99,19 @@ service cloud.firestore {
     // SEGURIDAD: MENSAJERÍA WHATSAPP BUSINESS API (MULTI-USUARIO)
     // =================================================================
     match /whatsapp_chats/{chatId} {
-      allow read, write: if isAuthorized();
+      allow read, create, update: if isAuthorized();
+      allow delete: if isAdmin();
 
       match /mensajes/{mensajeId} {
-        allow read, write: if isAuthorized();
+        allow read, create, update: if isAuthorized();
+        allow delete: if isAdmin();
       }
     }
 
     // Configuración institucional de credenciales de Meta API
     match /whatsapp_config/{docId} {
-      allow read, write: if isAuthorized();
+      allow read: if isAuthorized();
+      allow write: if isAdmin();
     }
     
   }
