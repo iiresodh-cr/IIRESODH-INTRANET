@@ -77,11 +77,20 @@ import {
   increment
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../config/firebase';
+import {
+  ref as rtdbRef,
+  onValue,
+  onDisconnect,
+  update as rtdbUpdate,
+  serverTimestamp as rtdbServerTimestamp
+} from 'firebase/database';
+import { db, rtdb, storage } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import CalendarioHibridoPanel, { CATEGORIAS_EVENTO } from './CalendarioHibridoPanel';
 import ProyectosKanbanPanel from './ProyectosKanbanPanel';
 import GoogleDriveWorkspacePanel, { detectarTipoDrivePorUrl } from './GoogleDriveWorkspacePanel';
+
+const emailToRtdbKey = (email = '') => email.toLowerCase().replace(/[.#$[\]/]/g, '_');
 
 const EMOJIS_RAPIDOS = ['👍', '❤️', '⚖️', '✅', '🙏', '🔥', '👀'];
 
@@ -130,9 +139,9 @@ export default function EspacioTrabajoSlack({
   userName = ''
 }) {
   const { user } = useAuth();
-  const currentUserEmail = (user?.email || 'webmaster@iiresodh.org').toLowerCase();
+  const currentUserEmail = (user?.email || '').toLowerCase();
   const currentUserName =
-    userName || user?.displayName || currentUserEmail.split('@')[0] || 'Usuario IIRESODH';
+    userName || user?.displayName || (currentUserEmail ? currentUserEmail.split('@')[0] : 'Usuario IIRESODH');
 
   // Navegación principal interna ('chat' | 'calendario')
   const [seccionActiva, setSeccionActiva] = useState(initialSection);
@@ -208,31 +217,30 @@ export default function EspacioTrabajoSlack({
   const [drivePreviewItem, setDrivePreviewItem] = useState(null);
 
   // =========================================================================
-  // 1. CARGAR USUARIOS AUTORIZADOS Y PRESENCIA EN TIEMPO REAL
+  // 1. CARGAR USUARIOS AUTORIZADOS Y PRESENCIA NATIVA EN REALTIME DATABASE
   // =========================================================================
   useEffect(() => {
     const unsubUsers = onSnapshot(
       collection(db, 'usuarios_autorizados'),
       (snap) => {
-        const lista = snap.docs.map((d) => {
-          const data = d.data();
-          const email = d.id.toLowerCase();
-          return {
-            email,
-            nombre: data.nombre || email.split('@')[0],
-            rol: data.rol || 'Abogado/a'
-          };
-        });
+        // Excluir siempre la cuenta de superadministración webmaster@iiresodh.org de la mensajería
+        const lista = snap.docs
+          .map((d) => {
+            const data = d.data();
+            const email = d.id.toLowerCase();
+            return {
+              email,
+              nombre: data.nombre || email.split('@')[0],
+              rol: data.rol || 'Abogado/a'
+            };
+          })
+          .filter((u) => u.email !== 'webmaster@iiresodh.org');
 
-        // Asegurar que webmaster y el usuario actual aparezcan siempre
-        if (!lista.some((u) => u.email === 'webmaster@iiresodh.org')) {
-          lista.unshift({
-            email: 'webmaster@iiresodh.org',
-            nombre: 'Webmaster IIRESODH',
-            rol: 'Superadmin'
-          });
-        }
-        if (currentUserEmail && !lista.some((u) => u.email === currentUserEmail)) {
+        if (
+          currentUserEmail &&
+          currentUserEmail !== 'webmaster@iiresodh.org' &&
+          !lista.some((u) => u.email === currentUserEmail)
+        ) {
           lista.push({
             email: currentUserEmail,
             nombre: currentUserName,
@@ -245,16 +253,21 @@ export default function EspacioTrabajoSlack({
       (err) => console.error('Error cargando usuarios del workspace:', err)
     );
 
-    const unsubPresencia = onSnapshot(
-      collection(db, 'workspace_presencia'),
+    // Escuchar todos los estados de presencia en tiempo real desde Firebase Realtime Database
+    const presenciaRootRef = rtdbRef(rtdb, 'presencia');
+    const unsubPresencia = onValue(
+      presenciaRootRef,
       (snap) => {
+        const val = snap.val() || {};
         const mapa = {};
-        snap.docs.forEach((d) => {
-          mapa[d.id.toLowerCase()] = d.data();
+        Object.values(val).forEach((item) => {
+          if (item && item.email) {
+            mapa[item.email.toLowerCase()] = item;
+          }
         });
         setPresenciaMap(mapa);
       },
-      (err) => console.error('Error escuchando presencia:', err)
+      (err) => console.error('Error escuchando presencia RTDB:', err)
     );
 
     return () => {
@@ -263,52 +276,60 @@ export default function EspacioTrabajoSlack({
     };
   }, [currentUserEmail, currentUserName, userRole]);
 
-  // Latido de presencia del usuario actual
+  // Conexión WebSocket nativa (.info/connected + onDisconnect) en Realtime Database
   useEffect(() => {
     if (!currentUserEmail) return;
-    const refPresencia = doc(db, 'workspace_presencia', currentUserEmail);
 
-    const registrarLatido = async () => {
-      try {
-        await setDoc(
-          refPresencia,
-          {
+    const userKey = emailToRtdbKey(currentUserEmail);
+    const miPresenciaRtdbRef = rtdbRef(rtdb, `presencia/${userKey}`);
+    const connectedRef = rtdbRef(rtdb, '.info/connected');
+
+    const unsubConnected = onValue(connectedRef, async (snap) => {
+      if (snap.val() === true) {
+        try {
+          // 1. Registrar desconexión automática en el servidor de Google (onDisconnect)
+          await onDisconnect(miPresenciaRtdbRef).update({
+            email: currentUserEmail,
+            enLinea: false,
+            ultimaConexionMs: rtdbServerTimestamp()
+          });
+
+          // 2. Marcar al usuario como en línea inmediatamente
+          await rtdbUpdate(miPresenciaRtdbRef, {
             email: currentUserEmail,
             nombre: currentUserName,
             avatar: user?.photoURL || '',
             rol: userRole,
-            ultimaConexionMs: Date.now(),
-            actualizadoEn: serverTimestamp()
-          },
-          { merge: true }
-        );
-      } catch (e) {
-        // Silencioso en caso de reconexión
+            enLinea: true,
+            ultimaConexionMs: rtdbServerTimestamp()
+          });
+        } catch (e) {
+          console.error('Error registrando presencia en RTDB:', e);
+        }
       }
-    };
+    });
 
-    registrarLatido();
-    const timer = setInterval(registrarLatido, 60000);
-    return () => clearInterval(timer);
+    return () => {
+      unsubConnected();
+    };
   }, [currentUserEmail, currentUserName, user?.photoURL, userRole]);
 
-  // Cambiar estado personalizado del usuario
+  // Cambiar estado personalizado del usuario en Realtime Database
   const handleCambiarEstado = async (estadoObj) => {
     setAnchorEstadoUsuario(null);
     if (!currentUserEmail) return;
     try {
-      await setDoc(
-        doc(db, 'workspace_presencia', currentUserEmail),
-        {
-          estadoId: estadoObj.id,
-          estadoEmoji: estadoObj.emoji,
-          estadoTexto: estadoObj.texto,
-          ultimaConexionMs: Date.now()
-        },
-        { merge: true }
-      );
+      const userKey = emailToRtdbKey(currentUserEmail);
+      await rtdbUpdate(rtdbRef(rtdb, `presencia/${userKey}`), {
+        email: currentUserEmail,
+        estadoId: estadoObj.id,
+        estadoEmoji: estadoObj.emoji,
+        estadoTexto: estadoObj.texto,
+        enLinea: estadoObj.id !== 'ausente',
+        ultimaConexionMs: rtdbServerTimestamp()
+      });
     } catch (e) {
-      console.error('Error actualizando estado:', e);
+      console.error('Error actualizando estado en RTDB:', e);
     }
   };
 
@@ -358,20 +379,15 @@ export default function EspacioTrabajoSlack({
     return () => unsub();
   }, [currentUserEmail, userRole]);
 
-  // Marcar canal activo como leído
+  // Marcar canal activo como leído en Realtime Database
   useEffect(() => {
     if (!canalActivoId || !currentUserEmail) return;
     const marcarLeido = async () => {
       try {
-        await setDoc(
-          doc(db, 'workspace_presencia', currentUserEmail),
-          {
-            lecturasCanales: {
-              [canalActivoId]: Date.now()
-            }
-          },
-          { merge: true }
-        );
+        const userKey = emailToRtdbKey(currentUserEmail);
+        await rtdbUpdate(rtdbRef(rtdb, `presencia/${userKey}/lecturasCanales`), {
+          [canalActivoId]: Date.now()
+        });
       } catch (e) {
         // Silencioso
       }
@@ -705,8 +721,10 @@ export default function EspacioTrabajoSlack({
 
   const estaEnLinea = (email) => {
     const p = presenciaMap[email.toLowerCase()];
-    if (!p?.ultimaConexionMs) return false;
-    return Date.now() - p.ultimaConexionMs < 5 * 60 * 1000; // Activo en últimos 5 min
+    if (!p || p.enLinea !== true || p.estadoId === 'ausente') {
+      return false;
+    }
+    return true;
   };
 
   const tieneNoLeidos = (canal) => {

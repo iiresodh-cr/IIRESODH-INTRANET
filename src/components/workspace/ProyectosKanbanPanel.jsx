@@ -159,7 +159,7 @@ export default function ProyectosKanbanPanel({
     severity: 'success'
   });
 
-  const userEmail = (currentUser?.email || 'webmaster@iiresodh.org').toLowerCase();
+  const userEmail = (currentUser?.email || '').toLowerCase();
 
   // 1. Escuchar y sembrar Proyectos Institucionales
   useEffect(() => {

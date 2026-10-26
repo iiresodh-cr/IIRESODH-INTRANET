@@ -187,7 +187,7 @@ export default function GoogleDriveWorkspacePanel({
     severity: 'success'
   });
 
-  const userEmail = (currentUser?.email || 'webmaster@iiresodh.org').toLowerCase();
+  const userEmail = (currentUser?.email || '').toLowerCase();
 
   // Escuchar elementos de la biblioteca de Google Drive en Firestore
   useEffect(() => {

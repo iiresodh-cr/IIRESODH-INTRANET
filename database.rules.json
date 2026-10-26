@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "presencia": {
+      ".read": "auth != null",
+      "$userKey": {
+        ".write": "auth != null"
+      }
+    }
+  }
+}

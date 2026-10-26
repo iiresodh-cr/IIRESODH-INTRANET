@@ -10,6 +10,8 @@ import {
   Briefcase, ShieldAlert, LogOut, UserCheck, Home, 
   Globe, MessageCircle, FolderArchive, Menu, X 
 } from 'lucide-react';
+import { ref as rtdbRef, update as rtdbUpdate, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
+import { rtdb } from '../config/firebase';
 import { registrarLogAuditoria } from '../utils/auditLogger';
 
 const drawerWidth = 260;
@@ -190,6 +192,11 @@ export default function Layout({ children, currentView, setView, userRole, userP
               onClick={async () => {
                 if (user?.email) {
                   try {
+                    const userKey = user.email.toLowerCase().replace(/[.#$[\]/]/g, '_');
+                    await rtdbUpdate(rtdbRef(rtdb, `presencia/${userKey}`), {
+                      enLinea: false,
+                      ultimaConexionMs: rtdbServerTimestamp()
+                    });
                     await registrarLogAuditoria(
                       user.email,
                       'Cierre de Sesión',
