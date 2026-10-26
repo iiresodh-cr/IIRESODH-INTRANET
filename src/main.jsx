@@ -40,9 +40,6 @@ const theme = createTheme({
     h6: { fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif', fontWeight: 700, letterSpacing: '-0.01em' },
     subtitle1: { fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif' },
     button: { fontFamily: '"Inter", sans-serif', fontWeight: 600 },
-  },
-  shape: {
-    borderRadius: 10,
   }
 });
 

@@ -315,9 +315,10 @@ export default function Login({ institutionalError, setInstitutionalError }) {
           sx={{
             width: '100%',
             maxWidth: 460,
-            borderRadius: 3,
+            borderRadius: '0 0 12px 12px',
             bgcolor: '#FFFFFF',
             border: '1px solid #E2E8F0',
+            borderTop: 'none',
             boxShadow: '0 20px 45px -15px rgba(29, 53, 87, 0.08), 0 4px 12px -2px rgba(29, 53, 87, 0.04)',
             overflow: 'hidden'
           }}
