@@ -103,9 +103,24 @@ Al pasar el cursor sobre cualquier mensaje del chat, aparece una **barra flotant
 - **Editar (`✏️`) / Eliminar (`🗑️`)**: Permite corregir errores de redacción en sus propios mensajes o eliminarlos.
 
 **Barra de redacción de mensajes (parte inferior):**
-- **Negrita y Código**: Use el botón **`B`** o escriba entre asteriscos `*texto importante*` para negrita, y acentos graves `` `artículo 8` `` para código o citas resaltadas.
-- **Mencionar a un colega (`@`)**: Haga clic en el ícono **`@`** para elegir a un compañero de la lista; su nombre aparecerá resaltado en azul (`@NombreApellido`).
+- **Formato enriquecido**:
+  - **Negrita (`*texto*`)**, **Cursiva (`_texto_`)** y **Código (`` `artículo 8` ``)**.
+  - **Cita jurídica (`> texto`)**: Muestra un bloque de cita con barra lateral institucional ideal para transcribir extractos de sentencias o normativas.
+  - **Lista con viñetas (`•`)**: Inserta listas estructuradas en el mensaje.
+- **Mencionar a un colega (`@`)**: Haga clic en el ícono **`@`** para elegir a un compañero de la lista; su nombre aparecerá resaltado (`@NombreApellido`).
 - **Adjuntar Archivos o Imágenes (`📎`)**: Haga clic en el clip para subir documentos PDF, Word, Excel o imágenes desde su computadora directamente a la conversación.
+- **Notas de Voz / Clips de Audio (`🎙️`)**: Haga clic en el ícono del micrófono para grabar una nota de voz directamente desde su navegador. Verá el contador en tiempo real y podrá pulsar **Enviar nota de voz** para publicar un reproductor de audio integrado en el canal.
+- **Encuestas y Votaciones Rápidas (`📊`)**: Haga clic en el ícono de gráfico de barras para lanzar una pregunta con múltiples opciones de votación en tiempo real. Cada miembro puede votar con un clic y ver las barras de porcentaje actualizadas al instante.
+- **Comandos Rápidos con Barra (`/`) o botón `⚡`**: Escriba **`/`** al inicio del mensaje para desplegar la paleta de comandos rápidos:
+  - `/tarea [título]` → Crea una tarea directamente en el Tablero Kanban y publica su tarjeta en el canal.
+  - `/encuesta` → Abre el creador de encuestas del canal.
+  - `/evento` → Abre el agendamiento rápido en el Calendario Híbrido.
+  - `/canvas` → Abre el Canvas colaborativo del canal.
+  - `/guardados` → Abre su bandeja personal de elementos guardados.
+
+**Herramientas avanzadas del canal y marcadores personales:**
+- **Elementos Guardados (*"Para más tarde"* `🔖`)**: A diferencia de "Fijar mensaje" (`📌`, que es público para todos en el canal), el botón **Guardar para más tarde (`🔖`)** guarda cualquier mensaje o documento en su lista personal privada accesible desde la barra lateral izquierda (**`Guardados (Para más tarde)`**).
+- **Canvas Colaborativo del Canal (`📝 Canvas`)**: En la esquina superior derecha de cada canal, el botón **`Canvas`** abre un bloc de notas colaborativo sincronizado en tiempo real para registrar acuerdos del expediente, enlaces permanentes o minutas del canal.
 
 > **📌 Ejemplo Práctico 1 — Coordinar la revisión de un escrito en un hilo:**
 > 1. La abogada Laura entra al canal **`#litigios-y-casos`**, hace clic en el ícono **`📎`** para adjuntar el PDF del borrador de alegatos y escribe: *"@Carlos por favor revisa la sección de reparaciones antes de las 4:00 p.m."*
@@ -114,21 +129,26 @@ Al pasar el cursor sobre cualquier mensaje del chat, aparece una **barra flotant
 
 ---
 
-### 3.2. Indicador de Presencia y Estados de Disponibilidad
+### 3.2. Indicador de Presencia, *"Está escribiendo..."* y Estados de Disponibilidad
 
 El Workspace utiliza **Firebase Realtime Database** con detección instantánea de conexión:
 - **Punto Verde (`🟢`)**: Indica que el compañero tiene la Intranet abierta y activa en este momento.
 - **Punto Gris (`⚫`)**: Indica que el compañero cerró su sesión o cerró la pestaña del navegador (se actualiza automáticamente en milisegundos).
+- **Indicador *"Está escribiendo..."* (`✍️`)**: Cuando uno o varios colegas están redactando un mensaje en el canal o chat directo actual, aparece en vivo encima de la caja de texto quién está escribiendo.
 
-**¿Cómo cambiar su estado de disponibilidad personalizado?**
-En la esquina superior derecha de la barra oscura del Workspace, haga clic sobre el botón de estado (por defecto **`🟢 Disponible`**) y elija su situación actual:
-- `🟢 Disponible`
-- `⚖️ En audiencia judicial`
-- `📅 En reunión`
-- `🎯 Redactando escrito / Enfoque`
-- `🌴 Ausente`
+**¿Cómo cambiar su estado de disponibilidad o escribir un estado personalizado?**
+En la esquina superior derecha de la barra superior del Workspace, haga clic sobre el botón de estado (por defecto **`🟢 Disponible`**):
+1. Puede escribir un **estado personalizado libre** con su propio emoji y texto (ej. `🏛️ Audiencia Caso X`) y pulsar **OK**.
+2. O elegir uno de los estados predeterminados:
+   - `🟢 Disponible`
+   - `🏛️ En audiencia judicial`
+   - `📅 En reunión`
+   - `📝 Redactando escrito / Enfoque`
+   - `✈️ En misión oficial`
+   - `🔕 Plazo fatal / No molestar`
+   - `🌴 Ausente / Vacaciones`
 
-Su emoji de estado aparecerá junto a su nombre en la lista de Mensajes Directos para que todo el equipo sepa si se encuentra en audiencia o disponible.
+Su emoji de estado aparecerá junto a su nombre tanto en la lista de Mensajes Directos como en el encabezado de sus mensajes.
 
 ---
 

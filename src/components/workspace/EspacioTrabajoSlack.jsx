@@ -43,23 +43,29 @@ import {
   Calendar as CalendarIcon,
   Maximize2,
   Minimize2,
-  MoreVertical,
   Edit3,
   Trash2,
   X,
-  Check,
   FileText,
   Download,
   Users,
-  Sparkles,
   Bold,
   Italic,
   Code,
   ChevronRight,
-  Circle,
   Menu as MenuIcon,
   FolderKanban,
-  HardDrive
+  HardDrive,
+  Bookmark,
+  BookOpen,
+  Mic,
+  Square,
+  BarChart2,
+  Zap,
+  List as ListIcon,
+  Quote,
+  Volume2,
+  CheckCircle2
 } from 'lucide-react';
 import {
   collection,
@@ -72,7 +78,6 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-  getDocs,
   serverTimestamp,
   increment
 } from 'firebase/firestore';
@@ -82,13 +87,15 @@ import {
   onValue,
   onDisconnect,
   update as rtdbUpdate,
+  set as rtdbSet,
+  remove as rtdbRemove,
   serverTimestamp as rtdbServerTimestamp
 } from 'firebase/database';
 import { db, rtdb, storage } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import CalendarioHibridoPanel, { CATEGORIAS_EVENTO } from './CalendarioHibridoPanel';
 import ProyectosKanbanPanel from './ProyectosKanbanPanel';
-import GoogleDriveWorkspacePanel, { detectarTipoDrivePorUrl } from './GoogleDriveWorkspacePanel';
+import GoogleDriveWorkspacePanel from './GoogleDriveWorkspacePanel';
 
 const emailToRtdbKey = (email = '') => email.toLowerCase().replace(/[.#$[\]/]/g, '_');
 
@@ -96,10 +103,40 @@ const EMOJIS_RAPIDOS = ['👍', '❤️', '⚖️', '✅', '🙏', '🔥', '👀
 
 const ESTADOS_USUARIO = [
   { id: 'disponible', emoji: '🟢', texto: 'Disponible', color: '#22c55e' },
-  { id: 'audiencia', emoji: '⚖️', texto: 'En audiencia judicial', color: '#dc2626' },
+  { id: 'audiencia', emoji: '🏛️', texto: 'En audiencia judicial', color: '#dc2626' },
   { id: 'reunion', emoji: '📅', texto: 'En reunión', color: '#f59e0b' },
-  { id: 'enfoque', emoji: '🎯', texto: 'Redactando escrito / Enfoque', color: '#3b82f6' },
-  { id: 'ausente', emoji: '🌴', texto: 'Ausente', color: '#94a3b8' }
+  { id: 'enfoque', emoji: '📝', texto: 'Redactando escrito / Enfoque', color: '#3b82f6' },
+  { id: 'mision', emoji: '✈️', texto: 'En misión oficial', color: '#0284c7' },
+  { id: 'plazo', emoji: '🔕', texto: 'Plazo fatal / No molestar', color: '#b91c1c' },
+  { id: 'ausente', emoji: '🌴', texto: 'Ausente / Vacaciones', color: '#94a3b8' }
+];
+
+const SLASH_COMMANDS = [
+  {
+    cmd: '/tarea',
+    ejemplo: '/tarea Revisar jurisprudencia CIDH',
+    desc: 'Crea una tarea rápida en Proyectos Kanban y la comparte en el canal'
+  },
+  {
+    cmd: '/encuesta',
+    ejemplo: '/encuesta',
+    desc: 'Abre el creador de encuestas y votaciones en tiempo real para este canal'
+  },
+  {
+    cmd: '/evento',
+    ejemplo: '/evento',
+    desc: 'Agenda una reunión o plazo procesal en el Calendario Híbrido'
+  },
+  {
+    cmd: '/canvas',
+    ejemplo: '/canvas',
+    desc: 'Abre el Canvas colaborativo (notas, acuerdos y enlaces) de este canal'
+  },
+  {
+    cmd: '/guardados',
+    ejemplo: '/guardados',
+    desc: 'Muestra tu bandeja personal de mensajes guardados ("Para más tarde")'
+  }
 ];
 
 const CANALES_INICIALES = [
@@ -143,7 +180,7 @@ export default function EspacioTrabajoSlack({
   const currentUserName =
     userName || user?.displayName || (currentUserEmail ? currentUserEmail.split('@')[0] : 'Usuario IIRESODH');
 
-  // Navegación principal interna ('chat' | 'calendario')
+  // Navegación principal interna ('chat' | 'proyectos' | 'calendario' | 'drive')
   const [seccionActiva, setSeccionActiva] = useState(initialSection);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -174,11 +211,22 @@ export default function EspacioTrabajoSlack({
   const [presenciaMap, setPresenciaMap] = useState({});
   const [busquedaSidebar, setBusquedaSidebar] = useState('');
 
+  // Indicador "Está escribiendo..." en tiempo real (RTDB)
+  const [usuariosEscribiendo, setUsuariosEscribiendo] = useState([]);
+  const typingTimeoutRef = useRef(null);
+
+  // Estado personalizado libre del usuario
+  const [customStatusEmoji, setCustomStatusEmoji] = useState('💬');
+  const [customStatusTexto, setCustomStatusTexto] = useState('');
+
   // Mensajes del canal activo
   const [mensajes, setMensajes] = useState([]);
   const [loadingMensajes, setLoadingMensajes] = useState(false);
   const [busquedaEnCanal, setBusquedaEnCanal] = useState('');
   const [mostrarBuscadorCanal, setMostrarBuscadorCanal] = useState(false);
+
+  // Elementos Guardados ("Para más tarde") del usuario actual
+  const [mensajesGuardados, setMensajesGuardados] = useState([]);
 
   // Compositor de mensaje principal
   const [textoMensaje, setTextoMensaje] = useState('');
@@ -188,19 +236,40 @@ export default function EspacioTrabajoSlack({
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Menús flotantes del compositor (Emojis y @Menciones)
+  // Grabación de notas de voz (Audio Clips)
+  const [grabandoAudio, setGrabandoAudio] = useState(false);
+  const [segundosGrabacion, setSegundosGrabacion] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const grabacionIntervalRef = useRef(null);
+  const cancelarGrabacionFlagRef = useRef(false);
+
+  // Menús flotantes del compositor (Emojis, @Menciones, /Comandos)
   const [anchorEmojiComposer, setAnchorEmojiComposer] = useState(null);
   const [anchorMencionComposer, setAnchorMencionComposer] = useState(null);
   const [anchorEstadoUsuario, setAnchorEstadoUsuario] = useState(null);
+  const [mostrarMenuSlash, setMostrarMenuSlash] = useState(false);
 
   // Edición de mensaje inline
   const [editandoMensajeId, setEditandoMensajeId] = useState(null);
   const [textoEdicion, setTextoEdicion] = useState('');
 
-  // Panel lateral derecho ('hilo' | 'fijados' | 'miembros' | null)
+  // Panel lateral derecho ('hilo' | 'fijados' | 'guardados' | 'canvas' | null)
   const [panelDerecho, setPanelDerecho] = useState(null);
   const [mensajeHiloPadre, setMensajeHiloPadre] = useState(null);
   const [textoRespuestaHilo, setTextoRespuestaHilo] = useState('');
+
+  // Estado del Canvas colaborativo del canal activo
+  const [canvasTexto, setCanvasTexto] = useState('');
+  const [guardandoCanvas, setGuardandoCanvas] = useState(false);
+  const [canvasGuardadoOk, setCanvasGuardadoOk] = useState(false);
+
+  // Modal de Encuesta / Votación Rápida
+  const [modalEncuestaOpen, setModalEncuestaOpen] = useState(false);
+  const [encuestaForm, setEncuestaForm] = useState({
+    pregunta: '',
+    opciones: ['', '']
+  });
 
   // Modal de creación de nuevo canal
   const [modalCanalOpen, setModalCanalOpen] = useState(false);
@@ -223,7 +292,6 @@ export default function EspacioTrabajoSlack({
     const unsubUsers = onSnapshot(
       collection(db, 'usuarios_autorizados'),
       (snap) => {
-        // Excluir siempre la cuenta de superadministración webmaster@iiresodh.org de la mensajería
         const lista = snap.docs
           .map((d) => {
             const data = d.data();
@@ -253,7 +321,6 @@ export default function EspacioTrabajoSlack({
       (err) => console.error('Error cargando usuarios del workspace:', err)
     );
 
-    // Escuchar todos los estados de presencia en tiempo real desde Firebase Realtime Database
     const presenciaRootRef = rtdbRef(rtdb, 'presencia');
     const unsubPresencia = onValue(
       presenciaRootRef,
@@ -287,14 +354,12 @@ export default function EspacioTrabajoSlack({
     const unsubConnected = onValue(connectedRef, async (snap) => {
       if (snap.val() === true) {
         try {
-          // 1. Registrar desconexión automática en el servidor de Google (onDisconnect)
           await onDisconnect(miPresenciaRtdbRef).update({
             email: currentUserEmail,
             enLinea: false,
             ultimaConexionMs: rtdbServerTimestamp()
           });
 
-          // 2. Marcar al usuario como en línea inmediatamente
           await rtdbUpdate(miPresenciaRtdbRef, {
             email: currentUserEmail,
             nombre: currentUserName,
@@ -313,6 +378,53 @@ export default function EspacioTrabajoSlack({
       unsubConnected();
     };
   }, [currentUserEmail, currentUserName, user?.photoURL, userRole]);
+
+  // Escuchar indicador "Está escribiendo..." del canal activo en Realtime Database
+  useEffect(() => {
+    if (!canalActivoId || !currentUserEmail) return;
+    const typingCanalRef = rtdbRef(rtdb, `typing/${canalActivoId}`);
+    const unsubTyping = onValue(typingCanalRef, (snap) => {
+      const val = snap.val() || {};
+      const ahora = Date.now();
+      const activos = Object.values(val).filter(
+        (t) =>
+          t &&
+          t.email &&
+          t.email.toLowerCase() !== currentUserEmail &&
+          ahora - (t.timestamp || 0) < 7000
+      );
+      setUsuariosEscribiendo(activos);
+    });
+
+    return () => unsubTyping();
+  }, [canalActivoId, currentUserEmail]);
+
+  const notificarEscritura = (nuevoTexto) => {
+    setTextoMensaje(nuevoTexto);
+    setMostrarMenuSlash(nuevoTexto.startsWith('/') && !nuevoTexto.includes(' '));
+
+    if (!canalActivoId || !currentUserEmail) return;
+    const userKey = emailToRtdbKey(currentUserEmail);
+    const miTypingRef = rtdbRef(rtdb, `typing/${canalActivoId}/${userKey}`);
+
+    if (!nuevoTexto.trim()) {
+      rtdbRemove(miTypingRef).catch(() => {});
+      return;
+    }
+
+    rtdbSet(miTypingRef, {
+      email: currentUserEmail,
+      nombre: currentUserName,
+      timestamp: Date.now()
+    }).catch(() => {});
+
+    onDisconnect(miTypingRef).remove().catch(() => {});
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      rtdbRemove(miTypingRef).catch(() => {});
+    }, 3000);
+  };
 
   // Cambiar estado personalizado del usuario en Realtime Database
   const handleCambiarEstado = async (estadoObj) => {
@@ -333,8 +445,71 @@ export default function EspacioTrabajoSlack({
     }
   };
 
+  const handleGuardarEstadoLibre = async () => {
+    if (!customStatusTexto.trim()) return;
+    await handleCambiarEstado({
+      id: 'personalizado',
+      emoji: customStatusEmoji || '💬',
+      texto: customStatusTexto.trim()
+    });
+    setCustomStatusTexto('');
+  };
+
   // =========================================================================
-  // 2. ESCUCHAR Y SEMBRAR CANALES INSTITUCIONALES
+  // 2. ESCUCHAR ELEMENTOS GUARDADOS ("PARA MÁS TARDE") DEL USUARIO ACTUAL
+  // =========================================================================
+  useEffect(() => {
+    if (!currentUserEmail) return;
+    const q = query(
+      collection(db, 'workspace_guardados'),
+      where('userEmail', '==', currentUserEmail)
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        docs.sort((a, b) => (b.guardadoEnMs || 0) - (a.guardadoEnMs || 0));
+        setMensajesGuardados(docs);
+      },
+      (err) => console.error('Error escuchando workspace_guardados:', err)
+    );
+    return () => unsub();
+  }, [currentUserEmail]);
+
+  const estaGuardadoPorMi = (mensajeId) => {
+    const docId = `${emailToRtdbKey(currentUserEmail)}_${mensajeId}`;
+    return mensajesGuardados.some((g) => g.id === docId || g.mensajeId === mensajeId);
+  };
+
+  const handleToggleGuardado = async (msg) => {
+    if (!currentUserEmail) return;
+    const docId = `${emailToRtdbKey(currentUserEmail)}_${msg.id}`;
+    const refGuardado = doc(db, 'workspace_guardados', docId);
+    try {
+      if (estaGuardadoPorMi(msg.id)) {
+        await deleteDoc(refGuardado);
+      } else {
+        await setDoc(refGuardado, {
+          userEmail: currentUserEmail,
+          mensajeId: msg.id,
+          canalId: canalActivoId,
+          canalNombre: obtenerTituloCanal(canalActivo),
+          autorNombre: msg.autorNombre || 'Colega',
+          autorRol: msg.autorRol || '',
+          texto: msg.texto || '',
+          adjuntos: msg.adjuntos || [],
+          audioAdjunto: msg.audioAdjunto || null,
+          creadoEnMs: msg.creadoEnMs || Date.now(),
+          guardadoEnMs: Date.now()
+        });
+      }
+    } catch (e) {
+      console.error('Error al guardar/quitar marcador:', e);
+    }
+  };
+
+  // =========================================================================
+  // 3. ESCUCHAR Y SEMBRAR CANALES INSTITUCIONALES
   // =========================================================================
   useEffect(() => {
     const q = query(collection(db, 'workspace_canales'));
@@ -342,7 +517,6 @@ export default function EspacioTrabajoSlack({
       q,
       async (snap) => {
         if (snap.empty) {
-          // Sembrar canales por defecto la primera vez
           for (const ch of CANALES_INICIALES) {
             await setDoc(doc(db, 'workspace_canales', ch.slug), {
               nombre: ch.nombre,
@@ -361,7 +535,6 @@ export default function EspacioTrabajoSlack({
         }
 
         const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        // Filtrar canales privados donde el usuario tiene acceso (o Superadmin)
         const visibles = docs.filter((c) => {
           if (c.tipo === 'dm') {
             return (c.participantes || []).includes(currentUserEmail);
@@ -388,7 +561,7 @@ export default function EspacioTrabajoSlack({
         await rtdbUpdate(rtdbRef(rtdb, `presencia/${userKey}/lecturasCanales`), {
           [canalActivoId]: Date.now()
         });
-      } catch (e) {
+      } catch {
         // Silencioso
       }
     };
@@ -396,7 +569,7 @@ export default function EspacioTrabajoSlack({
   }, [canalActivoId, mensajes.length, currentUserEmail]);
 
   // =========================================================================
-  // 3. ESCUCHAR MENSAJES DEL CANAL ACTIVO EN TIEMPO REAL
+  // 4. ESCUCHAR MENSAJES DEL CANAL ACTIVO EN TIEMPO REAL
   // =========================================================================
   useEffect(() => {
     if (!canalActivoId) return;
@@ -426,14 +599,12 @@ export default function EspacioTrabajoSlack({
     return () => unsub();
   }, [canalActivoId]);
 
-  // Auto-scroll al final cuando llegan mensajes nuevos al canal principal
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [mensajes.length, canalActivoId]);
 
-  // Mantener sincronizado el mensaje padre del hilo si cambia en tiempo real
   useEffect(() => {
     if (mensajeHiloPadre) {
       const actualizado = mensajes.find((m) => m.id === mensajeHiloPadre.id);
@@ -446,7 +617,35 @@ export default function EspacioTrabajoSlack({
     [canales, canalActivoId]
   );
 
-  // Mensajes principales (que no son respuesta de hilo) y respuestas del hilo activo
+  // Sincronizar el texto del Canvas colaborativo cuando cambia el canal activo
+  useEffect(() => {
+    if (canalActivo) {
+      setCanvasTexto(
+        canalActivo.canvasContenido ||
+          `# Notas y Acuerdos de #${canalActivo.nombre || 'canal'}\n\n• Objetivos actuales:\n• Enlaces de expediente / Drive:\n• Acuerdos de equipo:`
+      );
+    }
+  }, [canalActivo?.id, canalActivo?.canvasContenido]);
+
+  const handleGuardarCanvas = async () => {
+    if (!canalActivoId) return;
+    setGuardandoCanvas(true);
+    try {
+      await updateDoc(doc(db, 'workspace_canales', canalActivoId), {
+        canvasContenido: canvasTexto,
+        canvasActualizadoPor: currentUserName,
+        canvasActualizadoEnMs: Date.now()
+      });
+      setCanvasGuardadoOk(true);
+      setTimeout(() => setCanvasGuardadoOk(false), 2500);
+    } catch (e) {
+      console.error('Error guardando Canvas del canal:', e);
+    } finally {
+      setGuardandoCanvas(false);
+    }
+  };
+
+  // Mensajes principales y respuestas del hilo activo
   const mensajesPrincipales = useMemo(() => {
     const base = mensajes.filter((m) => !m.parentId);
     if (!busquedaEnCanal.trim()) return base;
@@ -469,7 +668,7 @@ export default function EspacioTrabajoSlack({
   );
 
   // =========================================================================
-  // 4. ACCIONES DE CANALES Y MENSAJES DIRECTOS (1 A 1)
+  // 5. ACCIONES DE CANALES Y MENSAJES DIRECTOS (1 A 1)
   // =========================================================================
   const abrirMensajeDirecto = async (colega) => {
     const emailsOrdenados = [currentUserEmail, colega.email.toLowerCase()].sort();
@@ -533,7 +732,7 @@ export default function EspacioTrabajoSlack({
   };
 
   // =========================================================================
-  // 5. SUBIDA DE ARCHIVOS A FIREBASE STORAGE Y ENVÍO DE MENSAJES
+  // 6. SUBIDA DE ARCHIVOS, NOTAS DE VOZ, ENCUESTAS Y ENVÍO DE MENSAJES
   // =========================================================================
   const handleSeleccionarArchivos = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -581,6 +780,285 @@ export default function EspacioTrabajoSlack({
     }
   };
 
+  // GRABACIÓN DE NOTAS DE VOZ (CLIPS DE AUDIO)
+  const iniciarGrabacionAudio = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      cancelarGrabacionFlagRef.current = false;
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          audioChunksRef.current.push(ev.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (grabacionIntervalRef.current) clearInterval(grabacionIntervalRef.current);
+
+        if (cancelarGrabacionFlagRef.current || audioChunksRef.current.length === 0) {
+          setGrabandoAudio(false);
+          setSegundosGrabacion(0);
+          return;
+        }
+
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        const duracionFinal = segundosGrabacion || 1;
+        setGrabandoAudio(false);
+        setSegundosGrabacion(0);
+        setArchivosSubiendo(true);
+        setProgresoSubida(20);
+
+        try {
+          const ext = (recorder.mimeType || '').includes('mp4') ? 'm4a' : 'webm';
+          const fileName = `nota_voz_${Date.now()}.${ext}`;
+          const sRef = storageRef(storage, `workspace_adjuntos/${canalActivoId}/${fileName}`);
+          const uploadTask = uploadBytesResumable(sRef, blob);
+
+          await new Promise((resolve, reject) => {
+            uploadTask.on(
+              'state_changed',
+              (snap) => {
+                setProgresoSubida(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+              },
+              reject,
+              async () => {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                await addDoc(collection(db, 'workspace_canales', canalActivoId, 'mensajes'), {
+                  texto: '🎙️ Nota de voz enviada',
+                  autorEmail: currentUserEmail,
+                  autorNombre: currentUserName,
+                  autorAvatar: user?.photoURL || '',
+                  autorRol: userRole,
+                  creadoEn: serverTimestamp(),
+                  creadoEnMs: Date.now(),
+                  reacciones: {},
+                  fijado: false,
+                  adjuntos: [],
+                  audioAdjunto: {
+                    url,
+                    duracionSegundos: duracionFinal,
+                    nombre: `Nota de voz (${Math.floor(duracionFinal / 60)}:${String(duracionFinal % 60).padStart(2, '0')})`
+                  },
+                  parentId: null,
+                  respuestasCount: 0
+                });
+
+                await updateDoc(doc(db, 'workspace_canales', canalActivoId), {
+                  ultimoMensajeAt: serverTimestamp(),
+                  ultimoMensajeMs: Date.now(),
+                  ultimoMensajeTexto: '🎙️ Nota de voz',
+                  ultimoMensajeAutor: currentUserName
+                });
+                resolve();
+              }
+            );
+          });
+        } catch (err) {
+          console.error('Error subiendo nota de voz:', err);
+        } finally {
+          setArchivosSubiendo(false);
+          setProgresoSubida(0);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setGrabandoAudio(true);
+      setSegundosGrabacion(0);
+      grabacionIntervalRef.current = setInterval(() => {
+        setSegundosGrabacion((s) => s + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('No se pudo acceder al micrófono:', err);
+      alert('Para grabar una nota de voz, permita el acceso al micrófono en su navegador.');
+    }
+  };
+
+  const cancelarGrabacionAudio = () => {
+    cancelarGrabacionFlagRef.current = true;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    } else {
+      setGrabandoAudio(false);
+      setSegundosGrabacion(0);
+    }
+  };
+
+  const finalizarYEnviarAudio = () => {
+    cancelarGrabacionFlagRef.current = false;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  // ENCUESTAS Y VOTACIONES RÁPIDAS
+  const handleCrearEncuesta = async () => {
+    const pregunta = encuestaForm.pregunta.trim();
+    const opcionesValidas = encuestaForm.opciones.map((o) => o.trim()).filter(Boolean);
+    if (!pregunta || opcionesValidas.length < 2 || !canalActivoId) return;
+
+    const estructuraEncuesta = {
+      pregunta,
+      cerrada: false,
+      opciones: opcionesValidas.map((texto, idx) => ({
+        id: `opt_${idx}_${Date.now()}`,
+        texto,
+        votos: []
+      }))
+    };
+
+    try {
+      await addDoc(collection(db, 'workspace_canales', canalActivoId, 'mensajes'), {
+        texto: `📊 *Encuesta:* ${pregunta}`,
+        autorEmail: currentUserEmail,
+        autorNombre: currentUserName,
+        autorAvatar: user?.photoURL || '',
+        autorRol: userRole,
+        creadoEn: serverTimestamp(),
+        creadoEnMs: Date.now(),
+        reacciones: {},
+        fijado: false,
+        adjuntos: [],
+        encuesta: estructuraEncuesta,
+        parentId: null,
+        respuestasCount: 0
+      });
+
+      await updateDoc(doc(db, 'workspace_canales', canalActivoId), {
+        ultimoMensajeAt: serverTimestamp(),
+        ultimoMensajeMs: Date.now(),
+        ultimoMensajeTexto: `📊 Encuesta: ${pregunta}`,
+        ultimoMensajeAutor: currentUserName
+      });
+
+      setModalEncuestaOpen(false);
+      setEncuestaForm({ pregunta: '', opciones: ['', ''] });
+    } catch (e) {
+      console.error('Error creando encuesta:', e);
+    }
+  };
+
+  const handleVotarEncuesta = async (msg, opcionId) => {
+    if (!msg.encuesta || msg.encuesta.cerrada) return;
+    try {
+      const nuevasOpciones = (msg.encuesta.opciones || []).map((opt) => {
+        const votosActuales = Array.isArray(opt.votos) ? [...opt.votos] : [];
+        if (opt.id === opcionId) {
+          const idx = votosActuales.indexOf(currentUserEmail);
+          if (idx > -1) {
+            votosActuales.splice(idx, 1);
+          } else {
+            votosActuales.push(currentUserEmail);
+          }
+        }
+        return { ...opt, votos: votosActuales };
+      });
+
+      await updateDoc(doc(db, 'workspace_canales', canalActivoId, 'mensajes', msg.id), {
+        'encuesta.opciones': nuevasOpciones
+      });
+    } catch (e) {
+      console.error('Error registrando voto:', e);
+    }
+  };
+
+  const handleToggleCerrarEncuesta = async (msg) => {
+    if (!msg.encuesta) return;
+    try {
+      await updateDoc(doc(db, 'workspace_canales', canalActivoId, 'mensajes', msg.id), {
+        'encuesta.cerrada': !msg.encuesta.cerrada
+      });
+    } catch (e) {
+      console.error('Error cerrando encuesta:', e);
+    }
+  };
+
+  // EJECUCIÓN DE COMANDOS SLASH (/)
+  const ejecutarComandoSlash = async (cmdTexto) => {
+    const limpio = cmdTexto.trim();
+    if (limpio === '/encuesta') {
+      setTextoMensaje('');
+      setMostrarMenuSlash(false);
+      setModalEncuestaOpen(true);
+      return true;
+    }
+    if (limpio === '/evento') {
+      setTextoMensaje('');
+      setMostrarMenuSlash(false);
+      setSeccionActiva('calendario');
+      setSignalNuevoEvento((n) => n + 1);
+      return true;
+    }
+    if (limpio === '/canvas') {
+      setTextoMensaje('');
+      setMostrarMenuSlash(false);
+      setPanelDerecho('canvas');
+      return true;
+    }
+    if (limpio === '/guardados') {
+      setTextoMensaje('');
+      setMostrarMenuSlash(false);
+      setPanelDerecho('guardados');
+      return true;
+    }
+    if (limpio.startsWith('/tarea')) {
+      const tituloTarea = limpio.replace('/tarea', '').trim();
+      setTextoMensaje('');
+      setMostrarMenuSlash(false);
+      if (!tituloTarea) {
+        setSeccionActiva('proyectos');
+        return true;
+      }
+      // Crear la tarea directamente en Firestore y publicar tarjeta en el canal
+      try {
+        await addDoc(collection(db, 'workspace_tareas'), {
+          titulo: tituloTarea,
+          descripcion: `Creada mediante comando rápido /tarea desde #${obtenerTituloCanal(canalActivo)}`,
+          estado: 'por_hacer',
+          prioridad: 'media',
+          proyectoId: 'general',
+          proyectoNombre: 'Gestión General IIRESODH',
+          proyectoColor: '#1D3557',
+          responsables: [currentUserEmail],
+          subtareas: [],
+          enlacesDrive: [],
+          canalId: canalActivoId,
+          creadoPor: currentUserEmail,
+          creadoPorNombre: currentUserName,
+          creadoEn: serverTimestamp(),
+          creadoEnMs: Date.now()
+        });
+
+        await addDoc(collection(db, 'workspace_canales', canalActivoId, 'mensajes'), {
+          texto: `⚡ Tarea rápida creada por comando \`/tarea\`: *${tituloTarea}*`,
+          autorEmail: currentUserEmail,
+          autorNombre: currentUserName,
+          autorAvatar: user?.photoURL || '',
+          autorRol: userRole,
+          creadoEn: serverTimestamp(),
+          creadoEnMs: Date.now(),
+          reacciones: {},
+          fijado: false,
+          adjuntos: [],
+          tareaAdjunta: {
+            titulo: tituloTarea,
+            proyectoNombre: 'Gestión General IIRESODH',
+            prioridad: 'media'
+          },
+          parentId: null,
+          respuestasCount: 0
+        });
+      } catch (e) {
+        console.error('Error creando tarea por comando:', e);
+      }
+      return true;
+    }
+    return false;
+  };
+
   const handleEnviarMensaje = async (esHilo = false) => {
     const texto = esHilo ? textoRespuestaHilo.trim() : textoMensaje.trim();
     const adjuntos = esHilo ? [] : adjuntosPendientes;
@@ -588,10 +1066,23 @@ export default function EspacioTrabajoSlack({
     if (!texto && adjuntos.length === 0) return;
     if (!canalActivoId) return;
 
+    // Verificar si es un comando slash (/)
+    if (!esHilo && texto.startsWith('/')) {
+      const fueComando = await ejecutarComandoSlash(texto);
+      if (fueComando) return;
+    }
+
+    // Limpiar indicador de escritura en RTDB
+    if (!esHilo && currentUserEmail) {
+      const userKey = emailToRtdbKey(currentUserEmail);
+      rtdbRemove(rtdbRef(rtdb, `typing/${canalActivoId}/${userKey}`)).catch(() => {});
+    }
+
     if (esHilo) {
       setTextoRespuestaHilo('');
     } else {
       setTextoMensaje('');
+      setMostrarMenuSlash(false);
       setAdjuntosPendientes([]);
     }
 
@@ -713,11 +1204,20 @@ export default function EspacioTrabajoSlack({
   };
 
   // =========================================================================
-  // 6. HELPERS DE FORMATO Y PRESENCIA
+  // 7. HELPERS DE FORMATO Y PRESENCIA
   // =========================================================================
   const miPresencia = presenciaMap[currentUserEmail] || {};
-  const miEstadoActual =
-    ESTADOS_USUARIO.find((e) => e.id === miPresencia.estadoId) || ESTADOS_USUARIO[0];
+  const miEstadoActual = useMemo(() => {
+    if (miPresencia.estadoId === 'personalizado' && miPresencia.estadoTexto) {
+      return {
+        id: 'personalizado',
+        emoji: miPresencia.estadoEmoji || '💬',
+        texto: miPresencia.estadoTexto,
+        color: '#457B9D'
+      };
+    }
+    return ESTADOS_USUARIO.find((e) => e.id === miPresencia.estadoId) || ESTADOS_USUARIO[0];
+  }, [miPresencia]);
 
   const estaEnLinea = (email) => {
     const p = presenciaMap[email.toLowerCase()];
@@ -744,74 +1244,101 @@ export default function EspacioTrabajoSlack({
     return canal.nombre;
   };
 
-  // Formatear texto con soporte para *negrita*, _cursiva_, `código`, enlaces y @menciones
+  // Formatear texto con soporte para *negrita*, _cursiva_, `código`, > citas jurídicas, enlaces y @menciones
   const renderizarTextoRico = (texto = '') => {
     if (!texto) return null;
     const lineas = texto.split('\n');
 
     return lineas.map((linea, idxLinea) => {
-      // Tokenizar menciones, enlaces, código y negritas
-      const partes = linea.split(/(@[\w.-]+|\*[^*]+\*|`[^`]+`|https?:\/\/[^\s]+)/g);
+      const esCita = linea.trimStart().startsWith('> ');
+      const contenidoLinea = esCita ? linea.trimStart().slice(2) : linea;
+      const partes = contenidoLinea.split(/(@[\w.-]+|\*[^*]+\*|_[^_]+_|`[^`]+`|https?:\/\/[^\s]+)/g);
+
+      const nodos = partes.map((parte, i) => {
+        if (parte.startsWith('@') && parte.length > 1) {
+          return (
+            <Box
+              component="span"
+              key={i}
+              sx={{
+                bgcolor: 'rgba(29, 53, 87, 0.10)',
+                color: '#1D3557',
+                fontWeight: 700,
+                px: 0.6,
+                py: 0.1,
+                borderRadius: 1,
+                fontSize: '0.88em'
+              }}
+            >
+              {parte}
+            </Box>
+          );
+        }
+        if (parte.startsWith('*') && parte.endsWith('*') && parte.length > 2) {
+          return <strong key={i}>{parte.slice(1, -1)}</strong>;
+        }
+        if (parte.startsWith('_') && parte.endsWith('_') && parte.length > 2) {
+          return <em key={i}>{parte.slice(1, -1)}</em>;
+        }
+        if (parte.startsWith('`') && parte.endsWith('`') && parte.length > 2) {
+          return (
+            <Box
+              component="code"
+              key={i}
+              sx={{
+                bgcolor: '#f1f5f9',
+                color: '#B92F32',
+                px: 0.6,
+                py: 0.15,
+                borderRadius: 1,
+                fontFamily: 'monospace',
+                fontSize: '0.85em',
+                border: '1px solid #e2e8f0'
+              }}
+            >
+              {parte.slice(1, -1)}
+            </Box>
+          );
+        }
+        if (parte.startsWith('http://') || parte.startsWith('https://')) {
+          return (
+            <a
+              key={i}
+              href={parte}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#457B9D', fontWeight: 600, textDecoration: 'underline', wordBreak: 'break-all' }}
+            >
+              {parte}
+            </a>
+          );
+        }
+        return parte;
+      });
+
+      if (esCita) {
+        return (
+          <Box
+            key={idxLinea}
+            sx={{
+              pl: 1.5,
+              py: 0.35,
+              my: 0.4,
+              borderLeft: '3px solid #457B9D',
+              bgcolor: 'rgba(69, 123, 157, 0.06)',
+              borderRadius: '0 6px 6px 0',
+              color: '#334155',
+              fontStyle: 'italic'
+            }}
+          >
+            {nodos}
+          </Box>
+        );
+      }
+
       return (
         <React.Fragment key={idxLinea}>
-          {partes.map((parte, i) => {
-            if (parte.startsWith('@') && parte.length > 1) {
-              return (
-                <Box
-                  component="span"
-                  key={i}
-                  sx={{
-                    bgcolor: 'rgba(37, 99, 235, 0.12)',
-                    color: '#1d4ed8',
-                    fontWeight: 700,
-                    px: 0.6,
-                    py: 0.1,
-                    borderRadius: 1,
-                    fontSize: '0.88em'
-                  }}
-                >
-                  {parte}
-                </Box>
-              );
-            }
-            if (parte.startsWith('*') && parte.endsWith('*') && parte.length > 2) {
-              return <strong key={i}>{parte.slice(1, -1)}</strong>;
-            }
-            if (parte.startsWith('`') && parte.endsWith('`') && parte.length > 2) {
-              return (
-                <Box
-                  component="code"
-                  key={i}
-                  sx={{
-                    bgcolor: '#f1f5f9',
-                    color: '#be123c',
-                    px: 0.6,
-                    py: 0.15,
-                    borderRadius: 1,
-                    fontFamily: 'monospace',
-                    fontSize: '0.85em',
-                    border: '1px solid #e2e8f0'
-                  }}
-                >
-                  {parte.slice(1, -1)}
-                </Box>
-              );
-            }
-            if (parte.startsWith('http://') || parte.startsWith('https://')) {
-              return (
-                <a
-                  key={i}
-                  href={parte}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#2563eb', textDecoration: 'underline', wordBreak: 'break-all' }}
-                >
-                  {parte}
-                </a>
-              );
-            }
-            return parte;
-          })}
+          {nodos}
           {idxLinea < lineas.length - 1 && <br />}
         </React.Fragment>
       );
@@ -864,9 +1391,9 @@ export default function EspacioTrabajoSlack({
           : {
               height: { xs: 680, md: 740 },
               width: '100%',
-              borderRadius: '16px',
+              borderRadius: '12px',
               border: '1px solid #cbd5e1',
-              boxShadow: '0 12px 32px -4px rgba(15, 35, 60, 0.10)'
+              boxShadow: '0 12px 32px -4px rgba(29, 53, 87, 0.10)'
             }),
         display: 'flex',
         flexDirection: 'column',
@@ -881,16 +1408,16 @@ export default function EspacioTrabajoSlack({
         sx={{
           height: 50,
           px: 2,
-          bgcolor: '#0f233c',
+          bgcolor: '#1D3557',
           color: '#ffffff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          borderBottom: '1px solid rgba(255,255,255,0.12)',
           flexShrink: 0
         }}
       >
-        {/* IZQUIERDA: BRANDING Y PESTAÑAS UNIFICADAS (CHAT + CALENDARIO) */}
+        {/* IZQUIERDA: BRANDING Y PESTAÑAS UNIFICADAS */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           <IconButton
             size="small"
@@ -906,16 +1433,18 @@ export default function EspacioTrabajoSlack({
                 width: 28,
                 height: 28,
                 borderRadius: 1.5,
-                bgcolor: '#c5a880',
-                color: '#0f233c',
+                bgcolor: '#FFFFFF',
+                p: 0.35,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: '900',
-                fontSize: '0.85rem'
+                justifyContent: 'center'
               }}
             >
-              II
+              <img
+                src="/iiresodh-isotipo-gradient.png"
+                alt="IIRESODH"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
             </Box>
             <Typography
               variant="subtitle2"
@@ -950,10 +1479,10 @@ export default function EspacioTrabajoSlack({
                 py: 0.4,
                 borderRadius: 1.5,
                 whiteSpace: 'nowrap',
-                color: seccionActiva === 'chat' ? '#0f233c' : 'rgba(255,255,255,0.85)',
-                bgcolor: seccionActiva === 'chat' ? '#c5a880' : 'transparent',
+                color: seccionActiva === 'chat' ? '#1D3557' : 'rgba(255,255,255,0.88)',
+                bgcolor: seccionActiva === 'chat' ? '#F1FAEE' : 'transparent',
                 '&:hover': {
-                  bgcolor: seccionActiva === 'chat' ? '#d4b892' : 'rgba(255,255,255,0.12)'
+                  bgcolor: seccionActiva === 'chat' ? '#FFFFFF' : 'rgba(255,255,255,0.14)'
                 }
               }}
             >
@@ -972,10 +1501,10 @@ export default function EspacioTrabajoSlack({
                 py: 0.4,
                 borderRadius: 1.5,
                 whiteSpace: 'nowrap',
-                color: seccionActiva === 'proyectos' ? '#0f233c' : 'rgba(255,255,255,0.85)',
-                bgcolor: seccionActiva === 'proyectos' ? '#c5a880' : 'transparent',
+                color: seccionActiva === 'proyectos' ? '#1D3557' : 'rgba(255,255,255,0.88)',
+                bgcolor: seccionActiva === 'proyectos' ? '#F1FAEE' : 'transparent',
                 '&:hover': {
-                  bgcolor: seccionActiva === 'proyectos' ? '#d4b892' : 'rgba(255,255,255,0.12)'
+                  bgcolor: seccionActiva === 'proyectos' ? '#FFFFFF' : 'rgba(255,255,255,0.14)'
                 }
               }}
             >
@@ -994,10 +1523,10 @@ export default function EspacioTrabajoSlack({
                 py: 0.4,
                 borderRadius: 1.5,
                 whiteSpace: 'nowrap',
-                color: seccionActiva === 'calendario' ? '#0f233c' : 'rgba(255,255,255,0.85)',
-                bgcolor: seccionActiva === 'calendario' ? '#c5a880' : 'transparent',
+                color: seccionActiva === 'calendario' ? '#1D3557' : 'rgba(255,255,255,0.88)',
+                bgcolor: seccionActiva === 'calendario' ? '#F1FAEE' : 'transparent',
                 '&:hover': {
-                  bgcolor: seccionActiva === 'calendario' ? '#d4b892' : 'rgba(255,255,255,0.12)'
+                  bgcolor: seccionActiva === 'calendario' ? '#FFFFFF' : 'rgba(255,255,255,0.14)'
                 }
               }}
             >
@@ -1016,10 +1545,10 @@ export default function EspacioTrabajoSlack({
                 py: 0.4,
                 borderRadius: 1.5,
                 whiteSpace: 'nowrap',
-                color: seccionActiva === 'drive' ? '#0f233c' : 'rgba(255,255,255,0.85)',
-                bgcolor: seccionActiva === 'drive' ? '#c5a880' : 'transparent',
+                color: seccionActiva === 'drive' ? '#1D3557' : 'rgba(255,255,255,0.88)',
+                bgcolor: seccionActiva === 'drive' ? '#F1FAEE' : 'transparent',
                 '&:hover': {
-                  bgcolor: seccionActiva === 'drive' ? '#d4b892' : 'rgba(255,255,255,0.12)'
+                  bgcolor: seccionActiva === 'drive' ? '#FFFFFF' : 'rgba(255,255,255,0.14)'
                 }
               }}
             >
@@ -1028,7 +1557,7 @@ export default function EspacioTrabajoSlack({
           </Box>
         </Box>
 
-        {/* DERECHA: ESTADO DE PRESENCIA DEL USUARIO Y MODO PANTALLA COMPLETA */}
+        {/* DERECHA: ESTADO PERSONALIZADO DEL USUARIO Y MODO PANTALLA COMPLETA */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Tooltip title="Cambiar tu estado en el espacio de trabajo">
             <Chip
@@ -1036,12 +1565,13 @@ export default function EspacioTrabajoSlack({
               label={`${miEstadoActual.emoji} ${miEstadoActual.texto}`}
               size="small"
               sx={{
-                bgcolor: 'rgba(255,255,255,0.1)',
+                bgcolor: 'rgba(255,255,255,0.12)',
                 color: '#ffffff',
                 fontWeight: 600,
                 fontSize: '0.75rem',
                 cursor: 'pointer',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' }
+                maxWidth: { xs: 140, sm: 220 },
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
               }}
             />
           </Tooltip>
@@ -1050,19 +1580,53 @@ export default function EspacioTrabajoSlack({
             anchorEl={anchorEstadoUsuario}
             open={Boolean(anchorEstadoUsuario)}
             onClose={() => setAnchorEstadoUsuario(null)}
+            PaperProps={{ sx: { width: 290, p: 0.5 } }}
           >
             <Box sx={{ px: 2, py: 1 }}>
               <Typography variant="caption" fontWeight="bold" color="text.secondary">
                 ESTADO DE DISPONIBILIDAD
               </Typography>
             </Box>
-            <Divider />
+            {/* Input para estado personalizado libre */}
+            <Box sx={{ px: 1.5, pb: 1, display: 'flex', gap: 0.75, alignItems: 'center' }}>
+              <TextField
+                size="small"
+                value={customStatusEmoji}
+                onChange={(e) => setCustomStatusEmoji(e.target.value)}
+                sx={{ width: 52 }}
+                slotProps={{ input: { sx: { fontSize: '0.9rem', textAlign: 'center', px: 0.5 } } }}
+              />
+              <TextField
+                size="small"
+                placeholder="Estado personalizado..."
+                fullWidth
+                value={customStatusTexto}
+                onChange={(e) => setCustomStatusTexto(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleGuardarEstadoLibre();
+                  }
+                }}
+                slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
+              />
+              <Button
+                size="small"
+                variant="contained"
+                disabled={!customStatusTexto.trim()}
+                onClick={handleGuardarEstadoLibre}
+                sx={{ minWidth: 'auto', px: 1.2, bgcolor: '#1D3557', textTransform: 'none', fontSize: '0.75rem' }}
+              >
+                OK
+              </Button>
+            </Box>
+            <Divider sx={{ my: 0.5 }} />
             {ESTADOS_USUARIO.map((est) => (
               <MenuItem
                 key={est.id}
                 selected={miEstadoActual.id === est.id}
                 onClick={() => handleCambiarEstado(est)}
-                sx={{ fontSize: '0.85rem', gap: 1 }}
+                sx={{ fontSize: '0.84rem', gap: 1, borderRadius: 1 }}
               >
                 <span>{est.emoji}</span>
                 <span>{est.texto}</span>
@@ -1081,11 +1645,11 @@ export default function EspacioTrabajoSlack({
               px: 1.5,
               py: 0.4,
               borderRadius: 1.5,
-              color: isFullscreen ? '#0f233c' : '#ffffff',
-              bgcolor: isFullscreen ? '#fbbf24' : 'rgba(255,255,255,0.12)',
+              color: '#ffffff',
+              bgcolor: isFullscreen ? '#B92F32' : 'rgba(255,255,255,0.12)',
               border: isFullscreen ? 'none' : '1px solid rgba(255,255,255,0.2)',
               '&:hover': {
-                bgcolor: isFullscreen ? '#f59e0b' : 'rgba(255,255,255,0.22)'
+                bgcolor: isFullscreen ? '#9e2528' : 'rgba(255,255,255,0.22)'
               }
             }}
           >
@@ -1095,16 +1659,16 @@ export default function EspacioTrabajoSlack({
       </Box>
 
       {/* ===================================================================== */}
-      {/* CUERPO PRINCIPAL: SIDEBAR + ÁREA CENTRAL + PANEL DE HILO              */}
+      {/* CUERPO PRINCIPAL: SIDEBAR + ÁREA CENTRAL + PANEL DERECHO              */}
       {/* ===================================================================== */}
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', position: 'relative' }}>
         {/* ------------------------------------------------------------------- */}
-        {/* 1. BARRA LATERAL IZQUIERDA (CANALES, BÚSQUEDA Y MENSAJES DIRECTOS)  */}
+        {/* 1. BARRA LATERAL IZQUIERDA (GUARDADOS, CANALES Y MENSAJES DIRECTOS) */}
         {/* ------------------------------------------------------------------- */}
         <Box
           sx={{
             width: 265,
-            bgcolor: '#152c4e',
+            bgcolor: '#162944',
             color: '#e2e8f0',
             display: {
               xs: mobileSidebarOpen ? 'flex' : 'none',
@@ -1119,7 +1683,7 @@ export default function EspacioTrabajoSlack({
           }}
         >
           {/* BUSCADOR DE CANALES Y COLEGAS */}
-          <Box sx={{ p: 1.5 }}>
+          <Box sx={{ p: 1.5, pb: 1 }}>
             <TextField
               size="small"
               placeholder="Ir a canal o colega..."
@@ -1134,7 +1698,7 @@ export default function EspacioTrabajoSlack({
                     </InputAdornment>
                   ),
                   sx: {
-                    bgcolor: 'rgba(15, 35, 60, 0.7)',
+                    bgcolor: 'rgba(15, 28, 48, 0.7)',
                     color: '#ffffff',
                     borderRadius: 2,
                     fontSize: '0.82rem',
@@ -1144,6 +1708,50 @@ export default function EspacioTrabajoSlack({
                 }
               }}
             />
+          </Box>
+
+          {/* ACCESO RÁPIDO A ELEMENTOS GUARDADOS ("PARA MÁS TARDE") */}
+          <Box sx={{ px: 1.5, pb: 1 }}>
+            <Box
+              onClick={() => {
+                setSeccionActiva('chat');
+                setPanelDerecho(panelDerecho === 'guardados' ? null : 'guardados');
+                setMobileSidebarOpen(false);
+              }}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 1.25,
+                py: 0.8,
+                borderRadius: '0 8px 8px 0',
+                borderLeft: panelDerecho === 'guardados' ? '3px solid #B92F32' : '3px solid transparent',
+                cursor: 'pointer',
+                bgcolor: panelDerecho === 'guardados' ? 'rgba(69, 123, 157, 0.28)' : 'rgba(255,255,255,0.04)',
+                color: '#F1FAEE',
+                '&:hover': { bgcolor: 'rgba(69, 123, 157, 0.22)' }
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Bookmark size={15} color="#A8DADC" />
+                <Typography variant="body2" sx={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                  Guardados (Para más tarde)
+                </Typography>
+              </Box>
+              {mensajesGuardados.length > 0 && (
+                <Chip
+                  label={mensajesGuardados.length}
+                  size="small"
+                  sx={{
+                    height: 18,
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    bgcolor: '#B92F32',
+                    color: '#FFFFFF'
+                  }}
+                />
+              )}
+            </Box>
           </Box>
 
           {/* LISTA NAVEGABLE DE CANALES Y MENSAJES DIRECTOS */}
@@ -1161,7 +1769,7 @@ export default function EspacioTrabajoSlack({
               <Typography
                 variant="caption"
                 fontWeight="800"
-                sx={{ color: '#94a3b8', letterSpacing: 0.6, fontSize: '0.7rem' }}
+                sx={{ color: '#A8DADC', letterSpacing: 0.6, fontSize: '0.7rem' }}
               >
                 CANALES INSTITUCIONALES
               </Typography>
@@ -1185,7 +1793,7 @@ export default function EspacioTrabajoSlack({
                   onClick={() => {
                     setCanalActivoId(canal.id);
                     setSeccionActiva('chat');
-                    setPanelDerecho(null);
+                    if (panelDerecho === 'hilo') setPanelDerecho(null);
                     setMobileSidebarOpen(false);
                   }}
                   sx={{
@@ -1195,13 +1803,14 @@ export default function EspacioTrabajoSlack({
                     px: 1.25,
                     py: 0.75,
                     mb: 0.3,
-                    borderRadius: 1.5,
+                    borderRadius: '0 6px 6px 0',
+                    borderLeft: activo ? '3px solid #B92F32' : '3px solid transparent',
                     cursor: 'pointer',
-                    bgcolor: activo ? '#2563eb' : 'transparent',
+                    bgcolor: activo ? '#457B9D' : 'transparent',
                     color: activo ? '#ffffff' : noLeido ? '#ffffff' : '#cbd5e1',
                     fontWeight: activo || noLeido ? 700 : 500,
                     '&:hover': {
-                      bgcolor: activo ? '#2563eb' : 'rgba(255,255,255,0.07)'
+                      bgcolor: activo ? '#457B9D' : 'rgba(255,255,255,0.07)'
                     }
                   }}
                 >
@@ -1226,7 +1835,7 @@ export default function EspacioTrabajoSlack({
                         width: 8,
                         height: 8,
                         borderRadius: '50%',
-                        bgcolor: '#38bdf8',
+                        bgcolor: '#A8DADC',
                         flexShrink: 0
                       }}
                     />
@@ -1242,7 +1851,7 @@ export default function EspacioTrabajoSlack({
               sx={{
                 mt: 0.5,
                 mb: 2,
-                color: '#94a3b8',
+                color: '#A8DADC',
                 textTransform: 'none',
                 fontSize: '0.78rem',
                 justifyContent: 'flex-start',
@@ -1266,7 +1875,7 @@ export default function EspacioTrabajoSlack({
               <Typography
                 variant="caption"
                 fontWeight="800"
-                sx={{ color: '#94a3b8', letterSpacing: 0.6, fontSize: '0.7rem' }}
+                sx={{ color: '#A8DADC', letterSpacing: 0.6, fontSize: '0.7rem' }}
               >
                 MENSAJES DIRECTOS ({colegasFiltrados.length})
               </Typography>
@@ -1293,12 +1902,13 @@ export default function EspacioTrabajoSlack({
                     px: 1.25,
                     py: 0.7,
                     mb: 0.3,
-                    borderRadius: 1.5,
+                    borderRadius: '0 6px 6px 0',
+                    borderLeft: activo ? '3px solid #B92F32' : '3px solid transparent',
                     cursor: 'pointer',
-                    bgcolor: activo ? '#2563eb' : 'transparent',
+                    bgcolor: activo ? '#457B9D' : 'transparent',
                     color: activo ? '#ffffff' : '#cbd5e1',
                     '&:hover': {
-                      bgcolor: activo ? '#2563eb' : 'rgba(255,255,255,0.07)'
+                      bgcolor: activo ? '#457B9D' : 'rgba(255,255,255,0.07)'
                     }
                   }}
                 >
@@ -1325,7 +1935,7 @@ export default function EspacioTrabajoSlack({
                           height: 8,
                           borderRadius: '50%',
                           bgcolor: online ? '#22c55e' : '#64748b',
-                          border: '1.5px solid #152c4e'
+                          border: '1.5px solid #162944'
                         }}
                       />
                     </Box>
@@ -1357,7 +1967,7 @@ export default function EspacioTrabajoSlack({
                           width: 8,
                           height: 8,
                           borderRadius: '50%',
-                          bgcolor: '#38bdf8'
+                          bgcolor: '#A8DADC'
                         }}
                       />
                     )}
@@ -1439,13 +2049,13 @@ export default function EspacioTrabajoSlack({
               <Box sx={{ overflow: 'hidden' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   {canalActivo?.tipo === 'dm' ? (
-                    <Users size={18} color="#1a365d" />
+                    <Users size={18} color="#1D3557" />
                   ) : canalActivo?.esPrivado ? (
-                    <Lock size={18} color="#1a365d" />
+                    <Lock size={18} color="#1D3557" />
                   ) : (
-                    <Hash size={19} color="#1a365d" />
+                    <Hash size={19} color="#1D3557" />
                   )}
-                  <Typography variant="subtitle1" fontWeight="800" color="#0f233c" noWrap>
+                  <Typography variant="subtitle1" fontWeight="800" color="#1D3557" noWrap>
                     {obtenerTituloCanal(canalActivo)}
                   </Typography>
                   {canalActivo?.tipo === 'dm' && (
@@ -1489,20 +2099,53 @@ export default function EspacioTrabajoSlack({
                   <IconButton
                     size="small"
                     onClick={() => setMostrarBuscadorCanal(!mostrarBuscadorCanal)}
-                    sx={{ color: mostrarBuscadorCanal ? '#2563eb' : '#64748b' }}
+                    sx={{ color: mostrarBuscadorCanal ? '#1D3557' : '#64748b' }}
                   >
                     <Search size={18} />
                   </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Canvas / Notas colaborativas del canal">
+                  <Button
+                    size="small"
+                    variant={panelDerecho === 'canvas' ? 'contained' : 'outlined'}
+                    startIcon={<BookOpen size={14} />}
+                    onClick={() => setPanelDerecho(panelDerecho === 'canvas' ? null : 'canvas')}
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      py: 0.35,
+                      ...(panelDerecho === 'canvas'
+                        ? { bgcolor: '#1D3557', color: '#FFFFFF' }
+                        : { borderColor: '#cbd5e1', color: '#1D3557' })
+                    }}
+                  >
+                    Canvas
+                  </Button>
                 </Tooltip>
 
                 <Tooltip title={`Mensajes fijados (${mensajesFijados.length})`}>
                   <IconButton
                     size="small"
                     onClick={() => setPanelDerecho(panelDerecho === 'fijados' ? null : 'fijados')}
-                    sx={{ color: panelDerecho === 'fijados' ? '#2563eb' : '#64748b' }}
+                    sx={{ color: panelDerecho === 'fijados' ? '#1D3557' : '#64748b' }}
                   >
                     <Badge badgeContent={mensajesFijados.length} color="primary">
                       <Pin size={17} />
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title={`Elementos guardados (${mensajesGuardados.length})`}>
+                  <IconButton
+                    size="small"
+                    onClick={() => setPanelDerecho(panelDerecho === 'guardados' ? null : 'guardados')}
+                    sx={{ color: panelDerecho === 'guardados' ? '#B92F32' : '#64748b' }}
+                  >
+                    <Badge badgeContent={mensajesGuardados.length} color="secondary">
+                      <Bookmark size={17} />
                     </Badge>
                   </IconButton>
                 </Tooltip>
@@ -1521,8 +2164,8 @@ export default function EspacioTrabajoSlack({
                     fontWeight: 600,
                     fontSize: '0.76rem',
                     borderColor: '#cbd5e1',
-                    color: '#1a365d',
-                    display: { xs: 'none', sm: 'inline-flex' }
+                    color: '#1D3557',
+                    display: { xs: 'none', lg: 'inline-flex' }
                   }}
                 >
                   Agendar Evento
@@ -1561,8 +2204,8 @@ export default function EspacioTrabajoSlack({
                       width: 52,
                       height: 52,
                       borderRadius: 3,
-                      bgcolor: 'rgba(26, 54, 93, 0.06)',
-                      color: '#1a365d',
+                      bgcolor: 'rgba(29, 53, 87, 0.06)',
+                      color: '#1D3557',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1572,12 +2215,12 @@ export default function EspacioTrabajoSlack({
                   >
                     {canalActivo?.tipo === 'dm' ? <Users size={26} /> : <Hash size={26} />}
                   </Box>
-                  <Typography variant="subtitle1" fontWeight="800" color="#0f233c">
+                  <Typography variant="subtitle1" fontWeight="800" color="#1D3557">
                     Este es el comienzo de {canalActivo?.tipo === 'dm' ? '' : '#'}{obtenerTituloCanal(canalActivo)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                     {canalActivo?.descripcion ||
-                      'Envía un mensaje, comparte documentos del expediente o menciona a un colega con @.'}
+                      'Envía un mensaje, graba una nota de voz, lanza una encuesta o escribe / para comandos rápidos.'}
                   </Typography>
                 </Box>
               ) : (
@@ -1585,6 +2228,8 @@ export default function EspacioTrabajoSlack({
                   const esAutor = msg.autorEmail === currentUserEmail;
                   const puedeBorrar = esAutor || userRole === 'Superadmin' || userRole === 'Admin';
                   const reaccionesEntries = Object.entries(msg.reacciones || {});
+                  const guardado = estaGuardadoPorMi(msg.id);
+                  const presAutor = presenciaMap[(msg.autorEmail || '').toLowerCase()];
 
                   return (
                     <Box
@@ -1594,9 +2239,17 @@ export default function EspacioTrabajoSlack({
                         display: 'flex',
                         gap: 1.5,
                         p: 1.25,
-                        borderRadius: 2,
-                        bgcolor: msg.fijado ? 'rgba(245, 158, 11, 0.05)' : 'transparent',
-                        borderLeft: msg.fijado ? '3px solid #f59e0b' : '3px solid transparent',
+                        borderRadius: msg.fijado || guardado ? '0 8px 8px 0' : 2,
+                        bgcolor: msg.fijado
+                          ? 'rgba(245, 158, 11, 0.05)'
+                          : guardado
+                          ? 'rgba(69, 123, 157, 0.05)'
+                          : 'transparent',
+                        borderLeft: msg.fijado
+                          ? '3px solid #f59e0b'
+                          : guardado
+                          ? '3px solid #457B9D'
+                          : '3px solid transparent',
                         transition: 'background-color 0.12s',
                         '&:hover': {
                           bgcolor: msg.fijado ? 'rgba(245, 158, 11, 0.08)' : '#f8fafc',
@@ -1649,7 +2302,16 @@ export default function EspacioTrabajoSlack({
                             <MessageSquare size={14} />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title={msg.fijado ? 'Desfijar mensaje' : 'Fijar mensaje'}>
+                        <Tooltip title={guardado ? 'Quitar de Guardados' : 'Guardar para más tarde'}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleToggleGuardado(msg)}
+                            sx={{ p: 0.5, color: guardado ? '#B92F32' : 'inherit' }}
+                          >
+                            <Bookmark size={14} fill={guardado ? '#B92F32' : 'none'} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={msg.fijado ? 'Desfijar mensaje' : 'Fijar en el canal'}>
                           <IconButton
                             size="small"
                             onClick={() => handleTogglePin(msg)}
@@ -1693,7 +2355,7 @@ export default function EspacioTrabajoSlack({
                           width: 38,
                           height: 38,
                           borderRadius: 2,
-                          bgcolor: '#1a365d',
+                          bgcolor: '#1D3557',
                           fontWeight: 'bold',
                           fontSize: '0.95rem',
                           flexShrink: 0,
@@ -1705,10 +2367,15 @@ export default function EspacioTrabajoSlack({
 
                       {/* CONTENIDO DEL MENSAJE */}
                       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Typography variant="subtitle2" fontWeight="800" color="#0f233c">
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
+                          <Typography variant="subtitle2" fontWeight="800" color="#1D3557">
                             {msg.autorNombre}
                           </Typography>
+                          {presAutor?.estadoEmoji && presAutor.estadoId !== 'disponible' && (
+                            <Tooltip title={presAutor.estadoTexto || ''}>
+                              <span style={{ fontSize: '0.8rem', cursor: 'help' }}>{presAutor.estadoEmoji}</span>
+                            </Tooltip>
+                          )}
                           {msg.autorRol && (
                             <Chip
                               label={msg.autorRol}
@@ -1717,8 +2384,8 @@ export default function EspacioTrabajoSlack({
                                 height: 18,
                                 fontSize: '0.65rem',
                                 fontWeight: 700,
-                                bgcolor: 'rgba(26, 54, 93, 0.07)',
-                                color: '#1a365d'
+                                bgcolor: 'rgba(29, 53, 87, 0.07)',
+                                color: '#1D3557'
                               }}
                             />
                           )}
@@ -1744,6 +2411,20 @@ export default function EspacioTrabajoSlack({
                               }}
                             />
                           )}
+                          {guardado && (
+                            <Chip
+                              icon={<Bookmark size={11} />}
+                              label="Guardado"
+                              size="small"
+                              sx={{
+                                height: 18,
+                                fontSize: '0.65rem',
+                                bgcolor: 'rgba(69, 123, 157, 0.14)',
+                                color: '#1D3557',
+                                fontWeight: 'bold'
+                              }}
+                            />
+                          )}
                         </Box>
 
                         {/* TEXTO O MODO EDICIÓN */}
@@ -1761,7 +2442,7 @@ export default function EspacioTrabajoSlack({
                                 size="small"
                                 variant="contained"
                                 onClick={() => handleGuardarEdicion(msg.id)}
-                                sx={{ textTransform: 'none', bgcolor: '#1a365d', fontSize: '0.75rem' }}
+                                sx={{ textTransform: 'none', bgcolor: '#1D3557', fontSize: '0.75rem' }}
                               >
                                 Guardar
                               </Button>
@@ -1784,6 +2465,148 @@ export default function EspacioTrabajoSlack({
                           </Typography>
                         )}
 
+                        {/* REPRODUCTOR DE NOTA DE VOZ / CLIP DE AUDIO */}
+                        {msg.audioAdjunto && (
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              mt: 1,
+                              p: 1.25,
+                              maxWidth: 380,
+                              borderRadius: '0 8px 8px 0',
+                              border: '1px solid #cbd5e1',
+                              borderLeft: '4px solid #1D3557',
+                              bgcolor: '#f8fafc',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 0.75
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                <Volume2 size={15} color="#1D3557" />
+                                <Typography variant="caption" fontWeight="800" color="#1D3557">
+                                  {msg.audioAdjunto.nombre || 'Nota de voz'}
+                                </Typography>
+                              </Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                Clip de audio
+                              </Typography>
+                            </Box>
+                            <audio
+                              controls
+                              src={msg.audioAdjunto.url}
+                              style={{ width: '100%', height: 34 }}
+                            />
+                          </Paper>
+                        )}
+
+                        {/* TARJETA INTERACTIVA DE ENCUESTA / VOTACIÓN */}
+                        {msg.encuesta && (
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              mt: 1.25,
+                              p: 2,
+                              maxWidth: 460,
+                              borderRadius: '0 10px 10px 0',
+                              border: '1px solid #cbd5e1',
+                              borderLeft: '4px solid #457B9D',
+                              bgcolor: '#F8FAF8'
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1.25 }}>
+                              <Box>
+                                <Typography variant="subtitle2" fontWeight="800" color="#1D3557">
+                                  📊 {msg.encuesta.pregunta}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {msg.encuesta.cerrada
+                                    ? 'Encuesta finalizada'
+                                    : 'Haz clic en una opción para emitir o cambiar tu voto'}
+                                </Typography>
+                              </Box>
+                              {(esAutor || userRole === 'Superadmin' || userRole === 'Admin') && (
+                                <Chip
+                                  label={msg.encuesta.cerrada ? 'Reabrir' : 'Cerrar votación'}
+                                  size="small"
+                                  onClick={() => handleToggleCerrarEncuesta(msg)}
+                                  sx={{
+                                    cursor: 'pointer',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    bgcolor: msg.encuesta.cerrada ? '#e2e8f0' : 'rgba(185, 47, 50, 0.1)',
+                                    color: msg.encuesta.cerrada ? '#475569' : '#B92F32'
+                                  }}
+                                />
+                              )}
+                            </Box>
+
+                            {(() => {
+                              const totalVotos = (msg.encuesta.opciones || []).reduce(
+                                (acc, o) => acc + (o.votos?.length || 0),
+                                0
+                              );
+                              return (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                  {(msg.encuesta.opciones || []).map((opt) => {
+                                    const cant = opt.votos?.length || 0;
+                                    const pct = totalVotos > 0 ? Math.round((cant / totalVotos) * 100) : 0;
+                                    const yoVote = (opt.votos || []).includes(currentUserEmail);
+
+                                    return (
+                                      <Tooltip
+                                        key={opt.id}
+                                        title={cant > 0 ? `Votaron: ${(opt.votos || []).join(', ')}` : 'Sin votos aún'}
+                                      >
+                                        <Box
+                                          onClick={() => handleVotarEncuesta(msg, opt.id)}
+                                          sx={{
+                                            p: 1,
+                                            borderRadius: 1.5,
+                                            border: yoVote ? '1.5px solid #1D3557' : '1px solid #cbd5e1',
+                                            bgcolor: yoVote ? 'rgba(29, 53, 87, 0.05)' : '#ffffff',
+                                            cursor: msg.encuesta.cerrada ? 'default' : 'pointer',
+                                            transition: 'all 0.15s',
+                                            '&:hover': !msg.encuesta.cerrada
+                                              ? { borderColor: '#457B9D', bgcolor: '#f8fafc' }
+                                              : {}
+                                          }}
+                                        >
+                                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.4 }}>
+                                            <Typography variant="body2" fontWeight={yoVote ? 700 : 500} sx={{ fontSize: '0.83rem', color: '#1D3557' }}>
+                                              {yoVote && '✓ '}
+                                              {opt.texto}
+                                            </Typography>
+                                            <Typography variant="caption" fontWeight="700" color="#457B9D">
+                                              {pct}% ({cant})
+                                            </Typography>
+                                          </Box>
+                                          <LinearProgress
+                                            variant="determinate"
+                                            value={pct}
+                                            sx={{
+                                              height: 6,
+                                              borderRadius: 1,
+                                              bgcolor: '#e2e8f0',
+                                              '& .MuiLinearProgress-bar': {
+                                                bgcolor: yoVote ? '#1D3557' : '#457B9D'
+                                              }
+                                            }}
+                                          />
+                                        </Box>
+                                      </Tooltip>
+                                    );
+                                  })}
+                                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, fontSize: '0.7rem' }}>
+                                    Total de votos emitidos: {totalVotos}
+                                  </Typography>
+                                </Box>
+                              );
+                            })()}
+                          </Paper>
+                        )}
+
                         {/* TARJETA DE EVENTO ADJUNTO (SI PROVIENE DEL CALENDARIO) */}
                         {msg.eventoAdjunto && (
                           <Paper
@@ -1795,7 +2618,7 @@ export default function EspacioTrabajoSlack({
                               borderRadius: '0 8px 8px 0',
                               border: '1px solid #cbd5e1',
                               borderLeft: `4px solid ${
-                                CATEGORIAS_EVENTO[msg.eventoAdjunto.categoria]?.dot || '#1a365d'
+                                CATEGORIAS_EVENTO[msg.eventoAdjunto.categoria]?.dot || '#1D3557'
                               }`,
                               bgcolor: '#f8fafc',
                               display: 'flex',
@@ -1805,7 +2628,7 @@ export default function EspacioTrabajoSlack({
                             }}
                           >
                             <Box>
-                              <Typography variant="subtitle2" fontWeight="bold" color="#0f233c">
+                              <Typography variant="subtitle2" fontWeight="bold" color="#1D3557">
                                 {msg.eventoAdjunto.titulo}
                               </Typography>
                               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -1833,7 +2656,7 @@ export default function EspacioTrabajoSlack({
                               maxWidth: 440,
                               borderRadius: '0 8px 8px 0',
                               border: '1px solid #cbd5e1',
-                              borderLeft: '4px solid #1a365d',
+                              borderLeft: '4px solid #1D3557',
                               bgcolor: '#f8fafc',
                               display: 'flex',
                               alignItems: 'center',
@@ -1842,7 +2665,7 @@ export default function EspacioTrabajoSlack({
                             }}
                           >
                             <Box>
-                              <Typography variant="subtitle2" fontWeight="bold" color="#0f233c">
+                              <Typography variant="subtitle2" fontWeight="bold" color="#1D3557">
                                 📋 {msg.tareaAdjunta.titulo}
                               </Typography>
                               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -1951,11 +2774,11 @@ export default function EspacioTrabajoSlack({
                                     alignItems: 'center',
                                     gap: 1,
                                     textDecoration: 'none',
-                                    color: '#0f233c',
+                                    color: '#1D3557',
                                     '&:hover': { bgcolor: '#f1f5f9' }
                                   }}
                                 >
-                                  <FileText size={16} color="#2563eb" />
+                                  <FileText size={16} color="#457B9D" />
                                   <Typography variant="caption" fontWeight="bold" noWrap sx={{ maxWidth: 180 }}>
                                     {adj.nombre}
                                   </Typography>
@@ -1981,9 +2804,9 @@ export default function EspacioTrabajoSlack({
                                     fontSize: '0.75rem',
                                     fontWeight: 700,
                                     cursor: 'pointer',
-                                    bgcolor: yoReaccione ? 'rgba(37, 99, 235, 0.12)' : '#f1f5f9',
-                                    color: yoReaccione ? '#1d4ed8' : '#334155',
-                                    border: yoReaccione ? '1px solid #93c5fd' : '1px solid #e2e8f0'
+                                    bgcolor: yoReaccione ? 'rgba(29, 53, 87, 0.12)' : '#f1f5f9',
+                                    color: yoReaccione ? '#1D3557' : '#334155',
+                                    border: yoReaccione ? '1px solid #457B9D' : '1px solid #e2e8f0'
                                   }}
                                 />
                               </Tooltip>
@@ -2003,11 +2826,11 @@ export default function EspacioTrabajoSlack({
                                 textTransform: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
-                                color: '#2563eb',
+                                color: '#457B9D',
                                 py: 0.2,
                                 px: 1,
                                 borderRadius: 1.5,
-                                '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.08)' }
+                                '&:hover': { bgcolor: 'rgba(69, 123, 157, 0.08)' }
                               }}
                             >
                               {msg.respuestasCount}{' '}
@@ -2024,8 +2847,145 @@ export default function EspacioTrabajoSlack({
             </Box>
 
             {/* COMPOSITOR DE MENSAJES ENRIQUECIDO (ESTILO SLACK) */}
-            <Box sx={{ p: { xs: 1.25, sm: 2 }, pt: 0.5, bgcolor: '#ffffff' }}>
-              {archivosSubiendo && <LinearProgress variant="determinate" value={progresoSubida} sx={{ mb: 1, borderRadius: 1 }} />}
+            <Box sx={{ p: { xs: 1.25, sm: 2 }, pt: 0.5, bgcolor: '#ffffff', position: 'relative' }}>
+              {/* INDICADOR "ESTÁ ESCRIBIENDO..." EN TIEMPO REAL */}
+              {usuariosEscribiendo.length > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5, px: 0.5 }}>
+                  <Typography variant="caption" sx={{ color: '#457B9D', fontWeight: 700, fontSize: '0.74rem' }}>
+                    ✍️{' '}
+                    {usuariosEscribiendo.map((u) => u.nombre).join(', ')}{' '}
+                    {usuariosEscribiendo.length === 1 ? 'está escribiendo...' : 'están escribiendo...'}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* PALETA FLOTANTE DE COMANDOS SLASH (/) */}
+              {mostrarMenuSlash && (
+                <Paper
+                  elevation={4}
+                  sx={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    left: 16,
+                    right: 16,
+                    mb: 0.5,
+                    p: 1,
+                    borderRadius: '0 10px 10px 0',
+                    border: '1px solid #cbd5e1',
+                    borderLeft: '4px solid #1D3557',
+                    bgcolor: '#ffffff',
+                    zIndex: 25
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, pb: 0.5 }}>
+                    <Typography variant="caption" fontWeight="800" color="#1D3557">
+                      ⚡ COMANDOS RÁPIDOS DE WORKSPACE
+                    </Typography>
+                    <IconButton size="small" onClick={() => setMostrarMenuSlash(false)}>
+                      <X size={13} />
+                    </IconButton>
+                  </Box>
+                  <Divider sx={{ mb: 0.5 }} />
+                  {SLASH_COMMANDS.map((item) => (
+                    <Box
+                      key={item.cmd}
+                      onClick={() => {
+                        if (item.cmd === '/tarea') {
+                          setTextoMensaje('/tarea ');
+                          setMostrarMenuSlash(false);
+                        } else {
+                          ejecutarComandoSlash(item.cmd);
+                        }
+                      }}
+                      sx={{
+                        p: 0.75,
+                        px: 1,
+                        borderRadius: 1.5,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1,
+                        '&:hover': { bgcolor: '#f1f5f9' }
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" fontWeight="800" color="#1D3557" sx={{ fontSize: '0.8rem' }}>
+                          {item.ejemplo}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
+                          {item.desc}
+                        </Typography>
+                      </Box>
+                      <Chip label={item.cmd} size="small" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700 }} />
+                    </Box>
+                  ))}
+                </Paper>
+              )}
+
+              {archivosSubiendo && (
+                <LinearProgress variant="determinate" value={progresoSubida} sx={{ mb: 1, borderRadius: 1 }} />
+              )}
+
+              {/* BARRA DE GRABACIÓN DE NOTA DE VOZ ACTIVA */}
+              {grabandoAudio && (
+                <Paper
+                  elevation={0}
+                  sx={{
+                    mb: 1,
+                    p: 1,
+                    px: 1.5,
+                    borderRadius: '0 8px 8px 0',
+                    border: '1px solid rgba(185, 47, 50, 0.35)',
+                    borderLeft: '4px solid #B92F32',
+                    bgcolor: 'rgba(185, 47, 50, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1.5
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        bgcolor: '#B92F32'
+                      }}
+                    />
+                    <Typography variant="body2" fontWeight="800" color="#B92F32" sx={{ fontSize: '0.82rem' }}>
+                      Grabando nota de voz... {Math.floor(segundosGrabacion / 60)}:
+                      {String(segundosGrabacion % 60).padStart(2, '0')}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button
+                      size="small"
+                      onClick={cancelarGrabacionAudio}
+                      sx={{ textTransform: 'none', color: '#64748b', fontSize: '0.76rem', fontWeight: 600 }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<Send size={13} />}
+                      onClick={finalizarYEnviarAudio}
+                      sx={{
+                        textTransform: 'none',
+                        bgcolor: '#B92F32',
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        borderRadius: 1.5,
+                        '&:hover': { bgcolor: '#9e2528' }
+                      }}
+                    >
+                      Enviar nota de voz
+                    </Button>
+                  </Box>
+                </Paper>
+              )}
 
               {adjuntosPendientes.length > 0 && (
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
@@ -2050,66 +3010,125 @@ export default function EspacioTrabajoSlack({
                   border: '1px solid #cbd5e1',
                   overflow: 'hidden',
                   '&:focus-within': {
-                    borderColor: '#1a365d',
-                    boxShadow: '0 0 0 2px rgba(26, 54, 93, 0.08)'
+                    borderColor: '#1D3557',
+                    boxShadow: '0 0 0 2px rgba(29, 53, 87, 0.08)'
                   }
                 }}
               >
-                {/* BARRA DE FORMATO RÁPIDO */}
+                {/* BARRA DE FORMATO RÁPIDO Y HERRAMIENTAS DE SLACK */}
                 <Box
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 0.5,
+                    justifyContent: 'space-between',
                     px: 1,
                     py: 0.4,
                     bgcolor: '#f8fafc',
-                    borderBottom: '1px solid #f1f5f9'
+                    borderBottom: '1px solid #f1f5f9',
+                    flexWrap: 'wrap',
+                    gap: 0.5
                   }}
                 >
-                  <Tooltip title="Negrita (*texto*)">
-                    <IconButton size="small" onClick={() => insertarFormatoEnComposer('*')}>
-                      <Bold size={14} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Código (`código`)">
-                    <IconButton size="small" onClick={() => insertarFormatoEnComposer('`')}>
-                      <Code size={14} />
-                    </IconButton>
-                  </Tooltip>
-                  <Divider orientation="vertical" flexItem sx={{ mx: 0.5, my: 0.5 }} />
-                  <Tooltip title="Mencionar a un colega (@)">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => setAnchorMencionComposer(e.currentTarget)}
-                    >
-                      <AtSign size={14} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Insertar emoji">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => setAnchorEmojiComposer(e.currentTarget)}
-                    >
-                      <Smile size={14} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Adjuntar archivo o imagen">
-                    <IconButton
-                      size="small"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={archivosSubiendo}
-                    >
-                      <Paperclip size={14} />
-                    </IconButton>
-                  </Tooltip>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    hidden
-                    onChange={handleSeleccionarArchivos}
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                    <Tooltip title="Negrita (*texto*)">
+                      <IconButton size="small" onClick={() => insertarFormatoEnComposer('*')}>
+                        <Bold size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Cursiva (_texto_)">
+                      <IconButton size="small" onClick={() => insertarFormatoEnComposer('_')}>
+                        <Italic size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Código (`código`)">
+                      <IconButton size="small" onClick={() => insertarFormatoEnComposer('`')}>
+                        <Code size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Cita jurídica (> texto)">
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setTextoMensaje((prev) => `${prev}${prev ? '\n' : ''}> Cita o extracto`)
+                        }
+                      >
+                        <Quote size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Lista con viñetas">
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setTextoMensaje((prev) => `${prev}${prev ? '\n' : ''}• `)
+                        }
+                      >
+                        <ListIcon size={14} />
+                      </IconButton>
+                    </Tooltip>
+
+                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5, my: 0.5 }} />
+
+                    <Tooltip title="Mencionar a un colega (@)">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => setAnchorMencionComposer(e.currentTarget)}
+                      >
+                        <AtSign size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Insertar emoji">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => setAnchorEmojiComposer(e.currentTarget)}
+                      >
+                        <Smile size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Adjuntar archivo o documento">
+                      <IconButton
+                        size="small"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={archivosSubiendo}
+                      >
+                        <Paperclip size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={grabandoAudio ? 'Detener grabación' : 'Grabar nota de voz (Clip de audio)'}>
+                      <IconButton
+                        size="small"
+                        onClick={grabandoAudio ? finalizarYEnviarAudio : iniciarGrabacionAudio}
+                        sx={{ color: grabandoAudio ? '#B92F32' : 'inherit' }}
+                      >
+                        {grabandoAudio ? <Square size={14} /> : <Mic size={14} />}
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Crear encuesta o votación rápida">
+                      <IconButton size="small" onClick={() => setModalEncuestaOpen(true)}>
+                        <BarChart2 size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Comandos rápidos (/)">
+                      <IconButton
+                        size="small"
+                        onClick={() => setMostrarMenuSlash(!mostrarMenuSlash)}
+                        sx={{ color: mostrarMenuSlash ? '#1D3557' : 'inherit' }}
+                      >
+                        <Zap size={14} />
+                      </IconButton>
+                    </Tooltip>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      hidden
+                      onChange={handleSeleccionarArchivos}
+                    />
+                  </Box>
+
+                  <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.68rem', pr: 0.5, display: { xs: 'none', sm: 'block' } }}>
+                    Escribe <strong>/</strong> para comandos • <strong>Enter</strong> para enviar
+                  </Typography>
                 </Box>
 
                 {/* INPUT DE TEXTO Y BOTÓN ENVIAR */}
@@ -2121,7 +3140,7 @@ export default function EspacioTrabajoSlack({
                     fullWidth
                     variant="standard"
                     value={textoMensaje}
-                    onChange={(e) => setTextoMensaje(e.target.value)}
+                    onChange={(e) => notificarEscritura(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -2142,7 +3161,7 @@ export default function EspacioTrabajoSlack({
                     sx={{
                       bgcolor:
                         textoMensaje.trim() || adjuntosPendientes.length > 0
-                          ? '#059669'
+                          ? '#1D3557'
                           : '#f1f5f9',
                       color:
                         textoMensaje.trim() || adjuntosPendientes.length > 0
@@ -2151,7 +3170,7 @@ export default function EspacioTrabajoSlack({
                       borderRadius: 2,
                       width: 34,
                       height: 34,
-                      '&:hover': { bgcolor: '#047857' }
+                      '&:hover': { bgcolor: '#122238' }
                     }}
                   >
                     <Send size={16} />
@@ -2206,12 +3225,12 @@ export default function EspacioTrabajoSlack({
         )}
 
         {/* ------------------------------------------------------------------- */}
-        {/* 3. PANEL LATERAL DERECHO: HILOS DE CONVERSACIÓN O MENSAJES FIJADOS  */}
+        {/* 3. PANEL LATERAL DERECHO: HILOS, FIJADOS, GUARDADOS O CANVAS        */}
         {/* ------------------------------------------------------------------- */}
         {seccionActiva === 'chat' && panelDerecho && (
           <Box
             sx={{
-              width: { xs: '100%', sm: 340 },
+              width: { xs: '100%', sm: 360 },
               position: { xs: 'absolute', md: 'relative' },
               right: 0,
               top: 0,
@@ -2236,8 +3255,11 @@ export default function EspacioTrabajoSlack({
                 justifyContent: 'space-between'
               }}
             >
-              <Typography variant="subtitle2" fontWeight="800" color="#0f233c">
-                {panelDerecho === 'hilo' ? '💬 Hilo de conversación' : '📌 Mensajes Fijados'}
+              <Typography variant="subtitle2" fontWeight="800" color="#1D3557">
+                {panelDerecho === 'hilo' && '💬 Hilo de conversación'}
+                {panelDerecho === 'fijados' && '📌 Mensajes Fijados en el Canal'}
+                {panelDerecho === 'guardados' && '🔖 Elementos Guardados (Para más tarde)'}
+                {panelDerecho === 'canvas' && `📝 Canvas de #${obtenerTituloCanal(canalActivo)}`}
               </Typography>
               <IconButton size="small" onClick={() => setPanelDerecho(null)}>
                 <X size={17} />
@@ -2247,9 +3269,8 @@ export default function EspacioTrabajoSlack({
             {panelDerecho === 'hilo' && mensajeHiloPadre ? (
               <>
                 <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {/* MENSAJE PADRE */}
                   <Paper elevation={0} sx={{ p: 1.5, borderRadius: 2, border: '1px solid #cbd5e1', bgcolor: '#ffffff' }}>
-                    <Typography variant="caption" fontWeight="bold" color="#1a365d">
+                    <Typography variant="caption" fontWeight="bold" color="#1D3557">
                       {mensajeHiloPadre.autorNombre} • {formatearHoraMensaje(mensajeHiloPadre)}
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
@@ -2263,10 +3284,9 @@ export default function EspacioTrabajoSlack({
                     </Typography>
                   </Divider>
 
-                  {/* RESPUESTAS DEL HILO */}
                   {respuestasHiloActivo.map((rep) => (
                     <Box key={rep.id} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                      <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: '#1a365d' }}>
+                      <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: '#1D3557' }}>
                         {(rep.autorNombre || 'U').charAt(0).toUpperCase()}
                       </Avatar>
                       <Paper
@@ -2274,7 +3294,7 @@ export default function EspacioTrabajoSlack({
                         sx={{ p: 1.25, borderRadius: 2, border: '1px solid #e2e8f0', bgcolor: '#ffffff', flexGrow: 1 }}
                       >
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="caption" fontWeight="bold" color="#0f233c">
+                          <Typography variant="caption" fontWeight="bold" color="#1D3557">
                             {rep.autorNombre}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem' }}>
@@ -2289,7 +3309,6 @@ export default function EspacioTrabajoSlack({
                   ))}
                 </Box>
 
-                {/* INPUT DE RESPUESTA AL HILO */}
                 <Box sx={{ p: 1.5, bgcolor: '#ffffff', borderTop: '1px solid #e2e8f0', display: 'flex', gap: 1 }}>
                   <TextField
                     size="small"
@@ -2307,12 +3326,147 @@ export default function EspacioTrabajoSlack({
                   <IconButton
                     onClick={() => handleEnviarMensaje(true)}
                     disabled={!textoRespuestaHilo.trim()}
-                    sx={{ bgcolor: '#1a365d', color: '#ffffff', borderRadius: 2, '&:hover': { bgcolor: '#0f233c' } }}
+                    sx={{ bgcolor: '#1D3557', color: '#ffffff', borderRadius: 2, '&:hover': { bgcolor: '#122238' } }}
                   >
                     <Send size={15} />
                   </IconButton>
                 </Box>
               </>
+            ) : panelDerecho === 'canvas' ? (
+              /* PANEL DE CANVAS COLABORATIVO DEL CANAL */
+              <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 2, gap: 1.5, overflowY: 'auto' }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: '0 8px 8px 0',
+                    border: '1px solid #cbd5e1',
+                    borderLeft: '4px solid #1D3557',
+                    bgcolor: '#ffffff'
+                  }}
+                >
+                  <Typography variant="caption" fontWeight="800" color="#1D3557" sx={{ display: 'block' }}>
+                    NOTA COLABORATIVA DEL CANAL
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Registra aquí acuerdos del caso, enlaces de expedientes, minutas o listas de verificación compartidas con todo el canal.
+                  </Typography>
+                </Paper>
+
+                <TextField
+                  multiline
+                  minRows={14}
+                  maxRows={22}
+                  fullWidth
+                  value={canvasTexto}
+                  onChange={(e) => setCanvasTexto(e.target.value)}
+                  placeholder="Escribe las notas colaborativas del canal..."
+                  sx={{
+                    bgcolor: '#ffffff',
+                    '& .MuiOutlinedInput-root': {
+                      fontSize: '0.85rem',
+                      lineHeight: 1.6,
+                      fontFamily: '"Inter", sans-serif'
+                    }
+                  }}
+                />
+
+                {canalActivo?.canvasActualizadoPor && (
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
+                    Última edición por <strong>{canalActivo.canvasActualizadoPor}</strong>
+                  </Typography>
+                )}
+
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                  {canvasGuardadoOk ? (
+                    <Chip
+                      icon={<CheckCircle2 size={14} />}
+                      label="Canvas sincronizado"
+                      size="small"
+                      color="success"
+                      sx={{ fontWeight: 700, fontSize: '0.72rem' }}
+                    />
+                  ) : (
+                    <span />
+                  )}
+                  <Button
+                    variant="contained"
+                    disabled={guardandoCanvas}
+                    onClick={handleGuardarCanvas}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      borderRadius: 2,
+                      bgcolor: '#1D3557',
+                      '&:hover': { bgcolor: '#122238' }
+                    }}
+                  >
+                    {guardandoCanvas ? 'Guardando...' : 'Guardar Canvas'}
+                  </Button>
+                </Box>
+              </Box>
+            ) : panelDerecho === 'guardados' ? (
+              /* PANEL PERSONAL DE ELEMENTOS GUARDADOS ("PARA MÁS TARDE") */
+              <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {mensajesGuardados.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 5, px: 2 }}>
+                    <Bookmark size={32} color="#94a3b8" style={{ margin: '0 auto 8px' }} />
+                    <Typography variant="subtitle2" fontWeight="700" color="text.secondary">
+                      No tienes elementos guardados
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                      Usa el ícono de marcador 🔖 en cualquier mensaje para guardarlo en tu lista personal.
+                    </Typography>
+                  </Box>
+                ) : (
+                  mensajesGuardados.map((item) => (
+                    <Paper
+                      key={item.id}
+                      elevation={0}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '0 8px 8px 0',
+                        border: '1px solid #cbd5e1',
+                        borderLeft: '4px solid #B92F32',
+                        bgcolor: '#ffffff'
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                        <Chip
+                          label={`#${item.canalNombre || item.canalId}`}
+                          size="small"
+                          onClick={() => {
+                            setCanalActivoId(item.canalId);
+                            setSeccionActiva('chat');
+                          }}
+                          sx={{
+                            height: 20,
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            bgcolor: 'rgba(29, 53, 87, 0.08)',
+                            color: '#1D3557',
+                            cursor: 'pointer'
+                          }}
+                        />
+                        <Tooltip title="Quitar de Guardados">
+                          <IconButton
+                            size="small"
+                            onClick={() => deleteDoc(doc(db, 'workspace_guardados', item.id))}
+                          >
+                            <X size={13} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Typography variant="caption" fontWeight="bold" color="#1D3557" sx={{ display: 'block' }}>
+                        {item.autorNombre}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.4, fontSize: '0.83rem', color: '#334155' }}>
+                        {renderizarTextoRico(item.texto)}
+                      </Typography>
+                    </Paper>
+                  ))
+                )}
+              </Box>
             ) : (
               /* LISTA DE MENSAJES FIJADOS */
               <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -2322,7 +3476,17 @@ export default function EspacioTrabajoSlack({
                   </Typography>
                 ) : (
                   mensajesFijados.map((m) => (
-                    <Paper key={m.id} elevation={0} sx={{ p: 1.5, borderRadius: 2, border: '1px solid #fde68a', bgcolor: '#fffbeb' }}>
+                    <Paper
+                      key={m.id}
+                      elevation={0}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '0 8px 8px 0',
+                        border: '1px solid #fde68a',
+                        borderLeft: '4px solid #f59e0b',
+                        bgcolor: '#fffbeb'
+                      }}
+                    >
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="caption" fontWeight="bold" color="#92400e">
                           {m.autorNombre}
@@ -2344,10 +3508,91 @@ export default function EspacioTrabajoSlack({
       </Box>
 
       {/* ===================================================================== */}
+      {/* MODAL CREAR ENCUESTA / VOTACIÓN EN EL CANAL                           */}
+      {/* ===================================================================== */}
+      <Dialog open={modalEncuestaOpen} onClose={() => setModalEncuestaOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, color: '#1D3557' }}>
+          📊 Crear Encuesta o Votación
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Pregunta o tema a votar"
+            placeholder="Ej: ¿Qué fecha prefieren para la reunión de estrategia?"
+            size="small"
+            fullWidth
+            value={encuestaForm.pregunta}
+            onChange={(e) => setEncuestaForm((p) => ({ ...p, pregunta: e.target.value }))}
+          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+            <Typography variant="caption" fontWeight="bold" color="text.secondary">
+              OPCIONES DE RESPUESTA
+            </Typography>
+            {encuestaForm.opciones.map((op, idx) => (
+              <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder={`Opción ${idx + 1}`}
+                  value={op}
+                  onChange={(e) => {
+                    const nuevas = [...encuestaForm.opciones];
+                    nuevas[idx] = e.target.value;
+                    setEncuestaForm((p) => ({ ...p, opciones: nuevas }));
+                  }}
+                />
+                {encuestaForm.opciones.length > 2 && (
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() =>
+                      setEncuestaForm((p) => ({
+                        ...p,
+                        opciones: p.opciones.filter((_, i) => i !== idx)
+                      }))
+                    }
+                  >
+                    <X size={15} />
+                  </IconButton>
+                )}
+              </Box>
+            ))}
+            {encuestaForm.opciones.length < 6 && (
+              <Button
+                size="small"
+                startIcon={<Plus size={14} />}
+                onClick={() =>
+                  setEncuestaForm((p) => ({ ...p, opciones: [...p.opciones, ''] }))
+                }
+                sx={{ alignSelf: 'flex-start', textTransform: 'none', fontWeight: 600 }}
+              >
+                Añadir opción
+              </Button>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setModalEncuestaOpen(false)} sx={{ textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCrearEncuesta}
+            disabled={
+              !encuestaForm.pregunta.trim() ||
+              encuestaForm.opciones.filter((o) => o.trim()).length < 2
+            }
+            sx={{ textTransform: 'none', bgcolor: '#1D3557', fontWeight: 700 }}
+          >
+            Publicar Encuesta
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ===================================================================== */}
       {/* MODAL CREAR NUEVO CANAL                                               */}
       {/* ===================================================================== */}
       <Dialog open={modalCanalOpen} onClose={() => setModalCanalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold', color: '#1a365d' }}>Crear Nuevo Canal</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 'bold', color: '#1D3557' }}>Crear Nuevo Canal</DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             label="Nombre del canal"
@@ -2399,7 +3644,7 @@ export default function EspacioTrabajoSlack({
               >
                 {usuariosEquipo.map((u) => (
                   <MenuItem key={u.email} value={u.email}>
-                    <Checkbox size="small" checked={nuevoCanalForm.miembros.indexOf(u.email) > -1} />
+                    <Checkbox checked={nuevoCanalForm.miembros.includes(u.email)} size="small" />
                     <ListItemText primary={u.nombre} secondary={u.email} />
                   </MenuItem>
                 ))}
@@ -2415,7 +3660,7 @@ export default function EspacioTrabajoSlack({
             variant="contained"
             onClick={handleCrearCanal}
             disabled={!nuevoCanalForm.nombre.trim()}
-            sx={{ bgcolor: '#1a365d', textTransform: 'none', fontWeight: 'bold' }}
+            sx={{ textTransform: 'none', bgcolor: '#1D3557', fontWeight: 'bold' }}
           >
             Crear Canal
           </Button>

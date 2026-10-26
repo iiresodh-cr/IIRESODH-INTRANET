@@ -5,6 +5,14 @@
       "$userKey": {
         ".write": "auth != null"
       }
+    },
+    "typing": {
+      ".read": "auth != null",
+      "$canalId": {
+        "$userKey": {
+          ".write": "auth != null"
+        }
+      }
     }
   }
 }

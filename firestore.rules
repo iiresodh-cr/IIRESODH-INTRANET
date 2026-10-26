@@ -145,6 +145,14 @@ service cloud.firestore {
     match /workspace_drive/{itemId} {
       allow read, create, update, delete: if isAuthorized();
     }
+
+    match /workspace_guardados/{guardadoId} {
+      allow read, create, update, delete: if isAuthorized();
+    }
+
+    match /workspace_canvas/{canalId} {
+      allow read, create, update, delete: if isAuthorized();
+    }
     
   }
 }
