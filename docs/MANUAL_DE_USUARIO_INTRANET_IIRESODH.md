@@ -1,0 +1,332 @@
+# Manual de Usuario — Intranet Institucional IIRESODH
+
+**Instituto Internacional de Responsabilidad Social y Derechos Humanos (IIRESODH)**  
+**Portal Oficial:** `https://intra.iiresodh.org` / `https://litigio-management.web.app`  
+**Versión del Documento:** 2.0 (Incluye *IIRESODH Workspace*, Gestión de Proyectos Kanban, Calendario Híbrido e Integración con Google Drive)
+
+---
+
+## Índice de Contenidos
+
+1. [Introducción General](#1-introducción-general)
+2. [Acceso al Sistema, Seguridad Perimetral y Roles](#2-acceso-al-sistema-seguridad-perimetral-y-roles)
+3. [Hub Central e IIRESODH Workspace (Estilo Slack)](#3-hub-central-e-iiresodh-workspace-estilo-slack)
+   - [3.1. Canales y Mensajes Directos en Tiempo Real](#31-canales-y-mensajes-directos-en-tiempo-real)
+   - [3.2. Indicador de Presencia y Estados de Disponibilidad](#32-indicador-de-presencia-y-estados-de-disponibilidad)
+   - [3.3. Seguimiento de Proyectos y Tareas (Kanban y Lista)](#33-seguimiento-de-proyectos-y-tareas-kanban-y-lista)
+   - [3.4. Calendario y Agenda Híbrida Institucional](#34-calendario-y-agenda-híbrida-institucional)
+   - [3.5. Biblioteca y Visor Integrado de Google Drive](#35-biblioteca-y-visor-integrado-de-google-drive)
+4. [Módulo: Centro de Recursos Institucionales](#4-módulo-centro-de-recursos-institucionales)
+5. [Módulo: Gestión de Litigios y Expedientes Jurídicos](#5-módulo-gestión-de-litigios-y-expedientes-jurídicos)
+   - [5.1. Creación y Administración de Casos](#51-creación-y-administración-de-casos)
+   - [5.2. Gestión de Representados y Ficha Individual](#52-gestión-de-representados-y-ficha-individual)
+   - [5.3. Plazos Fatales y Documentos del Expediente](#53-plazos-fatales-y-documentos-del-expediente)
+   - [5.4. Comunicados Masivos y Rastreo de Apertura (SendGrid)](#54-comunicados-masivos-y-rastreo-de-apertura-sendgrid)
+6. [Módulo: Mensajería Oficial WhatsApp Business API](#6-módulo-mensajería-oficial-whatsapp-business-api)
+7. [Módulo: Administración del Sitio Web Público](#7-módulo-administración-del-sitio-web-público)
+8. [Administración de Seguridad: Usuarios y Auditoría](#8-administración-de-seguridad-usuarios-y-auditoría)
+9. [Atajos de Teclado y Preguntas Frecuentes (FAQ)](#9-atajos-de-teclado-y-preguntas-frecuentes-faq)
+
+---
+
+## 1. Introducción General
+
+La **Intranet Institucional de IIRESODH** es la plataforma centralizada de trabajo colaborativo, gestión procesal de litigios estratégicos, comunicación oficial y administración documental del Instituto.
+
+A través de una única sesión segura con su cuenta institucional **`@iiresodh.org`**, el sistema integra:
+- Un **Espacio de Trabajo Colaborativo (*IIRESODH Workspace*)** con canales temáticos, mensajes directos, hilos de discusión, seguimiento de proyectos en tablero Kanban, calendario híbrido y visor embebido de Google Drive.
+- El sistema de **Control de Expedientes y Litigios**, representados, plazos procesales y emisión de comunicados oficiales con confirmación de lectura.
+- La consola multiagente de **WhatsApp Business API**.
+- El **Centro de Recursos Institucionales** y el **Administrador del Portal Web Público**.
+
+---
+
+## 2. Acceso al Sistema, Seguridad Perimetral y Roles
+
+### 2.1. Requisitos de Ingreso
+El sistema cuenta con un **doble anillo de seguridad perimetral**:
+1. **Exclusividad de Dominio**: Únicamente permite autenticar cuentas de Google Workspace terminadas en **`@iiresodh.org`**. Cualquier intento con cuentas personales (`@gmail.com`, etc.) es bloqueado y registrado automáticamente en la bitácora de seguridad.
+2. **Lista Blanca Activa**: Además de pertenecer al dominio `@iiresodh.org`, el correo del colaborador debe haber sido previamente inscrito y habilitado por un Administrador en el módulo de **Usuarios Autorizados**.
+
+### 2.2. Matriz de Roles y Privilegios
+
+| Rol Institucional | Alcance Operativo en la Intranet |
+| :--- | :--- |
+| **Abogado/a** | Acceso completo al *IIRESODH Workspace* (Canales, Proyectos, Calendario, Drive), Centro de Recursos Institucionales y operación integral del módulo de **Casos y Litigios** (expedientes, representados, plazos, escritos y comunicados masivos). |
+| **Administrativo** | Acceso completo al *IIRESODH Workspace*, Centro de Recursos Institucionales, consulta y soporte en **Casos y Litigios** (registro de representados, conciliación de pagos y carga documental). Puede recibir permisos adicionales para *WhatsApp* y *Sitio Web*. |
+| **Admin** | Todas las capacidades anteriores + eliminación de casos, carga de normativas/material gráfico en Recursos Institucionales y gestión del **Control de Usuarios Autorizados** (inscribir personal y otorgar permisos a Sitio Web / WhatsApp). |
+| **Superadmin** | Control total del sistema, designación de otros Administradores y acceso exclusivo a la **Bitácora de Auditoría Forense (Logs)**. |
+
+---
+
+## 3. Hub Central e IIRESODH Workspace (Estilo Slack)
+
+Al iniciar sesión, ingresará al **Hub Central de IIRESODH**. En la parte superior encontrará su banner de bienvenida con su rol activo y, justo debajo, el **Espacio de Trabajo & Agenda Institucional (*IIRESODH Workspace*)**.
+
+> **💡 Tip de Pantalla Completa:** En la esquina superior derecha del Workspace encontrará el botón **`Expandir`**. Al pulsarlo, el espacio de trabajo ocupa toda la pantalla para trabajar cómodamente como una aplicación de escritorio. Para volver al Hub, pulse el botón dorado **`Volver al Hub (Esc)`** o presione la tecla **`Escape`** en su teclado.
+
+La barra superior oscura del Workspace le permite alternar en todo momento entre sus **4 herramientas integradas**:
+1. **💬 Canales y Mensajes**
+2. **📋 Proyectos y Tareas**
+3. **📅 Calendario & Agenda**
+4. **📁 Google Drive**
+
+---
+
+### 3.1. Canales y Mensajes Directos en Tiempo Real
+
+El panel izquierdo del Workspace se divide en dos secciones principales:
+
+#### A. Canales Institucionales (`#` y `🔒`)
+Los canales organizan las conversaciones del equipo por tema, departamento o caso:
+- **`#general`**: Avisos generales y coordinación diaria de todo el equipo.
+- **`#anuncios-oficiales`**: Comunicados prioritarios de dirección y normativas.
+- **`#litigios-y-casos`**: Coordinación jurídica, estrategia procesal, plazos y audiencias.
+- **`#administracion`**: Logística, finanzas, soporte operativo y trámites internos.
+
+**¿Cómo crear un nuevo canal?**
+1. Haga clic en el botón **`+`** junto al título *CANALES INSTITUCIONALES* (o en `+ Añadir canal`).
+2. Escriba el nombre del canal (ej. `caso-corte-idh-2026`) y su propósito.
+3. Si el canal debe ser confidencial para un grupo específico, active la opción **Canal Privado 🔒** y seleccione a los colegas que tendrán acceso.
+4. Haga clic en **Crear Canal**.
+
+#### B. Mensajes Directos (1 a 1)
+Debajo de los canales encontrará la lista de todos sus colegas autorizados en la Intranet.
+- Haga clic sobre el nombre de cualquier colega para abrir un **chat privado 1 a 1**.
+- Cuando reciba mensajes nuevos en un canal o conversación directa que no ha abierto, aparecerá un **punto celeste brillante (`🔵`)** y el nombre resaltado en negrita.
+
+#### C. Herramientas Avanzadas de Mensajería (Hilos, Reacciones, Menciones y Adjuntos)
+Al pasar el cursor sobre cualquier mensaje del chat, aparece una **barra flotante de acciones rápidas** en la esquina superior derecha del mensaje:
+- **Reacciones rápidas (`👍 ❤️ ⚖️ ✅`)**: Haga clic en un emoji para reaccionar sin interrumpir el flujo del canal.
+- **Responder en hilo (`💬`)**: Abre un panel lateral a la derecha exclusivo para responder a ese mensaje puntual, manteniendo ordenado el canal principal.
+- **Fijar mensaje (`📌`)**: Destaca el mensaje en amarillo y lo guarda en la lista de **Mensajes Fijados** del canal (accesible desde el ícono de chincheta `📌` en la parte superior del canal).
+- **Editar (`✏️`) / Eliminar (`🗑️`)**: Permite corregir errores de redacción en sus propios mensajes o eliminarlos.
+
+**Barra de redacción de mensajes (parte inferior):**
+- **Negrita y Código**: Use el botón **`B`** o escriba entre asteriscos `*texto importante*` para negrita, y acentos graves `` `artículo 8` `` para código o citas resaltadas.
+- **Mencionar a un colega (`@`)**: Haga clic en el ícono **`@`** para elegir a un compañero de la lista; su nombre aparecerá resaltado en azul (`@NombreApellido`).
+- **Adjuntar Archivos o Imágenes (`📎`)**: Haga clic en el clip para subir documentos PDF, Word, Excel o imágenes desde su computadora directamente a la conversación.
+
+> **📌 Ejemplo Práctico 1 — Coordinar la revisión de un escrito en un hilo:**
+> 1. La abogada Laura entra al canal **`#litigios-y-casos`**, hace clic en el ícono **`📎`** para adjuntar el PDF del borrador de alegatos y escribe: *"@Carlos por favor revisa la sección de reparaciones antes de las 4:00 p.m."*
+> 2. Carlos ve la mención resaltada, pasa el cursor sobre el mensaje de Laura y hace clic en **Responder en hilo (`💬`)**.
+> 3. En el panel derecho del hilo, Carlos anota sus observaciones puntuales y reacciona con **`✅`** al mensaje principal cuando termina la revisión.
+
+---
+
+### 3.2. Indicador de Presencia y Estados de Disponibilidad
+
+El Workspace utiliza **Firebase Realtime Database** con detección instantánea de conexión:
+- **Punto Verde (`🟢`)**: Indica que el compañero tiene la Intranet abierta y activa en este momento.
+- **Punto Gris (`⚫`)**: Indica que el compañero cerró su sesión o cerró la pestaña del navegador (se actualiza automáticamente en milisegundos).
+
+**¿Cómo cambiar su estado de disponibilidad personalizado?**
+En la esquina superior derecha de la barra oscura del Workspace, haga clic sobre el botón de estado (por defecto **`🟢 Disponible`**) y elija su situación actual:
+- `🟢 Disponible`
+- `⚖️ En audiencia judicial`
+- `📅 En reunión`
+- `🎯 Redactando escrito / Enfoque`
+- `🌴 Ausente`
+
+Su emoji de estado aparecerá junto a su nombre en la lista de Mensajes Directos para que todo el equipo sepa si se encuentra en audiencia o disponible.
+
+---
+
+### 3.3. Seguimiento de Proyectos y Tareas (Kanban y Lista)
+
+Al hacer clic en la pestaña **`📋 Proyectos y Tareas`** en la barra superior del Workspace, accederá al gestor de proyectos del equipo.
+
+#### Funcionalidades principales:
+1. **Conmutador de Vista (Kanban vs. Lista)**:
+   - **Tablero Kanban**: Muestra las tareas organizadas visualmente en 4 columnas de flujo de trabajo:
+     - `📋 Por Hacer`
+     - `⚡ En Curso`
+     - `🔍 En Revisión`
+     - `✅ Completado`
+     Puede mover cualquier tarjeta de una columna a otra con un solo clic usando las flechas **`←` / `→`** en la esquina inferior derecha de la tarjeta.
+   - **Vista de Lista**: Muestra todas las tareas en una tabla ejecutiva donde puede cambiar el estado desde un menú desplegable directo.
+2. **Filtros por Proyecto y Responsable**:
+   - Filtre por área (*Litigios Estratégicos & CIDH*, *Gestión Operativa & Finanzas*, *Comunicación & Portal Web*, o cree proyectos nuevos con el botón **`+ Nuevo Proyecto`**).
+   - Use el selector de responsables y elija **`👤 Mis tareas asignadas`** para ver únicamente sus pendientes personales.
+3. **Checklist de Subtareas con Barra de Progreso**:
+   - Cada tarea puede desglosarse en pasos o subtareas. Al hacer clic sobre una tarjeta y marcar las casillas completadas, la barra de porcentaje (`%`) se actualiza en tiempo real para todo el equipo.
+
+> **📌 Ejemplo Práctico 2 — Crear una tarea con plazo fatal, subtareas y vínculo a Drive:**
+> 1. En la pestaña **`Proyectos y Tareas`**, haga clic en **`+ Nueva Tarea`**.
+> 2. **Título**: *"Presentación de peritaje psicológico - Caso Corte IDH"*.
+> 3. **Proyecto**: *Litigios Estratégicos & CIDH* | **Prioridad**: *🚨 Urgente / Plazo Fatal*.
+> 4. **Responsables**: Seleccione a los abogados encargados y defina la **Fecha límite**.
+> 5. En **Subtareas**, agregue: *"1. Validar firma del perito"*, *"2. Anexar traducción oficial"*, *"3. Foliar PDF final"*.
+> 6. Pegue el enlace del borrador de Google Docs en **Enlace de Google Drive**, elija anunciar en el canal **`#litigios-y-casos`** y active **Agendar fecha en Calendario**.
+> 7. Al pulsar **Crear Tarea**, la tarjeta aparece en el tablero Kanban, la fecha queda agendada en el Calendario Institucional y el canal `#litigios-y-casos` recibe automáticamente una tarjeta interactiva mencionando a los responsables.
+
+---
+
+### 3.4. Calendario y Agenda Híbrida Institucional
+
+Al seleccionar la pestaña **`📅 Calendario & Agenda`**, accederá al calendario unificado del Instituto.
+
+#### ¿Qué significa que sea un Calendario Híbrido?
+Combina lo mejor de dos tecnologías:
+- **Almacenamiento instantáneo en Firestore**: Permite clasificar eventos por categorías jurídicas con colores, convocar participantes de la Intranet y compartir tarjetas de eventos en los canales de Slack.
+- **Sincronización con Google Calendar (`contacto@iiresodh.org`)**: Muestra los eventos del calendario institucional de Google Workspace y, al agendar un nuevo evento con el interruptor de sincronización activo, lo replica automáticamente en Google Calendar.
+
+#### Categorías de Eventos:
+- 🟥 **Audiencia Judicial / CIDH**
+- 🟧 **Plazo Fatal / Vencimiento**
+- 🟦 **Reunión de Equipo**
+- 🟦 **Evento Institucional**
+- 🟩 **Recordatorio Interno**
+
+> **📌 Ejemplo Práctico 3 — Agendar una audiencia y notificar al equipo en el chat:**
+> 1. Haga clic sobre el día deseado en la cuadrícula del calendario (o pulse el botón **`+ Agendar Evento`**).
+> 2. Escriba el título *"Audiencia Pública - Caso Empleados vs. Estado"*, seleccione la categoría **Audiencia Judicial / CIDH** y defina la hora de inicio y finalización.
+> 3. En **Ubicación**, pegue el enlace de Google Meet o Zoom.
+> 4. En **Anunciar automáticamente en un canal de Slack**, seleccione **`#general`**.
+> 5. Haga clic en **Agendar Evento**. El evento quedará visible en el calendario (y en la columna derecha de *Próximos Eventos y Plazos*) y se publicará una tarjeta en `#general` para que todo el equipo esté enterado.
+
+---
+
+### 3.5. Biblioteca y Visor Integrado de Google Drive
+
+La pestaña **`📁 Google Drive`** conecta el Workspace con los documentos y carpetas de Google Workspace (`@iiresodh.org`) del equipo.
+
+#### Capacidades principales:
+1. **Creación rápida en Google Workspace**: En la esquina superior derecha dispone de botones directos para **`Abrir Mi Google Drive`**, crear un **`Nuevo Doc`** (Google Docs) o un **`Nuevo Sheet`** (Hojas de cálculo) forzando automáticamente su cuenta institucional `@iiresodh.org`.
+2. **Vincular Archivos y Carpetas Compartidas**:
+   - Haga clic en **`+ Vincular Archivo / Carpeta de Drive`**.
+   -Al pegar el enlace de cualquier carpeta de Drive, Google Doc, Google Sheet, Presentación o PDF, el sistema **detecta automáticamente el tipo de archivo** y le asigna su ícono correspondiente.
+3. **Visor y Editor Embebido (Sin salir de la Intranet)**:
+   - Al hacer clic en el botón **`👁️ Vista Previa`** de cualquier documento de la biblioteca (o desde una tarjeta de Drive compartida en el chat o en una tarea), se abre un **visor integrado en pantalla dividida** dentro del mismo Workspace.
+   - Si es un Google Doc, Sheet o Slide, puede alternar arriba entre **`Vista Lectura`** y **`Modo Edición`** para trabajar sobre el documento en tiempo real mientras conversa con su equipo.
+4. **Fijar Favoritos (`⭐`) y Compartir en Canales (`✈️`)**:
+   - Pulse la estrella **`⭐`** en las carpetas o matrices más usadas para que aparezcan siempre de primeras y bajo el filtro **`⭐ Fijados`**.
+   - Pulse el ícono de enviar **`✈️`** para compartir una tarjeta de acceso directo al documento en el chat.
+
+---
+
+## 4. Módulo: Centro de Recursos Institucionales
+
+Accesible desde la primera tarjeta de módulos del Hub Central o desde el menú lateral izquierdo. Está organizado en dos pestañas:
+
+1. **📖 Reglamentos & Normativas Internas**:
+   - Contiene los reglamentos internos de trabajo, políticas institucionales, códigos de ética, manuales operativos y protocolos jurídicos en formato PDF/documento.
+2. **🎨 Material Gráfico & Identidad Visual**:
+   - Contiene los logotipos oficiales de IIRESODH, isotipos en alta resolución, manual de identidad corporativa, banners y plantillas oficiales.
+
+**Acciones disponibles para todos los usuarios:**
+- **Buscar y filtrar** por categoría (Logos, Isotipos, Reglamentos, Protocolos, etc.).
+- **Descargar (`⬇️`)** el archivo original a su equipo.
+- **Copiar enlace directo (`🔗`)** al portapapeles o abrirlo en una pestaña nueva.
+
+**Subida de nuevos recursos (Exclusivo `Admin` y `Superadmin`):**
+- Haga clic en **`+ Subir Recurso Institucional`**, elija la sección (*Reglamento* o *Material Gráfico*), seleccione la categoría, asigne un título descriptivo y adjunte el archivo.
+
+---
+
+## 5. Módulo: Gestión de Litigios y Expedientes Jurídicos
+
+Es el núcleo procesal de la Intranet para la administración de casos colectivos e individuales llevados por IIRESODH.
+
+### 5.1. Creación y Administración de Casos
+Al ingresar a **Gestión de Litigios**, verá las tarjetas de todos los expedientes registrados con su estado (*Activo*, *Suspendido*, *Cerrado*, *Archivado*) y el contador en tiempo real de representados inscritos.
+- Para registrar un nuevo litigio, haga clic en **`+ Nuevo Caso / Litigio`**, ingrese el nombre oficial del expediente y una descripción procesal.
+- Para entrar a trabajar en un expediente, haga clic en **`Ver Expediente / Representados`**.
+
+### 5.2. Gestión de Representados y Ficha Individual
+Dentro del detalle de un caso, la primera pestaña muestra el padrón completo de **Representados (Clientes)**:
+- **Buscador instantáneo**: Localice a cualquier representado por nombre, apellidos, número de identificación o correo electrónico.
+- **Agregar Representado (`+ Nuevo Representado`)**: Permite registrar nombre completo, tipo y número de documento de identidad, país de residencia, teléfono con prefijo internacional, correo electrónico principal y estado de pago.
+- **Ficha Individual del Representado (`👁️ Ver Ficha`)**: Al abrir el expediente individual de una persona representada, podrá gestionar:
+  1. **Datos Personales y de Contacto** (editables en cualquier momento).
+  2. **Estado Financiero / Conciliación Stripe**: Control de estado de pago y notas de facturación.
+  3. **Poderes y Documentos Individuales**: Subida de poderes especiales firmados, documentos de identidad y pruebas específicas de ese representado.
+  4. **Notas Internas del Expediente**: Bitácora cronológica de seguimiento jurídico de ese cliente.
+  5. **Historial de Comunicados Recibidos**: Trazabilidad exacta de todos los correos oficiales enviados al representado y su estado de lectura.
+
+### 5.3. Plazos Fatales y Documentos del Expediente
+En las pestañas superiores del caso encontrará:
+- **⏳ Plazos y Fechas Fatales**: Registro de vencimientos procesales con **alertas semafóricas automáticas** (Rojo para plazos vencidos o inminentes, Amarillo para próximos a vencer, Verde para plazos holgados o cumplidos).
+- **📂 Documentos y Pruebas del Caso**: Repositorio centralizado en la nube para resoluciones judiciales, escritos presentados, peritajes y anexos probatorios comunes a todo el expediente.
+
+### 5.4. Comunicados Masivos y Rastreo de Apertura (SendGrid)
+La pestaña **📧 Comunicados Oficiales** permite redactar y enviar notificaciones por correo electrónico a todos los representados de un caso (o a una selección específica de ellos):
+1. **Plantillas Reutilizables**: Puede redactar un comunicado desde cero o cargar/guardar una plantilla institucional.
+2. **Selección de Destinatarios**: Envíe a todo el padrón del caso o filtre/seleccione manualmente a los destinatarios.
+3. **Auditoría de Entrega y Apertura en Tiempo Real**:
+   - Gracias a la integración con el webhook de SendGrid (con filtros inteligentes que descartan aperturas falsas de bots de seguridad o *Apple Mail Privacy Protection*), en la ficha de cada representado y en el historial del comunicado verá el estado real:
+     - **`Entregado`**: El servidor de correo del cliente recibió el mensaje.
+     - **`Abierto`** (con fecha y hora exacta de Costa Rica): El representado abrió y leyó el comunicado.
+     - **`Rebotado`** (con causa técnica): El correo del representado tiene problemas o no existe, permitiendo al equipo contactarlo por teléfono o WhatsApp para actualizar su dirección.
+
+---
+
+## 6. Módulo: Mensajería Oficial WhatsApp Business API
+
+Disponible para usuarios con permiso habilitado de WhatsApp y Administradores. Conecta la Intranet directamente con el número oficial institucional de WhatsApp Business de IIRESODH a través de la API Cloud de Meta.
+
+### Funcionalidades paso a paso:
+1. **Bandeja de Entrada Multiagente en Tiempo Real**:
+   - A la izquierda se listan todas las conversaciones activas ordenadas por el mensaje más reciente, con contador de mensajes no leídos.
+   - Varios miembros autorizados del equipo pueden atender consultas simultáneamente desde la Intranet sin depender de un teléfono físico.
+2. **Confirmaciones de Entrega y Lectura de Meta (`✓` / `✓✓`)**:
+   - Cada mensaje enviado desde la Intranet muestra el reloj de envío, doble check de entregado y doble check azul cuando el ciudadano o representado lo lee en su WhatsApp.
+3. **Iniciar Nueva Conversación / Editar Contacto**:
+   - Use el botón **`+`** para iniciar un chat ingresando el código de país y número telefónico, y asigne o edite el nombre identificativo del contacto para reconocerlo fácilmente en la lista.
+
+---
+
+## 7. Módulo: Administración del Sitio Web Público
+
+Disponible para usuarios con permiso de administración web (`acceso_web`) y Administradores. Permite actualizar en tiempo real el portal público de IIRESODH (`iiresodh-web`) sin conocimientos de programación:
+- **Publicación de Noticias, Artículos y Pronunciamientos** con soporte multilingüe (Español, Inglés, Francés).
+- **Editor de Texto Enriquecido (*Rich Text Editor*)**: Formato de encabezados, negritas, listas, citas, enlaces e inserción de imágenes o videos.
+- **Carga automática de imágenes de portada y galerías** optimizadas en Firebase Storage.
+
+---
+
+## 8. Administración de Seguridad: Usuarios y Auditoría
+
+En la parte inferior del Hub Central, los usuarios con rol **Admin** o **Superadmin** visualizan la sección **Controles de Seguridad del Sistema**:
+
+### 8.1. Control de Usuarios Autorizados (`Admin` y `Superadmin`)
+Permite gestionar quiénes tienen permiso para entrar a la Intranet:
+1. Haga clic en **`+ Autorizar Nuevo Usuario`**.
+2. Ingrese el **Nombre completo** del colaborador y su **Correo institucional (`@iiresodh.org`)**.
+3. Seleccione su **Rol Operativo** (`Abogado/a`, `Administrativo`, o `Admin` si usted es Superadmin).
+4. Active las casillas opcionales si esa persona debe tener acceso al módulo de **Sitio Web** o a la consola de **WhatsApp Business**.
+5. También puede modificar permisos o revocar el acceso de un usuario existente en cualquier momento con efecto inmediato.
+
+### 8.2. Bitácora de Auditoría Forense - Logs (Exclusivo `Superadmin`)
+Registra de manera inmutable todas las operaciones sensibles realizadas dentro de la Intranet:
+- Inicios y cierres de sesión exitosos.
+- Intentos de acceso bloqueados (cuentas externas o cuentas `@iiresodh.org` no autorizadas).
+- Creación, modificación o eliminación de casos, representados, eventos del calendario, recursos institucionales y cambios en permisos de usuarios, indicando **fecha, hora exacta, usuario ejecutor y detalle de la acción**.
+
+---
+
+## 9. Atajos de Teclado y Preguntas Frecuentes (FAQ)
+
+### Atajos Rápidos en el Workspace
+| Atajo / Acción | Función |
+| :--- | :--- |
+| **`Enter`** (en caja de mensaje) | Envía el mensaje inmediatamente al canal o hilo activo. |
+| **`Shift + Enter`** | Inserta un salto de línea dentro del mensaje sin enviarlo aún. |
+| **`Escape (Esc)`** | Sale del modo de Pantalla Completa del Workspace y regresa al Hub Central. |
+| **`*texto*`** | Convierte el texto entre asteriscos en **negrita** al enviarlo. |
+| **`` `texto` ``** | Muestra el texto resaltado como etiqueta o cita técnica. |
+| **`@Nombre`** | Resalta la mención a un compañero del equipo dentro del mensaje. |
+
+### Preguntas Frecuentes (FAQ)
+
+**1. ¿Por qué un compañero intenta entrar con su correo `@iiresodh.org` y el sistema le dice "Acceso restringido"?**  
+Porque por seguridad perimetral no basta con tener un correo del dominio; un Administrador debe ir a **Control de Usuarios Autorizados** y registrar su correo en la lista blanca asignándole un rol operativo.
+
+**2. ¿Cómo sé si un compañero está realmente conectado en este momento?**  
+En la lista de **Mensajes Directos** del Workspace, mire el círculo junto a su foto/avatar: si está en **verde (`🟢`)**, tiene la Intranet abierta en vivo; si cierra su navegador o cierra sesión, pasa a **gris (`⚫`)** de forma instantánea.
+
+**3. ¿Puedo ver o editar un documento de Google Drive sin salir del chat de la Intranet?**  
+Sí. Vaya a la pestaña **`📁 Google Drive`** dentro del Workspace (o haga clic en **`Vista Previa Drive`** sobre cualquier documento compartido en un canal o tarea) y se abrirá el visor lateral integrado donde puede leerlo o cambiar a **`Modo Edición`**.
+
+**4. ¿Qué ocurre si agendo una audiencia en el Calendario del Workspace?**  
+Queda guardada instantáneamente en el calendario de la Intranet, se sincroniza con el Google Calendar institucional (`contacto@iiresodh.org`) y, si seleccionó un canal al crearla, publica automáticamente un aviso en ese canal para todo el equipo.
