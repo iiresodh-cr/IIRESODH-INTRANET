@@ -31,6 +31,11 @@ service firebase.storage {
         allow read, write: if isAuthenticated();
       }
     }
+
+    // 💬 Adjuntos del Espacio de Trabajo Colaborativo (Canales, Hilos y Mensajes Directos)
+    match /workspace_adjuntos/{allPaths=**} {
+      allow read, write, delete: if isAuthenticated();
+    }
     
   }
 }

@@ -59,7 +59,7 @@ Para evitar que Meta bloquee el registro por conflicto de PIN:
 3. Haz clic en **Crear App** (Create App):
    - **Tipo de App:** Selecciona **Otro** (Other) > Siguiente.
    - **Caso de uso / Tipo:** Selecciona **Negocio** (Business).
-   - **Nombre de la App:** Ej. `IIRESODH Intranet WhatsApp`.
+   - **Nombre de la App:** Ej. ` `.
    - **Cuenta comercial de Meta:** Selecciona la cuenta de Business Manager de IIRESODH.
    - Haz clic en **Crear App**.
 4. En el panel de control de la app, busca el cuadro de **WhatsApp** y haz clic en **Configurar** (Set Up).

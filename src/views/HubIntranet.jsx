@@ -188,11 +188,13 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           </Box>
         </Card>
 
-        {/* 📅 & 💬 HERRAMIENTAS INSTITUCIONALES (CALENDARIO & GOOGLE CHAT) */}
+        {/* 📅 & 💬 HERRAMIENTAS INSTITUCIONALES (ESPACIO DE TRABAJO SLACK & CALENDARIO HÍBRIDO) */}
         <Box sx={{ mb: { xs: 3.5, sm: 5 } }}>
           <AcordeonHerramientas
             activePanel={activePanel}
             onPanelChange={setActivePanel}
+            userRole={userRole}
+            userName={nombreAMostrar}
           />
         </Box>
 

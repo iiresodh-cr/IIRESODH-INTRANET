@@ -113,6 +113,38 @@ service cloud.firestore {
       allow read: if isAuthorized();
       allow write: if isAdmin();
     }
+
+    // =================================================================
+    // SEGURIDAD: ESPACIO DE TRABAJO COLABORATIVO (SLACK + CALENDARIO HÍBRIDO)
+    // =================================================================
+    match /workspace_canales/{canalId} {
+      allow read, create, update: if isAuthorized();
+      allow delete: if isAdmin();
+
+      match /mensajes/{mensajeId} {
+        allow read, create, update, delete: if isAuthorized();
+      }
+    }
+
+    match /workspace_presencia/{userEmail} {
+      allow read, write: if isAuthorized();
+    }
+
+    match /workspace_eventos/{eventoId} {
+      allow read, create, update, delete: if isAuthorized();
+    }
+
+    match /workspace_proyectos/{proyectoId} {
+      allow read, create, update, delete: if isAuthorized();
+    }
+
+    match /workspace_tareas/{tareaId} {
+      allow read, create, update, delete: if isAuthorized();
+    }
+
+    match /workspace_drive/{itemId} {
+      allow read, create, update, delete: if isAuthorized();
+    }
     
   }
 }
