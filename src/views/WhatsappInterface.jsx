@@ -71,8 +71,8 @@ const BACKEND_SEND_URL = `${CLOUD_FUNCTION_BASE}/enviar_mensaje`;
 const WEBHOOK_CALLBACK_URL = `${CLOUD_FUNCTION_BASE}/whatsapp_webhook`;
 const DEFAULT_VERIFY_TOKEN = 'mi_codigo_secreto_123';
 const DEFAULT_PHONE_ID = '1429140810275241';
-const DEFAULT_WABA_ID = '28701773989517598';
-const DEFAULT_TOKEN = 'EAANXNDTIJbEBSZBSCJYkmRppLlnZClHmoNrPXv4NUZAvnrAKRbt3SHKAofljjNHHLPNxNw5dAa6nbptUVihprd0ScNCRPQZCgdn9vDtpeWfwGqZBZAa3W1q3dxZCfY8gsJbAKBMCEMQiqZCEtS78ZB9dXvmoJsuZBARg1i7DaSk5NgBay0ZCE2yvh5raFxFY0yku9alWjZBSsvZC1AP3QLqaKVnYSkeff4WWY6nSmCaYQntAewkACmq5xqYca7A6NZBQYay3mCMQbes9Gx7vFdzRcaShZCZBfAZDZD';
+const DEFAULT_WABA_ID = '1431176165105564';
+const DEFAULT_TOKEN = 'EAANXNDTIJbEBS28Th8KMTlVvF1rUVKVPKoCsrMaCaZAUFBRDq8DLuV4ZALBEut3wzxlc29pXqOHF0Uzem8SCJMIo9ZCV1tvPcL8XZCgKoFGrdn6bh19hqw2fCHbjK4SPPp1rQRGz2VZAoHII5V9oTQ8uA6ZBTy8KGbDCS6Fvs810D4xG3weVxh8ZAlkEsO9bwZDZD';
 
 export default function WhatsappInterface({ 
   onVolver, 
@@ -128,6 +128,8 @@ export default function WhatsappInterface({
   const [guardandoConfig, setGuardandoConfig] = useState(false);
   const [configCargada, setConfigCargada] = useState(false);
   const [copiadoCampo, setCopiadoCampo] = useState('');
+  const [probandoConexion, setProbandoConexion] = useState(false);
+  const [resultadoPrueba, setResultadoPrueba] = useState(null);
 
   // --- Menú de Respuestas Rápidas ---
   const [anchorElRespuestas, setAnchorElRespuestas] = useState(null);
@@ -152,12 +154,29 @@ export default function WhatsappInterface({
       const snap = await getDoc(cfgRef);
       if (snap.exists()) {
         const data = snap.data();
+        const tokenGuardado = data.whatsapp_token;
+        const esTokenExpirado = Boolean(tokenGuardado && tokenGuardado.includes('BSZBSCJYkmRpp'));
+        const tokenActivo = (tokenGuardado && !esTokenExpirado) ? tokenGuardado : DEFAULT_TOKEN;
+
         setMetaConfig({
           phone_number_id: data.phone_number_id || DEFAULT_PHONE_ID,
-          whatsapp_token: data.whatsapp_token || DEFAULT_TOKEN,
+          whatsapp_token: tokenActivo,
           verify_token: data.verify_token || DEFAULT_VERIFY_TOKEN,
           waba_id: data.waba_id || DEFAULT_WABA_ID
         });
+
+        // Si en Firestore aún estaba guardado el token viejo expirado, migrarlo automáticamente
+        if (esTokenExpirado && DEFAULT_TOKEN) {
+          setDoc(cfgRef, { 
+            whatsapp_token: DEFAULT_TOKEN,
+            actualizado_en: serverTimestamp() 
+          }, { merge: true }).catch(() => {});
+        }
+      } else {
+        setMetaConfig(prev => ({
+          ...prev,
+          whatsapp_token: DEFAULT_TOKEN
+        }));
       }
       setConfigCargada(true);
     } catch (e) {
@@ -169,6 +188,59 @@ export default function WhatsappInterface({
   useEffect(() => {
     cargarConfigMeta();
   }, []);
+
+  const handleProbarConexion = async () => {
+    const token = metaConfig.whatsapp_token?.trim();
+    const phoneId = metaConfig.phone_number_id?.trim();
+
+    if (!token || !phoneId) {
+      setResultadoPrueba({
+        exito: false,
+        mensaje: 'Por favor ingresa tanto el Phone Number ID como el Token de Acceso para realizar la prueba.'
+      });
+      return;
+    }
+
+    setProbandoConexion(true);
+    setResultadoPrueba(null);
+
+    try {
+      const res = await fetch(`https://graph.facebook.com/v21.0/${phoneId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        const displayPhone = data.display_phone_number || data.id;
+        const verifiedName = data.verified_name || 'Número verificado en Meta';
+        setResultadoPrueba({
+          exito: true,
+          mensaje: `✅ ¡Conexión Exitosa con Meta! Teléfono: ${displayPhone} (${verifiedName}). Las credenciales son válidas y están activas.`
+        });
+      } else {
+        const code = data?.error?.code;
+        const msg = data?.error?.message || 'Error de autenticación';
+        if (code === 190 || res.status === 401) {
+          setResultadoPrueba({
+            exito: false,
+            mensaje: `❌ Error de Autenticación 401 (Código 190): El token ha expirado o no es válido. En Meta Business Settings > Usuarios del sistema, genera un nuevo Token Permanente (caducidad: Nunca).`
+          });
+        } else {
+          setResultadoPrueba({
+            exito: false,
+            mensaje: `❌ Error Meta API (${code || res.status}): ${msg}`
+          });
+        }
+      }
+    } catch (err) {
+      setResultadoPrueba({
+        exito: false,
+        mensaje: `❌ Error de red al consultar Meta Graph API: ${err.message}`
+      });
+    } finally {
+      setProbandoConexion(false);
+    }
+  };
 
   const handleGuardarConfigMeta = async () => {
     if (!esAdmin) {
@@ -201,6 +273,7 @@ export default function WhatsappInterface({
         tipo: 'success',
         mensaje: '✅ Credenciales de Meta API guardadas correctamente. El sistema ya está enlazado.'
       });
+      setResultadoPrueba(null);
       setOpenConfigModal(false);
     } catch (error) {
       console.error('Error guardando configuración:', error);
@@ -353,7 +426,6 @@ export default function WhatsappInterface({
     const textoAEnviar = (textoPersonalizado || mensajeTexto).trim();
     if (!textoAEnviar || !selectedChat) return;
 
-    if (!textoPersonalizado) setMensajeTexto('');
     setIsSending(true);
 
     const telefonoDestino = selectedChat.telefono || selectedChat.id;
@@ -362,6 +434,8 @@ export default function WhatsappInterface({
       // 🚀 Intento 1: Llamada a la Cloud Function de Backend
       let enviadoPorFunction = false;
       let metaMessageId = null;
+      let errorAutenticacion = false;
+      let mensajeErrorDetallado = null;
 
       try {
         const res = await fetch(BACKEND_SEND_URL, {
@@ -379,12 +453,45 @@ export default function WhatsappInterface({
           const data = await res.json();
           enviadoPorFunction = true;
           metaMessageId = data.id_mensaje;
+        } else {
+          const errData = await res.json().catch(() => null);
+          const metaErr = errData?.detalles?.error;
+          const code = metaErr?.code;
+
+          if (res.status === 401 || code === 190) {
+            errorAutenticacion = true;
+            mensajeErrorDetallado = '⚠️ El token de acceso de WhatsApp Meta API ha expirado o no es válido (Error 401 / Código 190). Por favor renuévalo en "⚙️ Conexión Meta API" configurando un Token Permanente.';
+          } else if (code === 131030) {
+            mensajeErrorDetallado = '⚠️ En modo de prueba de Meta, debes agregar este número en Meta Developers > WhatsApp > Primeros pasos > Administrar lista de números.';
+          } else {
+            mensajeErrorDetallado = metaErr?.message || errData?.error || `Error del servidor (${res.status})`;
+          }
         }
       } catch (errFunc) {
-        console.warn('Cloud Function no disponible o en desarrollo, aplicando fallback directo:', errFunc);
+        console.warn('Cloud Function no disponible o fallo de red, evaluando fallback directo:', errFunc);
       }
 
-      // 🌐 Intento 2: Si el backend no completó el envío y tenemos credenciales en el cliente, entrega directa a Meta Graph API
+      // Si el backend devolvió error 401 de autenticación, NO intentamos con el mismo token inválido
+      if (errorAutenticacion) {
+        setNotificacion({
+          tipo: 'warning',
+          mensaje: mensajeErrorDetallado
+        });
+        setIsSending(false);
+        return;
+      }
+
+      // Si el backend reportó otro error explícito de Meta, notificar al usuario
+      if (!enviadoPorFunction && mensajeErrorDetallado) {
+        setNotificacion({
+          tipo: 'error',
+          mensaje: `Error al enviar mensaje vía WhatsApp: ${mensajeErrorDetallado}`
+        });
+        setIsSending(false);
+        return;
+      }
+
+      // 🌐 Intento 2: Entrega directa a Meta Graph API si la Cloud Function estuvo inalcanzable
       let entregadoAMeta = false;
       if (!enviadoPorFunction && metaConfig.whatsapp_token && metaConfig.phone_number_id) {
         try {
@@ -404,28 +511,34 @@ export default function WhatsappInterface({
             })
           });
 
-          const metaData = await metaRes.json();
+          const metaData = await metaRes.json().catch(() => ({}));
           if (metaRes.ok) {
             entregadoAMeta = true;
             metaMessageId = metaData.messages?.[0]?.id || null;
-            console.log('✅ Mensaje entregado a WhatsApp vía Meta API:', metaData);
+            console.log('✅ Mensaje entregado a WhatsApp vía Meta API directa:', metaData);
           } else {
-            console.warn('⚠️ Meta API devolvió respuesta:', metaData);
-            if (metaData?.error?.code === 131030) {
+            console.warn('⚠️ Meta API directa devolvió respuesta:', metaData);
+            if (metaRes.status === 401 || metaData?.error?.code === 190) {
+              setNotificacion({
+                tipo: 'warning',
+                mensaje: '⚠️ El token de Meta API ha expirado (Error 401 / Código 190). Por favor renuévalo en "⚙️ Conexión Meta API".'
+              });
+              setIsSending(false);
+              return;
+            } else if (metaData?.error?.code === 131030) {
               setNotificacion({
                 tipo: 'warning',
                 mensaje: '⚠️ En modo de prueba de Meta, debes agregar este número en Meta Developers > WhatsApp > Primeros pasos > Administrar lista de números de teléfono.'
               });
-            } else if (metaData?.error?.code === 190) {
-              setNotificacion({
-                tipo: 'warning',
-                mensaje: '⚠️ El token de Meta ha expirado. Por favor renuévalo en Meta for Developers.'
-              });
+              setIsSending(false);
+              return;
             } else if (metaData?.error?.message) {
               setNotificacion({
                 tipo: 'error',
                 mensaje: `Error Meta API: ${metaData.error.message}`
               });
+              setIsSending(false);
+              return;
             }
           }
         } catch (eMeta) {
@@ -433,33 +546,40 @@ export default function WhatsappInterface({
         }
       }
 
-      // 🛡️ Sincronización en Firestore (asegura multiusuario instantáneo para todos los operadores)
-      if (!enviadoPorFunction) {
-        const estadoFinal = entregadoAMeta 
-          ? 'enviado' 
-          : (metaConfig.whatsapp_token ? 'enviado' : 'esperando_meta_api');
+      // Si fue exitoso por Cloud Function o por llamada directa:
+      if (enviadoPorFunction || entregadoAMeta) {
+        // Limpiamos el texto escrito
+        if (!textoPersonalizado) setMensajeTexto('');
 
-        const msgRef = collection(db, 'whatsapp_chats', telefonoDestino, 'mensajes');
-        await addDoc(msgRef, {
-          id_meta: metaMessageId,
-          texto: textoAEnviar,
-          es_mio: true,
-          agente_nombre: userName,
-          agente_email: currentUserEmail,
-          fecha: serverTimestamp(),
-          estado: estadoFinal,
-          tipo: 'text'
+        // Si fue enviado por fallback directo en cliente, guardar en Firestore
+        if (!enviadoPorFunction) {
+          const msgRef = collection(db, 'whatsapp_chats', telefonoDestino, 'mensajes');
+          await addDoc(msgRef, {
+            id_meta: metaMessageId,
+            texto: textoAEnviar,
+            es_mio: true,
+            agente_nombre: userName,
+            agente_email: currentUserEmail,
+            fecha: serverTimestamp(),
+            estado: 'enviado',
+            tipo: 'text'
+          });
+
+          const chatRef = doc(db, 'whatsapp_chats', telefonoDestino);
+          await setDoc(chatRef, {
+            telefono: telefonoDestino,
+            ultimo_mensaje: textoAEnviar,
+            ultima_fecha: serverTimestamp(),
+            actualizado_en: serverTimestamp(),
+            ultimo_agente: userName,
+            no_leidos: 0
+          }, { merge: true });
+        }
+      } else {
+        setNotificacion({
+          tipo: 'error',
+          mensaje: 'No fue posible entregar el mensaje a WhatsApp. Verifica tu conexión a internet o las credenciales en ⚙️ Conexión Meta API.'
         });
-
-        const chatRef = doc(db, 'whatsapp_chats', telefonoDestino);
-        await setDoc(chatRef, {
-          telefono: telefonoDestino,
-          ultimo_mensaje: textoAEnviar,
-          ultima_fecha: serverTimestamp(),
-          actualizado_en: serverTimestamp(),
-          ultimo_agente: userName,
-          no_leidos: 0
-        }, { merge: true });
       }
 
     } catch (error) {
@@ -468,7 +588,6 @@ export default function WhatsappInterface({
         tipo: 'error',
         mensaje: 'No se pudo enviar el mensaje: ' + error.message
       });
-      if (!textoPersonalizado) setMensajeTexto(textoAEnviar);
     } finally {
       setIsSending(false);
     }
@@ -628,7 +747,7 @@ export default function WhatsappInterface({
     return true;
   });
 
-  const tieneApiConectada = Boolean(metaConfig.phone_number_id && metaConfig.whatsapp_token);
+  const tieneApiConectada = Boolean(metaConfig.phone_number_id && metaConfig.whatsapp_token && metaConfig.whatsapp_token.trim().length > 10);
 
   // Formato amigable de fechas
   const formatearFecha = (fechaObj) => {
@@ -737,7 +856,19 @@ export default function WhatsappInterface({
         <Alert 
           severity={notificacion.tipo} 
           onClose={() => setNotificacion(null)} 
-          sx={{ borderRadius: 0, py: 0.5, fontSize: '13px' }}
+          sx={{ borderRadius: 0, py: 0.8, fontSize: '13px', alignItems: 'center' }}
+          action={
+            esAdmin && notificacion.tipo === 'warning' ? (
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={() => setOpenConfigModal(true)}
+                sx={{ textTransform: 'none', fontWeight: 700, textDecoration: 'underline' }}
+              >
+                ⚙️ Conexión Meta API
+              </Button>
+            ) : undefined
+          }
         >
           {notificacion.mensaje}
         </Alert>
@@ -1347,7 +1478,7 @@ export default function WhatsappInterface({
               placeholder="Ej. EAAQ..."
               value={metaConfig.whatsapp_token}
               onChange={(e) => setMetaConfig(prev => ({ ...prev, whatsapp_token: e.target.value }))}
-              helperText="Token del usuario del sistema con permisos 'whatsapp_business_messaging'"
+              helperText="⚠️ Para que nunca expire, debe ser un Token de Usuario del Sistema (System User) con permisos 'whatsapp_business_messaging' y caducidad 'Nunca'."
             />
 
             <TextField
@@ -1358,6 +1489,45 @@ export default function WhatsappInterface({
               value={metaConfig.waba_id}
               onChange={(e) => setMetaConfig(prev => ({ ...prev, waba_id: e.target.value }))}
             />
+
+            {/* BOTÓN PROBAR CONEXIÓN EN VIVO */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleProbarConexion}
+                disabled={probandoConexion || !metaConfig.whatsapp_token?.trim()}
+                startIcon={probandoConexion ? <CircularProgress size={14} /> : <RefreshCw size={14} />}
+                sx={{ textTransform: 'none', color: '#0f766e', borderColor: '#0f766e', fontWeight: 600 }}
+              >
+                {probandoConexion ? 'Comprobando en Meta...' : '🔍 Probar Conexión con Meta'}
+              </Button>
+              <Typography variant="caption" color="text.secondary">
+                Verifica en vivo si el token es válido o si expiró antes de guardar.
+              </Typography>
+            </Box>
+
+            {resultadoPrueba && (
+              <Alert 
+                severity={resultadoPrueba.exito ? 'success' : 'error'}
+                onClose={() => setResultadoPrueba(null)}
+                sx={{ fontSize: '12px', mt: 0.5 }}
+              >
+                {resultadoPrueba.mensaje}
+              </Alert>
+            )}
+
+            {/* GUÍA RÁPIDA DE TOKEN PERMANENTE */}
+            <Box sx={{ mt: 1, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px dashed #cbd5e1' }}>
+              <Typography variant="caption" fontWeight="600" color="#475569" sx={{ display: 'block', mb: 0.5 }}>
+                📌 ¿Dónde generar el token permanente para que no vuelva a expirar?
+              </Typography>
+              <Typography variant="caption" color="#64748b" sx={{ display: 'block', lineHeight: 1.5 }}>
+                1. Abre <strong>Meta Business Suite</strong> &gt; Configuración del Negocio &gt; <em>Usuarios del Sistema</em>.<br />
+                2. Crea un usuario con rol Administrador y añade tu App de WhatsApp con Control total.<br />
+                3. Haz clic en <strong>Generar nuevo token</strong> con caducidad <strong>"Nunca"</strong> y permisos <code>whatsapp_business_messaging</code> y <code>whatsapp_business_management</code>.
+              </Typography>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2.5, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>

@@ -14,7 +14,7 @@ except Exception:
 db = firestore.client()
 
 DEFAULT_VERIFY_TOKEN = "mi_codigo_secreto_123"
-DEFAULT_TOKEN = "EAANXNDTIJbEBSZBSCJYkmRppLlnZClHmoNrPXv4NUZAvnrAKRbt3SHKAofljjNHHLPNxNw5dAa6nbptUVihprd0ScNCRPQZCgdn9vDtpeWfwGqZBZAa3W1q3dxZCfY8gsJbAKBMCEMQiqZCEtS78ZB9dXvmoJsuZBARg1i7DaSk5NgBay0ZCE2yvh5raFxFY0yku9alWjZBSsvZC1AP3QLqaKVnYSkeff4WWY6nSmCaYQntAewkACmq5xqYca7A6NZBQYay3mCMQbes9Gx7vFdzRcaShZCZBfAZDZD"
+DEFAULT_TOKEN = "EAANXNDTIJbEBS28Th8KMTlVvF1rUVKVPKoCsrMaCaZAUFBRDq8DLuV4ZALBEut3wzxlc29pXqOHF0Uzem8SCJMIo9ZCV1tvPcL8XZCgKoFGrdn6bh19hqw2fCHbjK4SPPp1rQRGz2VZAoHII5V9oTQ8uA6ZBTy8KGbDCS6Fvs810D4xG3weVxh8ZAlkEsO9bwZDZD"
 
 def obtener_credenciales_meta():
     """
@@ -32,7 +32,10 @@ def obtener_credenciales_meta():
         cfg_doc = db.collection("whatsapp_config").document("credenciales").get()
         if cfg_doc.exists:
             datos = cfg_doc.to_dict() or {}
-            token = token or datos.get("whatsapp_token")
+            tok_fs = datos.get("whatsapp_token")
+            # Descartar token de prueba anterior que expiró el 23 de octubre
+            if tok_fs and "BSZBSCJYkmRpp" not in tok_fs:
+                token = token or tok_fs
             phone_id = datos.get("phone_number_id") or phone_id
             verify_token = datos.get("verify_token") or verify_token
             waba_id = datos.get("waba_id") or waba_id
@@ -42,7 +45,7 @@ def obtener_credenciales_meta():
     # Fallbacks predeterminados (número oficial permanente: +506 4081 6188)
     token = token or DEFAULT_TOKEN
     phone_id = phone_id or "1429140810275241"
-    waba_id = waba_id or "28701773989517598"
+    waba_id = waba_id or "1431176165105564"
 
     return {
         "whatsapp_token": token,
