@@ -182,14 +182,15 @@ Al hacer clic en la pestaña **`📋 Proyectos y Tareas`** en la barra superior 
 
 ---
 
-### 3.4. Calendario y Agenda Híbrida Institucional
+### 3.4. Calendario Privado y Agenda Propia de la Plataforma
 
-Al seleccionar la pestaña **`📅 Calendario & Agenda`**, accederá al calendario unificado del Instituto.
+Al seleccionar la pestaña **`📅 Calendario & Agenda`**, accederá al calendario oficial, autónomo y 100% interno de la Intranet de IIRESODH.
 
-#### ¿Qué significa que sea un Calendario Híbrido?
-Combina lo mejor de dos tecnologías:
-- **Almacenamiento instantáneo en Firestore**: Permite clasificar eventos por categorías jurídicas con colores, convocar participantes de la Intranet y compartir tarjetas de eventos en los canales de Slack.
-- **Sincronización con Google Calendar (`contacto@iiresodh.org`)**: Muestra los eventos del calendario institucional de Google Workspace y, al agendar un nuevo evento con el interruptor de sincronización activo, lo replica automáticamente en Google Calendar.
+#### Seguridad y Privacidad del Calendario Propio:
+- **Almacenamiento 100% interno en Firestore (`workspace_eventos`)**: Todos los plazos fatales, audiencias y reuniones se almacenan exclusivamente dentro del perímetro de seguridad de la Intranet (sin exponer datos en cuentas generales de correo como `contacto@iiresodh.org`).
+- **Control de Confidencialidad (`Evento Confidencial 🔒`)**: Al crear o editar un evento, puede activar la opción **"Evento Confidencial (Solo participantes convocados)"**. Cuando está activa, el evento lleva el distintivo `🔒 Confidencial` y **únicamente es visible** para quien lo creó, los miembros convocados en la lista de participantes y el Superadmin.
+- **Filtro de Alcance (`Agenda del Equipo` vs. `👤 Mis convocatorias`)**: En la barra superior del calendario puede alternar entre ver toda la agenda general del equipo o filtrar únicamente las audiencias y reuniones en las que usted participa.
+- **Copia opcional al calendario personal**: Dentro del detalle de cualquier evento dispone del botón **`Guardar copia en mi Google Calendar personal`**, que abre su propia cuenta `@iiresodh.org` por si desea agendar un recordatorio individual en su teléfono sin compartir información fuera de su cuenta.
 
 #### Categorías de Eventos:
 - 🟥 **Audiencia Judicial / CIDH**
@@ -198,12 +199,12 @@ Combina lo mejor de dos tecnologías:
 - 🟦 **Evento Institucional**
 - 🟩 **Recordatorio Interno**
 
-> **📌 Ejemplo Práctico 3 — Agendar una audiencia y notificar al equipo en el chat:**
+> **📌 Ejemplo Práctico 3 — Agendar una audiencia confidencial y notificar en un canal:**
 > 1. Haga clic sobre el día deseado en la cuadrícula del calendario (o pulse el botón **`+ Agendar Evento`**).
 > 2. Escriba el título *"Audiencia Pública - Caso Empleados vs. Estado"*, seleccione la categoría **Audiencia Judicial / CIDH** y defina la hora de inicio y finalización.
-> 3. En **Ubicación**, pegue el enlace de Google Meet o Zoom.
-> 4. En **Anunciar automáticamente en un canal de Slack**, seleccione **`#general`**.
-> 5. Haga clic en **Agendar Evento**. El evento quedará visible en el calendario (y en la columna derecha de *Próximos Eventos y Plazos*) y se publicará una tarjeta en `#general` para que todo el equipo esté enterado.
+> 3. En **Ubicación**, pegue el enlace de Google Meet o Zoom y seleccione a los **Participantes convocados del equipo**.
+> 4. Si se trata de una reunión sensible de estrategia, active el interruptor **`Evento Confidencial (Solo participantes convocados)`**; o déjelo abierto para todo el equipo y seleccione anunciar en **`#litigios-y-casos`**.
+> 5. Haga clic en **Agendar Evento**. El evento quedará resguardado inmediatamente en el calendario propio de la plataforma y en la columna derecha de *Próximos Eventos y Plazos*.
 
 ---
 

@@ -1,5 +1,5 @@
 // src/components/workspace/CalendarioHibridoPanel.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -35,7 +35,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  RotateCw,
   Clock,
   MapPin,
   CalendarDays,
@@ -45,9 +44,8 @@ import {
   Users,
   Building2,
   Bookmark,
-  Hash,
-  Cloud,
-  Database,
+  ShieldCheck,
+  Lock,
   ExternalLink,
   Trash2,
   Edit3,
@@ -66,8 +64,7 @@ import {
   serverTimestamp,
   orderBy
 } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../../config/firebase';
+import { db } from '../../config/firebase';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
 
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -79,7 +76,7 @@ export const CATEGORIAS_EVENTO = {
     color: '#991b1b',
     bg: '#fef2f2',
     border: '#fecaca',
-    dot: '#dc2626',
+    dot: '#B92F32',
     icon: Scale
   },
   plazo: {
@@ -94,19 +91,19 @@ export const CATEGORIAS_EVENTO = {
   reunion: {
     id: 'reunion',
     label: 'Reunión de Equipo',
-    color: '#1e40af',
+    color: '#1D3557',
     bg: '#eff6ff',
     border: '#bfdbfe',
-    dot: '#2563eb',
+    dot: '#457B9D',
     icon: Users
   },
   institucional: {
     id: 'institucional',
     label: 'Evento Institucional',
-    color: '#1a365d',
+    color: '#1D3557',
     bg: '#f0f9ff',
     border: '#bae6fd',
-    dot: '#0284c7',
+    dot: '#1D3557',
     icon: Building2
   },
   recordatorio: {
@@ -130,15 +127,16 @@ export default function CalendarioHibridoPanel({
   openNewModalSignal = 0,
   onIrACanal
 }) {
+  const currentUserEmail = (currentUser?.email || '').toLowerCase();
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [vista, setVista] = useState('mes'); // 'mes' | 'agenda'
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
+  const [filtroAlcance, setFiltroAlcance] = useState('todos'); // 'todos' | 'mios'
 
-  // Eventos nativos en Firestore y eventos remotos de Google Calendar
+  // Eventos nativos en el Calendario Propio de la Plataforma (Firestore)
   const [firestoreEvents, setFirestoreEvents] = useState([]);
-  const [googleEvents, setGoogleEvents] = useState([]);
-  const [loadingGoogle, setLoadingGoogle] = useState(false);
-  const [googleSyncStatus, setGoogleSyncStatus] = useState('conectado'); // 'conectado' | 'local'
+  const [loadingEvents, setLoadingEvents] = useState(true);
 
   // Modales
   const [modalOpen, setModalOpen] = useState(false);
@@ -196,57 +194,33 @@ export default function CalendarioHibridoPanel({
     descripcion: '',
     participantes: [],
     notificarCanalId: '',
-    sincronizarGoogle: true
+    esConfidencial: false
   });
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // 1. Escucha en tiempo real de eventos nativos en Firestore
+  // 1. Escucha en tiempo real de eventos nativos del Calendario Propio de la Plataforma (Firestore)
   useEffect(() => {
+    setLoadingEvents(true);
     const q = query(collection(db, 'workspace_eventos'), orderBy('startIso', 'asc'));
     const unsub = onSnapshot(
       q,
       (snap) => {
         const items = snap.docs.map((d) => ({
           id: d.id,
-          ...d.data(),
-          origen: 'firestore'
+          ...d.data()
         }));
         setFirestoreEvents(items);
+        setLoadingEvents(false);
       },
       (err) => {
         console.error('Error escuchando workspace_eventos:', err);
+        setLoadingEvents(false);
       }
     );
     return () => unsub();
   }, []);
-
-  // 2. Carga complementaria desde Google Calendar (contacto@iiresodh.org)
-  const cargarEventosGoogle = useCallback(async () => {
-    setLoadingGoogle(true);
-    try {
-      const minDate = new Date(year, month - 1, 1).toISOString();
-      const maxDate = new Date(year, month + 2, 0).toISOString();
-
-      const obtenerFn = httpsCallable(functions, 'obtenerEventosCalendario');
-      const res = await obtenerFn({ timeMin: minDate, timeMax: maxDate });
-
-      if (res.data?.events) {
-        setGoogleEvents(res.data.events);
-        setGoogleSyncStatus('conectado');
-      }
-    } catch (err) {
-      console.warn('Google Calendar operando en modo local Firestore:', err?.message);
-      setGoogleSyncStatus('local');
-    } finally {
-      setLoadingGoogle(false);
-    }
-  }, [year, month]);
-
-  useEffect(() => {
-    cargarEventosGoogle();
-  }, [cargarEventosGoogle]);
 
   // Abrir modal si viene señal desde el chat
   useEffect(() => {
@@ -255,16 +229,23 @@ export default function CalendarioHibridoPanel({
     }
   }, [openNewModalSignal, initialChannelId]);
 
-  // 3. Fusión inteligente y sin duplicados de eventos (Firestore + Google Calendar)
+  // 2. Normalización y filtrado de privacidad/confidencialidad
   const eventosUnificados = useMemo(() => {
-    const googleIdsEnFirestore = new Set(
-      firestoreEvents.map((e) => e.googleEventId).filter(Boolean)
-    );
+    const visiblesParaUsuario = firestoreEvents.filter((ev) => {
+      if (ev.visibilidad === 'confidencial' || ev.esConfidencial === true) {
+        if (userRole === 'Superadmin') return true;
+        const esCreador = (ev.creadoPorEmail || '').toLowerCase() === currentUserEmail;
+        const esParticipante = (ev.participantes || []).some(
+          (p) => p.toLowerCase() === currentUserEmail
+        );
+        return esCreador || esParticipante;
+      }
+      return true;
+    });
 
-    const normalizadosFirestore = firestoreEvents.map((ev) => ({
+    const normalizados = visiblesParaUsuario.map((ev) => ({
       id: ev.id,
       firestoreId: ev.id,
-      googleEventId: ev.googleEventId || null,
       summary: ev.titulo || '(Sin título)',
       description: ev.descripcion || '',
       location: ev.ubicacion || '',
@@ -276,43 +257,56 @@ export default function CalendarioHibridoPanel({
       creadoPorEmail: ev.creadoPorEmail || '',
       creadoPorNombre: ev.creadoPorNombre || '',
       canalId: ev.canalId || '',
-      htmlLink: ev.htmlLink || '',
-      origen: ev.googleEventId ? 'hibrido' : 'firestore'
+      esConfidencial: ev.visibilidad === 'confidencial' || Boolean(ev.esConfidencial)
     }));
 
-    const normalizadosGoogle = googleEvents
-      .filter((gev) => !googleIdsEnFirestore.has(gev.id))
-      .map((gev) => {
-        // Inferir categoría si el título menciona audiencia o plazo
-        const lower = (gev.summary || '').toLowerCase();
-        let cat = 'institucional';
-        if (lower.includes('audiencia') || lower.includes('cidh') || lower.includes('corte')) cat = 'audiencia';
-        else if (lower.includes('plazo') || lower.includes('vencimiento') || lower.includes('fatal')) cat = 'plazo';
-        else if (lower.includes('reunión') || lower.includes('reunion') || lower.includes('equipo')) cat = 'reunion';
+    return normalizados.filter((ev) => {
+      if (filtroCategoria !== 'todas' && ev.categoria !== filtroCategoria) return false;
+      if (filtroAlcance === 'mios') {
+        const soyCreador = (ev.creadoPorEmail || '').toLowerCase() === currentUserEmail;
+        const estoyConvocado = (ev.participantes || []).some(
+          (p) => p.toLowerCase() === currentUserEmail
+        );
+        if (!soyCreador && !estoyConvocado) return false;
+      }
+      return true;
+    });
+  }, [firestoreEvents, filtroCategoria, filtroAlcance, currentUserEmail, userRole]);
 
-        return {
-          id: `gcal_${gev.id}`,
-          firestoreId: null,
-          googleEventId: gev.id,
-          summary: gev.summary || '(Sin título)',
-          description: gev.description || '',
-          location: gev.location || '',
-          categoria: cat,
-          todoElDia: !gev.start?.dateTime && Boolean(gev.start?.date),
-          start: gev.start,
-          end: gev.end,
-          participantes: [],
-          creadoPorEmail: gev.creator?.email || 'contacto@iiresodh.org',
-          creadoPorNombre: 'Google Calendar IIRESODH',
-          htmlLink: gev.htmlLink || '',
-          origen: 'google'
-        };
-      });
+  // Generar enlace para que el usuario agregue opcionalmente un evento a su propio Google Calendar personal
+  const generarUrlGoogleCalendarPersonal = (ev) => {
+    if (!ev) return '#';
+    const pad = (n) => String(n).padStart(2, '0');
+    const toGCalDate = (isoStr, isAllDay) => {
+      if (!isoStr) return '';
+      if (isAllDay) {
+        return isoStr.split('T')[0].replace(/-/g, '');
+      }
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return '';
+      return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+    };
 
-    const todos = [...normalizadosFirestore, ...normalizadosGoogle];
-    if (filtroCategoria === 'todas') return todos;
-    return todos.filter((e) => e.categoria === filtroCategoria);
-  }, [firestoreEvents, googleEvents, filtroCategoria]);
+    const startRaw = ev.todoElDia ? ev.start?.date : ev.start?.dateTime;
+    const endRaw = ev.todoElDia ? ev.end?.date || ev.start?.date : ev.end?.dateTime || ev.start?.dateTime;
+    const startParam = toGCalDate(startRaw, ev.todoElDia);
+    let endParam = toGCalDate(endRaw, ev.todoElDia);
+    if (ev.todoElDia && startRaw) {
+      const d = new Date(`${startRaw.split('T')[0]}T00:00:00`);
+      d.setDate(d.getDate() + 1);
+      endParam = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+    }
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: `[IIRESODH] ${ev.summary || ''}`,
+      dates: `${startParam}/${endParam}`,
+      details: ev.description || 'Evento agendado en la Intranet Institucional IIRESODH.',
+      location: ev.location || ''
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
 
   // Abrir modal para crear nuevo evento
   const abrirModalNuevo = (fechaClick = null, canalPreseleccionado = '') => {
@@ -327,9 +321,9 @@ export default function CalendarioHibridoPanel({
       fechaFin: fin,
       ubicacion: '',
       descripcion: '',
-      participantes: currentUser?.email ? [currentUser.email.toLowerCase()] : [],
+      participantes: currentUserEmail ? [currentUserEmail] : [],
       notificarCanalId: canalPreseleccionado || (canalesDisponibles[0]?.id || ''),
-      sincronizarGoogle: true
+      esConfidencial: false
     });
     setModalOpen(true);
   };
@@ -353,12 +347,6 @@ export default function CalendarioHibridoPanel({
     const rawStart = esTodoElDia ? ev.start?.date : ev.start?.dateTime;
     const rawEnd = esTodoElDia ? ev.end?.date : ev.end?.dateTime;
 
-    let descLimpia = ev.description || '';
-    const idxFirma = descLimpia.indexOf('\n\n---');
-    if (idxFirma !== -1) {
-      descLimpia = descLimpia.substring(0, idxFirma);
-    }
-
     setForm({
       titulo: ev.summary || '',
       categoria: ev.categoria || 'institucional',
@@ -366,10 +354,10 @@ export default function CalendarioHibridoPanel({
       fechaInicio: formatInput(rawStart),
       fechaFin: formatInput(rawEnd),
       ubicacion: ev.location || '',
-      descripcion: descLimpia,
+      descripcion: ev.description || '',
       participantes: ev.participantes || [],
       notificarCanalId: '',
-      sincronizarGoogle: Boolean(ev.googleEventId) || ev.origen === 'google'
+      esConfidencial: Boolean(ev.esConfidencial)
     });
     setModalOpen(true);
   };
@@ -415,7 +403,7 @@ export default function CalendarioHibridoPanel({
     }
   };
 
-  // Guardar (Crear o Actualizar) en Firestore + Opcional Google Calendar + Opcional Notificación en Canal Slack
+  // Guardar (Crear o Actualizar) en el Calendario Propio de la Plataforma (Firestore)
   const handleGuardarEvento = async (e) => {
     e.preventDefault();
     setFormError(null);
@@ -442,43 +430,9 @@ export default function CalendarioHibridoPanel({
         ? `${form.fechaFin || form.fechaInicio}T23:59:59`
         : new Date(form.fechaFin).toISOString();
 
-      let googleEventId = modoEdicion ? eventoSeleccionado?.googleEventId || null : null;
-      let htmlLink = modoEdicion ? eventoSeleccionado?.htmlLink || '' : '';
-
-      // Sincronización con Google Calendar si está activa
-      if (form.sincronizarGoogle) {
-        try {
-          if (modoEdicion && googleEventId) {
-            const fnActualizar = httpsCallable(functions, 'actualizarEventoCalendario');
-            const resG = await fnActualizar({
-              eventId: googleEventId,
-              titulo: form.titulo.trim(),
-              todoElDia: form.todoElDia,
-              fechaInicio: form.fechaInicio,
-              fechaFin: form.todoElDia ? form.fechaInicio : form.fechaFin,
-              ubicacion: form.ubicacion.trim() || undefined,
-              descripcion: form.descripcion.trim() || undefined
-            });
-            if (resG.data?.event?.htmlLink) htmlLink = resG.data.event.htmlLink;
-          } else if (!modoEdicion) {
-            const fnCrear = httpsCallable(functions, 'crearEventoCalendario');
-            const resG = await fnCrear({
-              titulo: form.titulo.trim(),
-              todoElDia: form.todoElDia,
-              fechaInicio: form.fechaInicio,
-              fechaFin: form.todoElDia ? form.fechaInicio : form.fechaFin,
-              ubicacion: form.ubicacion.trim() || undefined,
-              descripcion: form.descripcion.trim() || undefined
-            });
-            if (resG.data?.eventId) {
-              googleEventId = resG.data.eventId;
-              htmlLink = resG.data.htmlLink || '';
-            }
-          }
-        } catch (gErr) {
-          console.warn('No se pudo sincronizar con Google Calendar, guardando en Firestore:', gErr);
-        }
-      }
+      const participantesFinales = Array.from(
+        new Set([...(form.participantes || []), ...(form.esConfidencial && currentUserEmail ? [currentUserEmail] : [])])
+      );
 
       const payloadFirestore = {
         titulo: form.titulo.trim(),
@@ -490,9 +444,9 @@ export default function CalendarioHibridoPanel({
         endIso,
         ubicacion: form.ubicacion.trim(),
         descripcion: form.descripcion.trim(),
-        participantes: form.participantes || [],
-        googleEventId: googleEventId || null,
-        htmlLink: htmlLink || '',
+        participantes: participantesFinales,
+        visibilidad: form.esConfidencial ? 'confidencial' : 'equipo',
+        esConfidencial: Boolean(form.esConfidencial),
         actualizadoEn: serverTimestamp()
       };
 
@@ -503,7 +457,7 @@ export default function CalendarioHibridoPanel({
       } else {
         const nuevoRef = await addDoc(collection(db, 'workspace_eventos'), {
           ...payloadFirestore,
-          creadoPorEmail: currentUser?.email?.toLowerCase() || '',
+          creadoPorEmail: currentUserEmail,
           creadoPorNombre: userName || currentUser?.displayName || currentUser?.email || 'Usuario',
           creadoEn: serverTimestamp()
         });
@@ -517,11 +471,12 @@ export default function CalendarioHibridoPanel({
 
         await addDoc(collection(db, 'workspace_canales', form.notificarCanalId, 'mensajes'), {
           texto: textoMensaje,
-          autorEmail: currentUser?.email?.toLowerCase() || '',
-          autorNombre: userName || currentUser?.displayName || 'Sistema de Agenda',
+          autorEmail: currentUserEmail,
+          autorNombre: userName || currentUser?.displayName || 'Agenda Institucional',
           autorAvatar: currentUser?.photoURL || '',
           autorRol: userRole || 'Colaborador',
           creadoEn: serverTimestamp(),
+          creadoEnMs: Date.now(),
           reacciones: {},
           fijado: false,
           respuestasCount: 0,
@@ -538,6 +493,7 @@ export default function CalendarioHibridoPanel({
 
         await updateDoc(doc(db, 'workspace_canales', form.notificarCanalId), {
           ultimoMensajeAt: serverTimestamp(),
+          ultimoMensajeMs: Date.now(),
           ultimoMensajeTexto: `📅 Evento: ${form.titulo.trim()}`,
           ultimoMensajeAutor: userName || currentUser?.displayName || 'Equipo'
         });
@@ -546,18 +502,17 @@ export default function CalendarioHibridoPanel({
       if (currentUser?.email) {
         registrarLogAuditoria(
           currentUser.email,
-          modoEdicion ? 'Actualización de Evento (Workspace)' : 'Creación de Evento (Workspace)',
-          `Evento "${form.titulo.trim()}" [${form.categoria}] guardado en Calendario Híbrido.`
+          modoEdicion ? 'Actualización de Evento (Calendario Interno)' : 'Creación de Evento (Calendario Interno)',
+          `Evento "${form.titulo.trim()}" [${form.categoria}] (${form.esConfidencial ? 'Confidencial' : 'Equipo'}) guardado en Calendario Propio IIRESODH.`
         );
       }
 
       setModalOpen(false);
-      cargarEventosGoogle();
       setSnackbar({
         open: true,
         message: modoEdicion
-          ? 'Evento actualizado correctamente.'
-          : 'Evento agendado y sincronizado en el espacio de trabajo.',
+          ? 'Evento actualizado en el calendario de la plataforma.'
+          : 'Evento agendado de forma segura en el calendario institucional.',
         severity: 'success'
       });
     } catch (err) {
@@ -568,26 +523,23 @@ export default function CalendarioHibridoPanel({
     }
   };
 
-  // Eliminar evento de Firestore y/o Google Calendar
+  // Eliminar evento del Calendario Propio de la Plataforma
   const handleEliminarEvento = async () => {
-    if (!eventoSeleccionado) return;
+    if (!eventoSeleccionado?.firestoreId) return;
     setDeleting(true);
     try {
-      if (eventoSeleccionado.googleEventId) {
-        try {
-          const eliminarFn = httpsCallable(functions, 'eliminarEventoCalendario');
-          await eliminarFn({ eventId: eventoSeleccionado.googleEventId });
-        } catch (gErr) {
-          console.warn('Error eliminando en Google Calendar:', gErr);
-        }
-      }
-      if (eventoSeleccionado.firestoreId) {
-        await deleteDoc(doc(db, 'workspace_eventos', eventoSeleccionado.firestoreId));
+      await deleteDoc(doc(db, 'workspace_eventos', eventoSeleccionado.firestoreId));
+
+      if (currentUser?.email) {
+        registrarLogAuditoria(
+          currentUser.email,
+          'Eliminación de Evento (Calendario Interno)',
+          `Evento "${eventoSeleccionado.summary}" eliminado del calendario institucional.`
+        );
       }
 
       setConfirmDeleteOpen(false);
       setDetalleOpen(false);
-      cargarEventosGoogle();
       setSnackbar({
         open: true,
         message: 'Evento eliminado del calendario institucional.',
@@ -614,11 +566,12 @@ export default function CalendarioHibridoPanel({
 
       await addDoc(collection(db, 'workspace_canales', canalId, 'mensajes'), {
         texto: `📅 *Recordatorio de Evento:* *${eventoSeleccionado.summary}*\n• *Categoría:* ${catInfo.label}\n• *Cuándo:* ${fechaTexto}${eventoSeleccionado.location ? `\n• *Ubicación:* ${eventoSeleccionado.location}` : ''}`,
-        autorEmail: currentUser?.email?.toLowerCase() || '',
+        autorEmail: currentUserEmail,
         autorNombre: userName || currentUser?.displayName || 'Equipo',
         autorAvatar: currentUser?.photoURL || '',
         autorRol: userRole || 'Colaborador',
         creadoEn: serverTimestamp(),
+        creadoEnMs: Date.now(),
         reacciones: {},
         fijado: false,
         respuestasCount: 0,
@@ -634,6 +587,7 @@ export default function CalendarioHibridoPanel({
 
       await updateDoc(doc(db, 'workspace_canales', canalId), {
         ultimoMensajeAt: serverTimestamp(),
+        ultimoMensajeMs: Date.now(),
         ultimoMensajeTexto: `📅 Recordatorio: ${eventoSeleccionado.summary}`,
         ultimoMensajeAutor: userName || 'Equipo'
       });
@@ -736,8 +690,8 @@ export default function CalendarioHibridoPanel({
   });
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#f8fafc', overflow: 'hidden' }}>
-      {/* BARRA SUPERIOR DEL CALENDARIO HÍBRIDO */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#F8FAF8', overflow: 'hidden' }}>
+      {/* BARRA SUPERIOR DEL CALENDARIO PROPIO DE LA PLATAFORMA */}
       <Box
         sx={{
           px: { xs: 2, sm: 3 },
@@ -763,7 +717,7 @@ export default function CalendarioHibridoPanel({
               sx={{
                 textTransform: 'none',
                 fontWeight: 'bold',
-                color: '#1a365d',
+                color: '#1D3557',
                 minWidth: 'auto',
                 px: 1.2,
                 fontSize: '0.8rem'
@@ -779,27 +733,21 @@ export default function CalendarioHibridoPanel({
           <Typography
             variant="h6"
             fontWeight="800"
-            color="#0f233c"
+            color="#1D3557"
             sx={{ textTransform: 'capitalize', fontSize: { xs: '1.05rem', sm: '1.2rem' } }}
           >
             {nombreMes}
           </Typography>
 
-          <Tooltip
-            title={
-              googleSyncStatus === 'conectado'
-                ? 'Sincronizado en tiempo real con Firestore y Google Calendar (contacto@iiresodh.org)'
-                : 'Almacenamiento nativo activo en Firestore'
-            }
-          >
+          <Tooltip title="Calendario 100% interno y privado de la plataforma IIRESODH, blindado con reglas perimetrales de Firestore">
             <Chip
-              icon={googleSyncStatus === 'conectado' ? <Cloud size={13} /> : <Database size={13} />}
-              label={googleSyncStatus === 'conectado' ? 'Híbrido: Firestore + Google Calendar' : 'Firestore Nativo'}
+              icon={<ShieldCheck size={13} color="#1D3557" />}
+              label="Calendario Privado IIRESODH"
               size="small"
               sx={{
-                bgcolor: googleSyncStatus === 'conectado' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(26, 54, 93, 0.08)',
-                color: googleSyncStatus === 'conectado' ? '#059669' : '#1a365d',
-                fontWeight: 600,
+                bgcolor: 'rgba(29, 53, 87, 0.08)',
+                color: '#1D3557',
+                fontWeight: 700,
                 fontSize: '0.72rem'
               }}
             />
@@ -808,6 +756,21 @@ export default function CalendarioHibridoPanel({
 
         {/* FILTROS, VISTA Y BOTÓN NUEVO EVENTO */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <Select
+              value={filtroAlcance}
+              onChange={(e) => setFiltroAlcance(e.target.value)}
+              sx={{ borderRadius: 2, fontSize: '0.8rem', bgcolor: '#f8fafc', height: 34 }}
+            >
+              <MenuItem value="todos" sx={{ fontSize: '0.8rem' }}>
+                Agenda del Equipo
+              </MenuItem>
+              <MenuItem value="mios" sx={{ fontSize: '0.8rem' }}>
+                👤 Mis convocatorias
+              </MenuItem>
+            </Select>
+          </FormControl>
+
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <Select
               value={filtroCategoria}
@@ -845,18 +808,12 @@ export default function CalendarioHibridoPanel({
             </ToggleButton>
           </ToggleButtonGroup>
 
-          <Tooltip title="Actualizar sincronización">
-            <IconButton size="small" onClick={cargarEventosGoogle} disabled={loadingGoogle}>
-              <RotateCw size={17} className={loadingGoogle ? 'animate-spin' : ''} />
-            </IconButton>
-          </Tooltip>
-
           <Button
             variant="contained"
             startIcon={<Plus size={16} />}
             onClick={() => abrirModalNuevo()}
             sx={{
-              bgcolor: '#1a365d',
+              bgcolor: '#1D3557',
               color: '#ffffff',
               textTransform: 'none',
               fontWeight: 'bold',
@@ -864,7 +821,7 @@ export default function CalendarioHibridoPanel({
               px: 2,
               height: 34,
               fontSize: '0.83rem',
-              '&:hover': { bgcolor: '#0f233c' }
+              '&:hover': { bgcolor: '#122238' }
             }}
           >
             Agendar Evento
@@ -876,7 +833,11 @@ export default function CalendarioHibridoPanel({
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
         {/* ÁREA PRINCIPAL (MES O AGENDA) */}
         <Box sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2.5 }, overflowY: 'auto' }}>
-          {vista === 'mes' ? (
+          {loadingEvents ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+              <CircularProgress size={30} />
+            </Box>
+          ) : vista === 'mes' ? (
             <Paper
               elevation={0}
               sx={{
@@ -927,7 +888,7 @@ export default function CalendarioHibridoPanel({
                         bgcolor: !celda.esMesActual
                           ? '#f8fafc'
                           : esHoy
-                          ? 'rgba(26, 54, 93, 0.03)'
+                          ? 'rgba(29, 53, 87, 0.04)'
                           : '#ffffff',
                         cursor: 'pointer',
                         transition: 'background-color 0.15s',
@@ -943,7 +904,7 @@ export default function CalendarioHibridoPanel({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            bgcolor: esHoy ? '#1a365d' : 'transparent',
+                            bgcolor: esHoy ? '#1D3557' : 'transparent',
                             color: esHoy
                               ? '#ffffff'
                               : celda.esMesActual
@@ -968,7 +929,7 @@ export default function CalendarioHibridoPanel({
                           return (
                             <Tooltip
                               key={ev.id}
-                              title={`${formatearHora(ev)} • ${ev.summary} (${cat.label})`}
+                              title={`${formatearHora(ev)} • ${ev.summary} (${cat.label})${ev.esConfidencial ? ' [Confidencial]' : ''}`}
                               arrow
                             >
                               <Box
@@ -992,6 +953,7 @@ export default function CalendarioHibridoPanel({
                                   '&:hover': { filter: 'brightness(0.95)' }
                                 }}
                               >
+                                {ev.esConfidencial && '🔒 '}
                                 {!ev.todoElDia && (
                                   <span style={{ opacity: 0.85, marginRight: 4 }}>
                                     {formatearHora(ev)}
@@ -1005,7 +967,7 @@ export default function CalendarioHibridoPanel({
                         {eventosDia.length > 3 && (
                           <Typography
                             variant="caption"
-                            sx={{ fontSize: '0.68rem', color: '#1a365d', fontWeight: 'bold', pl: 0.5 }}
+                            sx={{ fontSize: '0.68rem', color: '#1D3557', fontWeight: 'bold', pl: 0.5 }}
                           >
                             +{eventosDia.length - 3} más
                           </Typography>
@@ -1023,7 +985,7 @@ export default function CalendarioHibridoPanel({
                 <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, border: '1px dashed #cbd5e1' }}>
                   <CalendarIcon size={40} color="#94a3b8" style={{ margin: '0 auto 12px' }} />
                   <Typography variant="subtitle1" fontWeight="bold" color="text.secondary">
-                    No hay eventos registrados en este periodo
+                    No hay eventos registrados en este criterio
                   </Typography>
                   <Button
                     variant="outlined"
@@ -1080,7 +1042,7 @@ export default function CalendarioHibridoPanel({
 
                         <Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.4 }}>
-                            <Typography variant="subtitle1" fontWeight="bold" color="#0f233c">
+                            <Typography variant="subtitle1" fontWeight="bold" color="#1D3557">
                               {ev.summary}
                             </Typography>
                             <Chip
@@ -1088,6 +1050,20 @@ export default function CalendarioHibridoPanel({
                               size="small"
                               sx={{ bgcolor: cat.bg, color: cat.color, fontWeight: 'bold', fontSize: '0.7rem', height: 20 }}
                             />
+                            {ev.esConfidencial && (
+                              <Chip
+                                icon={<Lock size={11} />}
+                                label="Confidencial"
+                                size="small"
+                                sx={{
+                                  bgcolor: 'rgba(185, 47, 50, 0.1)',
+                                  color: '#B92F32',
+                                  fontWeight: 700,
+                                  fontSize: '0.68rem',
+                                  height: 20
+                                }}
+                              />
+                            )}
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1106,7 +1082,7 @@ export default function CalendarioHibridoPanel({
                         <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 26, height: 26, fontSize: '0.72rem' } }}>
                           {ev.participantes.map((email) => (
                             <Tooltip key={email} title={email}>
-                              <Avatar sx={{ bgcolor: '#1a365d' }}>{email.charAt(0).toUpperCase()}</Avatar>
+                              <Avatar sx={{ bgcolor: '#1D3557' }}>{email.charAt(0).toUpperCase()}</Avatar>
                             </Tooltip>
                           ))}
                         </AvatarGroup>
@@ -1132,7 +1108,7 @@ export default function CalendarioHibridoPanel({
             overflowY: 'auto'
           }}
         >
-          <Typography variant="subtitle2" fontWeight="800" color="#1a365d" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="subtitle2" fontWeight="800" color="#1D3557" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CalendarDays size={17} /> Próximos Eventos y Plazos
           </Typography>
           <Divider />
@@ -1165,7 +1141,8 @@ export default function CalendarioHibridoPanel({
                   <Typography variant="caption" fontWeight="bold" sx={{ color: cat.color, display: 'block' }}>
                     {fechaObj.toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })} • {formatearHora(ev)}
                   </Typography>
-                  <Typography variant="body2" fontWeight="700" color="#0f233c" noWrap sx={{ mt: 0.2 }}>
+                  <Typography variant="body2" fontWeight="700" color="#1D3557" noWrap sx={{ mt: 0.2 }}>
+                    {ev.esConfidencial && '🔒 '}
                     {ev.summary}
                   </Typography>
                   {ev.location && (
@@ -1181,7 +1158,7 @@ export default function CalendarioHibridoPanel({
       </Box>
 
       {/* ===================================================================== */}
-      {/* MODAL CREAR / EDITAR EVENTO HÍBRIDO                                   */}
+      {/* MODAL CREAR / EDITAR EVENTO EN EL CALENDARIO PROPIO DE LA PLATAFORMA  */}
       {/* ===================================================================== */}
       <Dialog
         open={modalOpen}
@@ -1192,15 +1169,15 @@ export default function CalendarioHibridoPanel({
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{ p: 1, borderRadius: 2, bgcolor: 'rgba(26, 54, 93, 0.08)', color: '#1a365d' }}>
+            <Box sx={{ p: 1, borderRadius: 2, bgcolor: 'rgba(29, 53, 87, 0.08)', color: '#1D3557' }}>
               <CalendarIcon size={20} />
             </Box>
             <Box>
-              <Typography variant="subtitle1" fontWeight="bold" color="#1a365d">
+              <Typography variant="subtitle1" fontWeight="bold" color="#1D3557">
                 {modoEdicion ? 'Editar Evento Institucional' : 'Agendar Nuevo Evento o Audiencia'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Calendario Híbrido IIRESODH (Workspace + Google Calendar)
+                Calendario Privado de la Plataforma IIRESODH
               </Typography>
             </Box>
           </Box>
@@ -1376,34 +1353,47 @@ export default function CalendarioHibridoPanel({
             fullWidth
           />
 
-          {/* TOGGLE GOOGLE CALENDAR SYNC */}
+          {/* SELECTOR DE CONFIDENCIALIDAD / VISIBILIDAD INTERNA */}
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              p: 1.25,
-              borderRadius: 2,
-              bgcolor: 'rgba(16, 185, 129, 0.06)',
-              border: '1px solid rgba(16, 185, 129, 0.25)'
+              p: 1.5,
+              borderRadius: '0 8px 8px 0',
+              bgcolor: form.esConfidencial ? 'rgba(185, 47, 50, 0.06)' : 'rgba(29, 53, 87, 0.04)',
+              border: '1px solid #cbd5e1',
+              borderLeft: form.esConfidencial ? '4px solid #B92F32' : '4px solid #1D3557'
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Cloud size={18} color="#059669" />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+              {form.esConfidencial ? (
+                <Lock size={18} color="#B92F32" />
+              ) : (
+                <ShieldCheck size={18} color="#1D3557" />
+              )}
               <Box>
-                <Typography variant="body2" fontWeight="bold" color="#065f46" sx={{ fontSize: '0.82rem' }}>
-                  Sincronizar con Google Calendar (contacto@iiresodh.org)
+                <Typography
+                  variant="body2"
+                  fontWeight="bold"
+                  color={form.esConfidencial ? '#B92F32' : '#1D3557'}
+                  sx={{ fontSize: '0.82rem' }}
+                >
+                  {form.esConfidencial
+                    ? 'Evento Confidencial (Solo participantes convocados)'
+                    : 'Visible para todo el equipo autorizado en la Intranet'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Guarda en Firestore al instante y replica en Google Calendar institucional
+                  {form.esConfidencial
+                    ? 'Solo tú, los participantes seleccionados y Superadmin podrán ver este evento.'
+                    : 'Almacenado de forma segura exclusivamente dentro de la plataforma IIRESODH.'}
                 </Typography>
               </Box>
             </Box>
             <Switch
-              name="sincronizarGoogle"
-              checked={form.sincronizarGoogle}
+              name="esConfidencial"
+              checked={form.esConfidencial}
               onChange={handleFormChange}
-              color="success"
               size="small"
             />
           </Box>
@@ -1418,7 +1408,7 @@ export default function CalendarioHibridoPanel({
             onClick={handleGuardarEvento}
             disabled={saving}
             startIcon={saving ? <CircularProgress size={15} color="inherit" /> : <Check size={16} />}
-            sx={{ bgcolor: '#1a365d', textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+            sx={{ bgcolor: '#1D3557', textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
           >
             {saving ? 'Guardando...' : modoEdicion ? 'Guardar Cambios' : 'Agendar Evento'}
           </Button>
@@ -1440,17 +1430,31 @@ export default function CalendarioHibridoPanel({
           return (
             <>
               <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Chip
-                  label={cat.label}
-                  size="small"
-                  sx={{ bgcolor: cat.bg, color: cat.color, fontWeight: 'bold' }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip
+                    label={cat.label}
+                    size="small"
+                    sx={{ bgcolor: cat.bg, color: cat.color, fontWeight: 'bold' }}
+                  />
+                  {eventoSeleccionado.esConfidencial && (
+                    <Chip
+                      icon={<Lock size={12} />}
+                      label="Confidencial"
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(185, 47, 50, 0.1)',
+                        color: '#B92F32',
+                        fontWeight: 700
+                      }}
+                    />
+                  )}
+                </Box>
                 <IconButton size="small" onClick={() => setDetalleOpen(false)}>
                   <X size={18} />
                 </IconButton>
               </DialogTitle>
               <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Typography variant="h6" fontWeight="800" color="#0f233c">
+                <Typography variant="h6" fontWeight="800" color="#1D3557">
                   {eventoSeleccionado.summary}
                 </Typography>
 
@@ -1461,6 +1465,11 @@ export default function CalendarioHibridoPanel({
                   {eventoSeleccionado.location && (
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                       📍 Ubicación: {eventoSeleccionado.location}
+                    </Typography>
+                  )}
+                  {eventoSeleccionado.creadoPorNombre && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                      Agendado por: {eventoSeleccionado.creadoPorNombre}
                     </Typography>
                   )}
                 </Box>
@@ -1499,9 +1508,33 @@ export default function CalendarioHibridoPanel({
                   </Box>
                 )}
 
+                {/* BOTÓN PARA COPIAR OPCIONALMENTE AL GOOGLE CALENDAR PERSONAL DEL ABOGADO */}
+                <Box sx={{ pt: 0.5 }}>
+                  <Button
+                    component="a"
+                    href={generarUrlGoogleCalendarPersonal(eventoSeleccionado)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="small"
+                    variant="outlined"
+                    startIcon={<CalendarIcon size={14} />}
+                    endIcon={<ExternalLink size={13} />}
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      fontWeight: 700,
+                      fontSize: '0.76rem',
+                      borderColor: '#457B9D',
+                      color: '#1D3557'
+                    }}
+                  >
+                    Guardar copia en mi Google Calendar personal
+                  </Button>
+                </Box>
+
                 {/* COMPARTIR RÁPIDO EN UN CANAL DE SLACK */}
                 {canalesDisponibles.filter((c) => c.tipo !== 'dm').length > 0 && (
-                  <Box sx={{ pt: 1 }}>
+                  <Box sx={{ pt: 0.5 }}>
                     <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
                       COMPARTIR RECORDATORIO EN CANAL DE SLACK:
                     </Typography>
@@ -1550,7 +1583,7 @@ export default function CalendarioHibridoPanel({
                     variant="contained"
                     size="small"
                     onClick={() => setDetalleOpen(false)}
-                    sx={{ bgcolor: '#1a365d', textTransform: 'none', borderRadius: 2 }}
+                    sx={{ bgcolor: '#1D3557', textTransform: 'none', borderRadius: 2 }}
                   >
                     Cerrar
                   </Button>
@@ -1563,7 +1596,7 @@ export default function CalendarioHibridoPanel({
 
       {/* CONFIRMACIÓN DE ELIMINACIÓN */}
       <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold', color: '#dc2626' }}>¿Eliminar evento?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 'bold', color: '#B92F32' }}>¿Eliminar evento?</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
             Se eliminará <strong>"{eventoSeleccionado?.summary}"</strong> del calendario institucional.
