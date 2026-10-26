@@ -396,7 +396,7 @@ export default function Login({ institutionalError, setInstitutionalError }) {
                 sx={{
                   mb: 3,
                   p: 2,
-                  borderRadius: 2,
+                  borderRadius: '0 8px 8px 0',
                   bgcolor: 'rgba(185, 47, 50, 0.06)',
                   border: '1px solid rgba(185, 47, 50, 0.25)',
                   borderLeft: '4px solid #B92F32',

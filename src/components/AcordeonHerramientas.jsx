@@ -45,7 +45,7 @@ export default function AcordeonHerramientas({
         disableGutters
         elevation={0}
         sx={{
-          borderRadius: '14px !important',
+          borderRadius: '0 0 14px 14px !important',
           border: '1px solid #DCE4EE',
           borderTop: '3px solid #1D3557',
           bgcolor: '#FFFFFF',
@@ -79,7 +79,7 @@ export default function AcordeonHerramientas({
               <Box
                 sx={{
                   p: 1.25,
-                  borderRadius: 2,
+                  borderRadius: '8px 8px 0 0',
                   bgcolor: '#1D3557',
                   color: '#FFFFFF',
                   borderBottom: '2px solid #B92F32',

@@ -1792,7 +1792,7 @@ export default function EspacioTrabajoSlack({
                               mt: 1,
                               p: 1.5,
                               maxWidth: 420,
-                              borderRadius: 2,
+                              borderRadius: '0 8px 8px 0',
                               border: '1px solid #cbd5e1',
                               borderLeft: `4px solid ${
                                 CATEGORIAS_EVENTO[msg.eventoAdjunto.categoria]?.dot || '#1a365d'
@@ -1831,7 +1831,7 @@ export default function EspacioTrabajoSlack({
                               mt: 1,
                               p: 1.5,
                               maxWidth: 440,
-                              borderRadius: 2,
+                              borderRadius: '0 8px 8px 0',
                               border: '1px solid #cbd5e1',
                               borderLeft: '4px solid #1a365d',
                               bgcolor: '#f8fafc',
@@ -1869,7 +1869,7 @@ export default function EspacioTrabajoSlack({
                               mt: 1,
                               p: 1.5,
                               maxWidth: 440,
-                              borderRadius: 2,
+                              borderRadius: '0 8px 8px 0',
                               border: '1px solid #bfdbfe',
                               borderLeft: '4px solid #2563eb',
                               bgcolor: '#eff6ff',

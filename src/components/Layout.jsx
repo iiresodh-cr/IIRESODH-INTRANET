@@ -88,7 +88,7 @@ export default function Layout({ children, currentView, setView, userRole, userP
                   onClick={() => handleSelectView(item.id)}
                   selected={isSelected}
                   sx={{
-                    borderRadius: 2,
+                    borderRadius: '0 8px 8px 0',
                     py: 1.1,
                     position: 'relative',
                     color: isSelected ? '#1D3557' : '#475569',

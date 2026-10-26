@@ -717,7 +717,7 @@ export default function ProyectosKanbanPanel({
                           onClick={() => setTareaSeleccionada(tarea)}
                           sx={{
                             p: 1.75,
-                            borderRadius: 2.5,
+                            borderRadius: '0 10px 10px 0',
                             bgcolor: '#ffffff',
                             border: '1px solid #e2e8f0',
                             borderLeft: `4px solid ${tarea.proyectoColor || '#1a365d'}`,

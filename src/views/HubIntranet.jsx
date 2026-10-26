@@ -85,7 +85,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
         <Card
           elevation={0}
           sx={{
-            borderRadius: 3.5,
+            borderRadius: '14px 14px 0 0',
             bgcolor: '#1D3557',
             color: '#FFFFFF',
             border: '1px solid rgba(69, 123, 157, 0.35)',
@@ -352,7 +352,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: '0 0 12px 12px', 
               border: '1px solid #DCE4EE',
               borderTop: tieneAccesoLitigio ? '4px solid #1D3557' : '4px solid #CBD5E1',
               bgcolor: '#FFFFFF',
@@ -430,7 +430,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: '0 0 12px 12px', 
               border: '1px solid #DCE4EE',
               borderTop: '4px solid #1D3557',
               bgcolor: '#FFFFFF',
@@ -506,7 +506,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: '0 0 12px 12px', 
               border: '1px solid #DCE4EE',
               borderTop: tieneAccesoWeb ? '4px solid #457B9D' : '4px solid #CBD5E1',
               bgcolor: '#FFFFFF',
@@ -584,7 +584,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: '0 0 12px 12px', 
               border: '1px solid #DCE4EE',
               borderTop: tieneAccesoWhatsapp ? '4px solid #457B9D' : '4px solid #CBD5E1',
               bgcolor: '#FFFFFF',
@@ -662,7 +662,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: '0 0 12px 12px', 
               bgcolor: '#F8FAF8', 
               border: '1px dashed #CBD5E1', 
               borderTop: '4px solid #CBD5E1',
@@ -713,7 +713,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: '0 0 12px 12px', 
               bgcolor: '#F8FAF8', 
               border: '1px dashed #CBD5E1', 
               borderTop: '4px solid #CBD5E1',
@@ -768,7 +768,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             sx={{
               p: { xs: 2.5, sm: 3 },
               mb: 4,
-              borderRadius: 3,
+              borderRadius: '0 12px 12px 0',
               bgcolor: '#FFFFFF',
               border: '1px solid #DCE4EE',
               borderLeft: '4px solid #1D3557',

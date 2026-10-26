@@ -980,7 +980,7 @@ export default function CalendarioHibridoPanel({
                                 sx={{
                                   px: 0.75,
                                   py: 0.25,
-                                  borderRadius: 1,
+                                  borderRadius: '0 4px 4px 0',
                                   bgcolor: cat.bg,
                                   color: cat.color,
                                   borderLeft: `3px solid ${cat.dot}`,
@@ -1048,7 +1048,7 @@ export default function CalendarioHibridoPanel({
                       elevation={0}
                       sx={{
                         p: 2,
-                        borderRadius: 2.5,
+                        borderRadius: '0 10px 10px 0',
                         border: '1px solid #e2e8f0',
                         borderLeft: `5px solid ${cat.dot}`,
                         display: 'flex',
@@ -1154,7 +1154,7 @@ export default function CalendarioHibridoPanel({
                   }}
                   sx={{
                     p: 1.25,
-                    borderRadius: 2,
+                    borderRadius: '0 8px 8px 0',
                     border: '1px solid #e2e8f0',
                     borderLeft: `4px solid ${cat.dot}`,
                     cursor: 'pointer',
