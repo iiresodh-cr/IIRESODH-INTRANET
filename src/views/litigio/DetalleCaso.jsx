@@ -93,7 +93,12 @@ import {
   analizarPiezaProcesalIA,
   extraerDatosIdentificacionIA,
   auditarPadronArt35IA,
-  redactarComunicadoClaroIA
+  redactarComunicadoClaroIA,
+  convertirMarkdownAHtmlJuridico,
+  copiarDictamenConFormato,
+  descargarDictamenWord,
+  descargarDictamenPDF,
+  guardarDictamenEnGoogleDrive
 } from '../../utils/litigioAiService';
 
 export const CATEGORIAS_DOCUMENTOS_PROCESALES = [
@@ -560,11 +565,13 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [clientesSeleccionadosIds, setClientesSeleccionadosIds] = useState([]);
   const [filtroDestinatarios, setFiltroDestinatarios] = useState('');
 
-  // Estados para Pestaña 6: Copiloto Jurídico Internacional IA (Gemini 4 Argon)
+  // Estados para Pestaña 6: Copiloto Jurídico Internacional PIDA
   const [modeloCopilotoIA, setModeloCopilotoIA] = useState('gemini-4-argon');
   const [consultaCopilotoIA, setConsultaCopilotoIA] = useState('');
   const [ejecutandoCopilotoIA, setEjecutandoCopilotoIA] = useState(false);
   const [respuestaCopilotoIA, setRespuestaCopilotoIA] = useState(null);
+  const [guardandoEnDrivePida, setGuardandoEnDrivePida] = useState(false);
+  const [enlaceDriveGuardado, setEnlaceDriveGuardado] = useState(null);
 
   const fetchClientes = async () => {
     setLoading(true);
@@ -1643,7 +1650,7 @@ ${promptBase.trim()}`;
               }
             }}
           >
-            Abrir Copiloto Jurídico IA
+            Abrir Copiloto PIDA
           </Button>
         </Box>
 
@@ -1787,7 +1794,7 @@ ${promptBase.trim()}`;
                         }}
                         sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
                       >
-                        Generar Estrategia IA de esta Etapa
+                        Generar Estrategia con PIDA
                       </Button>
                     </Box>
                   </Box>
@@ -1900,7 +1907,7 @@ ${promptBase.trim()}`;
             }} 
           />
           <Tab icon={<Mail size={18} />} iconPosition="start" label="Comunicados Oficiales" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
-          <Tab icon={<Sparkles size={18} />} iconPosition="start" label="✨ Copiloto Jurídico IA" sx={{ textTransform: 'none', fontWeight: 'bold', color: '#4338ca' }} />
+          <Tab icon={<Sparkles size={18} />} iconPosition="start" label="✨ Copiloto Jurídico PIDA" sx={{ textTransform: 'none', fontWeight: 'bold', color: '#4338ca' }} />
         </Tabs>
       </Box>
 
@@ -1922,7 +1929,7 @@ ${promptBase.trim()}`;
               onClick={handleAuditarPadronIA}
               sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', color: '#4338ca', borderColor: '#c7d2fe', bgcolor: '#eef2ff' }}
             >
-              {auditandoPadronIA ? 'Auditando con IA...' : '🛡️ Auditar Padrón (Art. 35)'}
+              {auditandoPadronIA ? 'Auditando con PIDA...' : '🛡️ Auditar Padrón con PIDA (Art. 35)'}
             </Button>
             <Button
               variant="outlined"
@@ -1968,7 +1975,7 @@ ${promptBase.trim()}`;
                 </Typography>
                 <Chip
                   size="small"
-                  label={resultadoAuditoriaPadron._metaIA?.modeloEjecutado || 'gemini-3.5-flash-lite'}
+                  label="PIDA · Auditoría Art. 35"
                   sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
                 />
               </Box>
@@ -2237,11 +2244,11 @@ ${promptBase.trim()}`;
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Sparkles size={18} color="#4338ca" />
                   <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
-                    Análisis Multimodal de Pieza: {resultadoAnalisisDocIA.docNombre}
+                    Análisis de Pieza con PIDA: {resultadoAnalisisDocIA.docNombre}
                   </Typography>
                   <Chip
                     size="small"
-                    label={resultadoAnalisisDocIA._metaIA?.modeloEjecutado || 'gemini-3.8-flash'}
+                    label="PIDA · Análisis Multimodal"
                     sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
                   />
                   <Chip
@@ -2357,7 +2364,7 @@ ${promptBase.trim()}`;
                     onClick={() => handleAnalizarPiezaIA(d)}
                     sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2, whiteSpace: 'nowrap' }}
                   >
-                    Analizar IA
+                    Analizar con PIDA
                   </Button>
                   <IconButton 
                     size="small" 
@@ -2692,16 +2699,16 @@ ${promptBase.trim()}`;
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                 <Sparkles size={22} color="#4338ca" />
                 <Typography variant="h6" fontWeight="bold" color="#1e1b4b">
-                  Copiloto Jurídico Internacional IIRESODH
+                  PIDA — Copiloto Jurídico Internacional IIRESODH
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                Asistente especializado en el Sistema Interamericano (CIDH / Corte IDH) y ONU, conectado en tiempo real al contexto de este expediente.
+                Sistema de Inteligencia Jurídica en el Sistema Interamericano (CIDH / Corte IDH) y ONU, conectado en tiempo real al contexto de este expediente.
               </Typography>
             </Box>
 
             <Chip
-              label="🧠 Enrutamiento Automático Activo"
+              label="🧠 PIDA · Razonamiento Jurídico Avanzado"
               color="primary"
               sx={{ fontWeight: 'bold', bgcolor: '#1e3a8a', color: '#ffffff' }}
             />
@@ -2801,47 +2808,152 @@ ${promptBase.trim()}`;
                   }
                 }}
               >
-                {ejecutandoCopilotoIA ? 'Razonando estrategia jurídica...' : 'Ejecutar Análisis con IA'}
+                {ejecutandoCopilotoIA ? 'PIDA está elaborando el dictamen jurídico...' : 'Ejecutar Análisis con PIDA'}
               </Button>
             </Box>
           </Box>
 
-          {/* Resultado del Copiloto Jurídico IA */}
+          {/* Resultado del Copiloto Jurídico PIDA con Formato Editorial, Copia Rica, Drive, Word y PDF */}
           {respuestaCopilotoIA && (
-            <Paper sx={{ p: 3, borderRadius: 2.5, bgcolor: '#ffffff', border: '1px solid #c7d2fe', boxShadow: 'none' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2, pb: 1.5, borderBottom: '1px solid #e2e8f0' }}>
+            <Paper sx={{ p: { xs: 2, sm: 3.5 }, borderRadius: 2.5, bgcolor: '#ffffff', border: '1px solid #c7d2fe', boxShadow: '0 4px 20px rgba(30, 58, 138, 0.06)' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2.5, pb: 1.5, borderBottom: '2px solid #1e3a8a' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Chip
-                    label={respuestaCopilotoIA.badge || 'Dictamen Estratégico IA'}
+                    label="🧠 PIDA · Dictamen Jurídico"
                     color="primary"
                     size="small"
-                    sx={{ fontWeight: 'bold' }}
+                    sx={{ fontWeight: 'bold', bgcolor: '#1e3a8a', color: '#ffffff' }}
                   />
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" fontWeight="medium">
                     Generado el {respuestaCopilotoIA.fecha}
                   </Typography>
                 </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => {
-                    navigator.clipboard.writeText(respuestaCopilotoIA.text);
-                    alert('✅ Dictamen copiado al portapapeles.');
-                  }}
-                  sx={{ textTransform: 'none', fontWeight: 'bold' }}
-                >
-                  📋 Copiar Dictamen
-                </Button>
+
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={async () => {
+                      await copiarDictamenConFormato({
+                        markdown: respuestaCopilotoIA.text,
+                        titulo: 'Dictamen Jurídico PIDA',
+                        caso
+                      });
+                      alert('✅ Dictamen copiado con formato enriquecido (listo para pegar en Word, Google Docs o Correo).');
+                    }}
+                    sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                  >
+                    📋 Copiar con Formato
+                  </Button>
+
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    disabled={guardandoEnDrivePida}
+                    onClick={async () => {
+                      setGuardandoEnDrivePida(true);
+                      setEnlaceDriveGuardado(null);
+                      try {
+                        const docDrive = await guardarDictamenEnGoogleDrive({
+                          markdown: respuestaCopilotoIA.text,
+                          titulo: 'Dictamen Jurídico PIDA',
+                          caso,
+                          userEmail: currentUserEmail
+                        });
+                        setEnlaceDriveGuardado(docDrive);
+                      } catch (errDrive) {
+                        setError(`Error al guardar en Google Drive: ${errDrive.message}`);
+                      } finally {
+                        setGuardandoEnDrivePida(false);
+                      }
+                    }}
+                    sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                  >
+                    {guardandoEnDrivePida ? 'Guardando en Drive...' : '☁️ Agregar a Mi Drive'}
+                  </Button>
+
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    onClick={() =>
+                      descargarDictamenWord({
+                        markdown: respuestaCopilotoIA.text,
+                        titulo: 'Dictamen_Juridico_PIDA',
+                        caso
+                      })
+                    }
+                    sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                  >
+                    📝 Descargar Word (.doc)
+                  </Button>
+
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() =>
+                      descargarDictamenPDF({
+                        markdown: respuestaCopilotoIA.text,
+                        titulo: 'Dictamen Jurídico PIDA',
+                        caso
+                      })
+                    }
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 'bold',
+                      borderRadius: 1.5,
+                      bgcolor: '#1e3a8a',
+                      color: '#ffffff',
+                      '&:hover': { bgcolor: '#172554' }
+                    }}
+                  >
+                    📄 Descargar PDF
+                  </Button>
+                </Box>
               </Box>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: '#1e293b' }}>
-                {respuestaCopilotoIA.text}
-              </Typography>
+
+              {enlaceDriveGuardado && (
+                <Alert
+                  severity="success"
+                  sx={{ mb: 2, borderRadius: 2 }}
+                  onClose={() => setEnlaceDriveGuardado(null)}
+                  action={
+                    <Button
+                      color="inherit"
+                      size="small"
+                      component="a"
+                      href={enlaceDriveGuardado.webViewLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{ fontWeight: 'bold', textTransform: 'none' }}
+                    >
+                      Abrir en Google Docs ↗
+                    </Button>
+                  }
+                >
+                  Guardado en tu Google Drive como <strong>{enlaceDriveGuardado.name}</strong>.
+                </Alert>
+              )}
+
+              <Box
+                sx={{
+                  fontFamily: '"Georgia", "Times New Roman", serif',
+                  fontSize: '0.96rem',
+                  lineHeight: 1.75,
+                  color: '#1e293b',
+                  px: { xs: 0.5, sm: 1.5 }
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: convertirMarkdownAHtmlJuridico(respuestaCopilotoIA.text)
+                }}
+              />
             </Paper>
           )}
         </Paper>
       </TabPanel>
 
-      {/* MODAL DE AGREGAR CLIENTE EXTENDIDO + AUTOCOMPLETADO OCR IA */}
+      {/* MODAL DE AGREGAR CLIENTE EXTENDIDO + AUTOCOMPLETADO OCR PIDA */}
       <Dialog 
         open={openModal} 
         onClose={() => setOpenModal(false)} 
@@ -2867,7 +2979,7 @@ ${promptBase.trim()}`;
             disabled={autocompletandoOcrCliente}
             sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
           >
-            {autocompletandoOcrCliente ? 'Extrayendo con Gemini 3.8 Flash...' : '✨ Autocompletar desde Cédula/Pasaporte'}
+            {autocompletandoOcrCliente ? 'Extrayendo con PIDA...' : '✨ Autocompletar con PIDA (Cédula/Pasaporte)'}
             <input type="file" accept="application/pdf,image/*" hidden onChange={handleAutocompletarClienteConOcrIA} />
           </Button>
         </DialogTitle>
@@ -2935,7 +3047,7 @@ ${promptBase.trim()}`;
           </Box>
 
           <Alert severity="info" sx={{ mb: 2, py: 0.5, fontSize: '0.78rem' }}>
-            El Semáforo Art. 35 (Poder, Cédula/ID y Prueba de Daño) se activa en verde automáticamente al subir y verificar los documentos con IA.
+            El Semáforo Art. 35 (Poder, Cédula/ID y Prueba de Daño) se activa en verde automáticamente al subir y verificar los documentos con PIDA.
           </Alert>
           
           <TextField label="Notas Jurídicas Iniciales" fullWidth multiline rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />
@@ -3151,10 +3263,10 @@ ${promptBase.trim()}`;
       >
         <DialogTitle fontWeight="bold">Redactar y Registrar Comunicado Oficial</DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          {/* Asistente IA de Redacción en Lenguaje Claro */}
+          {/* Asistente PIDA de Redacción en Lenguaje Claro */}
           <Box sx={{ p: 2, bgcolor: '#eef2ff', borderRadius: 2, border: '1px solid #c7d2fe' }}>
             <Typography variant="caption" fontWeight="bold" color="#312e81" sx={{ display: 'block', mb: 1 }}>
-              ✨ Redactor IA de Circulares en Lenguaje Claro (Gemini 3.8 Flash / 3.5 Flash-Lite)
+              ✨ Redactor PIDA de Circulares en Lenguaje Claro
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1, mb: 1 }}>
               <FormControl size="small" fullWidth sx={{ bgcolor: '#ffffff' }}>
@@ -3172,7 +3284,7 @@ ${promptBase.trim()}`;
               </FormControl>
               <TextField
                 size="small"
-                placeholder="Instrucción opcional para la IA..."
+                placeholder="Instrucción opcional para PIDA..."
                 value={instruccionComunicadoIA}
                 onChange={(e) => setInstruccionComunicadoIA(e.target.value)}
                 sx={{ bgcolor: '#ffffff' }}
@@ -3186,7 +3298,7 @@ ${promptBase.trim()}`;
               onClick={handleRedactarComunicadoIA}
               sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
             >
-              {redactandoComunicadoIA ? 'Redactando borrador...' : 'Generar Borrador con IA'}
+              {redactandoComunicadoIA ? 'PIDA está redactando...' : 'Generar Borrador con PIDA'}
             </Button>
           </Box>
           

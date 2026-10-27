@@ -58,6 +58,7 @@ export function obtenerTokenGoogleDriveActivo() {
 export async function solicitarTokenGoogleDrive(emailHint = '', incluirMeet = true) {
   const provider = new GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/drive.readonly');
+  provider.addScope('https://www.googleapis.com/auth/drive.file');
   if (incluirMeet) {
     provider.addScope('https://www.googleapis.com/auth/meetings.space.created');
   }

@@ -1,30 +1,30 @@
 import { getAI, getGenerativeModel, VertexAIBackend, GoogleAIBackend } from 'firebase/ai';
 import { httpsCallable } from 'firebase/functions';
 import { app, functions } from '../config/firebase';
+import { obtenerTokenGoogleDriveActivo, solicitarTokenGoogleDrive } from '../context/AuthContext';
 
 /**
- * JERARQUÍA OFICIAL DE MODELOS IA — IIRESODH LITIGIO INTERNACIONAL
- * Sin exposición de API Keys independientes: todo opera mediante Firebase AI Logic (Vertex AI / GenAI).
+ * JERARQUÍA OFICIAL DE MODELOS PIDA — IIRESODH LITIGIO INTERNACIONAL
  */
 export const MODELOS_LITIGIO_IA = {
   deep: {
     id: 'gemini-4-argon',
-    label: 'Gemini 4 Argon (Pensamiento Avanzado)',
-    badge: '🧠 Gemini 4 Argon · Razonamiento Profundo',
+    label: 'PIDA (Razonamiento Jurídico Avanzado)',
+    badge: '🧠 PIDA · Razonamiento Jurídico Avanzado',
     descripcion: 'Estrategia jurídica interamericana/ONU, admisibilidad (Arts. 46-47 CADH), fondo, medidas cautelares y análisis complejo de sentencias.',
     fallbacks: ['gemini-3.8-flash', 'gemini-2.5-pro']
   },
   secondary: {
     id: 'gemini-3.8-flash',
-    label: 'Gemini 3.8 Flash (Multimodal Secundario)',
-    badge: '⚡ Gemini 3.8 Flash · Multimodal',
+    label: 'PIDA (Análisis Multimodal)',
+    badge: '⚡ PIDA · Análisis Multimodal',
     descripcion: 'Lectura multimodal de resoluciones PDF, verificación OCR de poderes/cédulas, extracción de plazos fatales y síntesis de expedientes.',
     fallbacks: ['gemini-3.5-flash-lite', 'gemini-2.5-flash']
   },
   simple: {
     id: 'gemini-3.5-flash-lite',
-    label: 'Gemini 3.5 Flash-Lite (Tareas Simples / Rápidas)',
-    badge: '🚀 Gemini 3.5 Flash-Lite · Ultrarrápido',
+    label: 'PIDA (Auditoría Rápida)',
+    badge: '🚀 PIDA · Auditoría Rápida',
     descripcion: 'Auditoría rápida de padrón (Art. 35 Corte IDH), redacción ágil en lenguaje claro, clasificación de anexos y ajustes de tono.',
     fallbacks: ['gemini-3.8-flash', 'gemini-2.5-flash-lite']
   }
@@ -34,7 +34,7 @@ export const MODELO_PENSAMIENTO_AVANZADO = MODELOS_LITIGIO_IA.deep.id;
 export const MODELO_SECUNDARIO_MULTIMODAL = MODELOS_LITIGIO_IA.secondary.id;
 export const MODELO_TAREAS_SIMPLES = MODELOS_LITIGIO_IA.simple.id;
 
-const SYSTEM_PROMPT_LITIGIO_INTERNACIONAL = `Eres el Consejero Jurídico Senior en Derecho Internacional de los Derechos Humanos del Instituto Internacional sobre Raza, Igualdad y Derechos Humanos / IIRESODH.
+const SYSTEM_PROMPT_LITIGIO_INTERNACIONAL = `Eres PIDA, el sistema de Inteligencia Jurídica en Derecho Internacional de los Derechos Humanos del IIRESODH.
 Dominas a la perfección:
 1. La Convención Americana sobre Derechos Humanos (CADH), el Protocolo de San Salvador y demás instrumentos interamericanos.
 2. El Reglamento de la Comisión Interamericana de Derechos Humanos (CIDH) — en especial admisibilidad (Arts. 31-34), excepciones al agotamiento de recursos internos (Art. 46.2 CADH), medidas cautelares (Art. 25), tramitación prioritaria (Art. 29.2) y soluciones amistosas (Art. 40).
@@ -547,3 +547,436 @@ Estructura tu respuesta en 3 bloques breves y accionables:
     }
   };
 }
+
+/**
+ * 6. FORMATEADOR EDITORIAL JURÍDICO Y EXPORTADOR (COPIADO RICO, WORD, PDF Y GOOGLE DRIVE) — PIDA
+ */
+function escaparHtmlBasico(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function aplicarFormatoInline(linea = '') {
+  let s = escaparHtmlBasico(linea);
+  // Negrita + cursiva ***texto***
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  // Negrita **texto**
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#0f172a;">$1</strong>');
+  // Cursiva *texto*
+  s = s.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>');
+  // Código inline `texto`
+  s = s.replace(/`([^`]+)`/g, '<code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:0.9em;">$1</code>');
+  return s;
+}
+
+/**
+ * Convierte un texto Markdown jurídico de PIDA en HTML editorial limpio y elegante
+ * listo para renderizar en pantalla, copiar con formato a Word/Docs o exportar.
+ */
+export function convertirMarkdownAHtmlJuridico(markdown = '') {
+  if (!markdown) return '';
+  const lineas = String(markdown).replace(/\r\n/g, '\n').split('\n');
+  const htmlParts = [];
+  let enListaUl = false;
+  let enListaOl = false;
+  let enTabla = false;
+  let filasTabla = [];
+
+  const cerrarListas = () => {
+    if (enListaUl) {
+      htmlParts.push('</ul>');
+      enListaUl = false;
+    }
+    if (enListaOl) {
+      htmlParts.push('</ol>');
+      enListaOl = false;
+    }
+  };
+
+  const cerrarTabla = () => {
+    if (enTabla && filasTabla.length > 0) {
+      let tbl = '<table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:10.5pt;">';
+      filasTabla.forEach((celdas, idx) => {
+        const esHeader = idx === 0;
+        tbl += '<tr>';
+        celdas.forEach((c) => {
+          const tag = esHeader ? 'th' : 'td';
+          const bg = esHeader ? 'background:#1e3a8a;color:#ffffff;font-weight:bold;' : 'background:#ffffff;color:#1e293b;';
+          tbl += `<${tag} style="${bg}border:1px solid #cbd5e1;padding:8px 10px;text-align:left;vertical-align:top;">${aplicarFormatoInline(c)}</${tag}>`;
+        });
+        tbl += '</tr>';
+      });
+      tbl += '</table>';
+      htmlParts.push(tbl);
+    }
+    enTabla = false;
+    filasTabla = [];
+  };
+
+  for (let i = 0; i < lineas.length; i++) {
+    const raw = lineas[i];
+    const trimmed = raw.trim();
+
+    // Detectar tabla Markdown | col1 | col2 |
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      cerrarListas();
+      const celdas = trimmed
+        .slice(1, -1)
+        .split('|')
+        .map((c) => c.trim());
+      // Ignorar fila separadora |---|---|
+      if (celdas.every((c) => /^[-:]+$/.test(c))) {
+        enTabla = true;
+        continue;
+      }
+      enTabla = true;
+      filasTabla.push(celdas);
+      continue;
+    } else if (enTabla) {
+      cerrarTabla();
+    }
+
+    if (!trimmed) {
+      cerrarListas();
+      continue;
+    }
+
+    // Línea divisoria --- o ***
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      cerrarListas();
+      htmlParts.push('<hr style="border:none;border-top:1px solid #cbd5e1;margin:16px 0;" />');
+      continue;
+    }
+
+    // Encabezados #, ##, ###, ####
+    const matchHeader = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (matchHeader) {
+      cerrarListas();
+      const nivel = matchHeader[1].length;
+      const contenido = aplicarFormatoInline(matchHeader[2].replace(/#+$/, '').trim());
+      if (nivel === 1) {
+        htmlParts.push(
+          `<h1 style="color:#1e3a8a;font-size:15pt;font-weight:bold;margin:18px 0 8px 0;padding-bottom:6px;border-bottom:2px solid #1e3a8a;">${contenido}</h1>`
+        );
+      } else if (nivel === 2) {
+        htmlParts.push(
+          `<h2 style="color:#1e3a8a;font-size:13pt;font-weight:bold;margin:16px 0 6px 0;padding-bottom:4px;border-bottom:1px solid #cbd5e1;">${contenido}</h2>`
+        );
+      } else if (nivel === 3) {
+        htmlParts.push(
+          `<h3 style="color:#1e3a8a;font-size:11.5pt;font-weight:bold;margin:14px 0 6px 0;text-transform:uppercase;letter-spacing:0.3px;">${contenido}</h3>`
+        );
+      } else {
+        htmlParts.push(
+          `<h4 style="color:#334155;font-size:11pt;font-weight:bold;margin:12px 0 4px 0;">${contenido}</h4>`
+        );
+      }
+      continue;
+    }
+
+    // Citas >
+    if (trimmed.startsWith('>')) {
+      cerrarListas();
+      const textoCita = aplicarFormatoInline(trimmed.replace(/^>\s*/, ''));
+      htmlParts.push(
+        `<blockquote style="margin:10px 0;padding:10px 14px;border-left:4px solid #1e3a8a;background:#f8fafc;color:#334155;font-style:italic;">${textoCita}</blockquote>`
+      );
+      continue;
+    }
+
+    // Lista numerada 1. ...
+    const matchOl = trimmed.match(/^(\d+)[.)]\s+(.+)$/);
+    if (matchOl) {
+      if (enListaUl) {
+        htmlParts.push('</ul>');
+        enListaUl = false;
+      }
+      if (!enListaOl) {
+        htmlParts.push('<ol style="margin:8px 0 12px 22px;padding:0;line-height:1.65;">');
+        enListaOl = true;
+      }
+      htmlParts.push(`<li style="margin-bottom:6px;">${aplicarFormatoInline(matchOl[2])}</li>`);
+      continue;
+    }
+
+    // Lista con viñetas - o *
+    const matchUl = trimmed.match(/^[-*•]\s+(.+)$/);
+    if (matchUl) {
+      if (enListaOl) {
+        htmlParts.push('</ol>');
+        enListaOl = false;
+      }
+      if (!enListaUl) {
+        htmlParts.push('<ul style="margin:8px 0 12px 22px;padding:0;line-height:1.65;">');
+        enListaUl = true;
+      }
+      htmlParts.push(`<li style="margin-bottom:6px;">${aplicarFormatoInline(matchUl[1])}</li>`);
+      continue;
+    }
+
+    // Párrafo estándar
+    cerrarListas();
+    htmlParts.push(
+      `<p style="margin:0 0 10px 0;line-height:1.7;text-align:justify;color:#1e293b;">${aplicarFormatoInline(trimmed)}</p>`
+    );
+  }
+
+  cerrarListas();
+  cerrarTabla();
+  return htmlParts.join('\n');
+}
+
+/**
+ * Limpia la sintaxis cruda de Markdown para obtener texto plano limpio al copiar.
+ */
+export function limpiarMarkdownATextoPlano(markdown = '') {
+  return String(markdown || '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1$2')
+    .replace(/^---$/gm, '────────────────────────────────────────────────────────')
+    .trim();
+}
+
+/**
+ * Construye un documento HTML completo con membrete jurídico institucional del IIRESODH — PIDA.
+ */
+export function construirDocumentoEditorialHtml({ markdown = '', titulo = 'Dictamen Jurídico PIDA', caso = {} }) {
+  const fechaHoy = new Date().toLocaleDateString('es-CR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
+  const cuerpoHtml = convertirMarkdownAHtmlJuridico(markdown);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>${escaparHtmlBasico(titulo)} — IIRESODH (PIDA)</title>
+  <style>
+    @page { size: A4; margin: 2.2cm; }
+    body {
+      font-family: 'Georgia', 'Times New Roman', serif;
+      font-size: 11pt;
+      line-height: 1.65;
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+    }
+    .membrete {
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+    }
+    .institucion {
+      font-family: 'Arial', sans-serif;
+      font-size: 13pt;
+      font-weight: bold;
+      color: #1e3a8a;
+      letter-spacing: 0.5px;
+    }
+    .subtitulo-pida {
+      font-family: 'Arial', sans-serif;
+      font-size: 9.5pt;
+      color: #475569;
+      margin-top: 2px;
+    }
+    .ficha-expediente {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-family: 'Arial', sans-serif;
+      font-size: 9.5pt;
+      background: #f8fafc;
+    }
+    .ficha-expediente td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 10px;
+    }
+    .pie {
+      margin-top: 28px;
+      padding-top: 10px;
+      border-top: 1px solid #cbd5e1;
+      font-family: 'Arial', sans-serif;
+      font-size: 8.5pt;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="membrete">
+    <div class="institucion">IIRESODH · SISTEMA DE INTELIGENCIA JURÍDICA PIDA</div>
+    <div class="subtitulo-pida">Dictamen Técnico-Jurídico en Derecho Internacional de los Derechos Humanos · ${escaparHtmlBasico(fechaHoy)}</div>
+  </div>
+  <table class="ficha-expediente">
+    <tr>
+      <td><strong>Caso / Litigio:</strong> ${escaparHtmlBasico(caso.nombre || 'Expediente Institucional')}</td>
+      <td><strong>Expediente Oficial:</strong> ${escaparHtmlBasico(caso.expediente_oficial || 'En trámite')}</td>
+    </tr>
+    <tr>
+      <td><strong>Jurisdicción / Instancia:</strong> ${escaparHtmlBasico(caso.jurisdiccion || 'Sistema Interamericano / ONU')}</td>
+      <td><strong>Etapa Procesal:</strong> ${escaparHtmlBasico(caso.etapa_procesal || 'En curso')}</td>
+    </tr>
+  </table>
+  <div class="contenido-dictamen">
+    ${cuerpoHtml}
+  </div>
+  <div class="pie">
+    Documento generado con asistencia de PIDA (IIRESODH) · Confidencial — Uso exclusivo del equipo jurídico.
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * 1) Copiar Dictamen con Formato Rico (HTML + Texto Plano limpio) para pegar en Word, Google Docs o Correo.
+ */
+export async function copiarDictamenConFormato({ markdown = '', titulo = 'Dictamen Jurídico PIDA', caso = {} }) {
+  const htmlDoc = construirDocumentoEditorialHtml({ markdown, titulo, caso });
+  const plainText = limpiarMarkdownATextoPlano(markdown);
+
+  if (navigator.clipboard && window.ClipboardItem) {
+    try {
+      const item = new window.ClipboardItem({
+        'text/html': new Blob([htmlDoc], { type: 'text/html' }),
+        'text/plain': new Blob([plainText], { type: 'text/plain' })
+      });
+      await navigator.clipboard.write([item]);
+      return true;
+    } catch (e) {
+      console.warn('Fallback a writeText plano:', e);
+    }
+  }
+  await navigator.clipboard.writeText(plainText);
+  return true;
+}
+
+/**
+ * 2) Descargar Dictamen en formato Microsoft Word (.doc compatible con Word con estilos editoriales).
+ */
+export function descargarDictamenWord({ markdown = '', titulo = 'Dictamen_PIDA', caso = {} }) {
+  const htmlDoc = construirDocumentoEditorialHtml({ markdown, titulo, caso });
+  const wordHtml = `\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+${htmlDoc.replace('<!DOCTYPE html>\n<html lang="es">', '')}`;
+
+  const blob = new Blob([wordHtml], { type: 'application/msword;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const nombreLimpio = `${titulo}_${caso.expediente_oficial || caso.nombre || 'IIRESODH'}`
+    .replace(/[^a-zA-Z0-9_-]+/g, '_')
+    .slice(0, 65);
+  link.href = url;
+  link.download = `${nombreLimpio}.doc`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * 3) Descargar / Imprimir Dictamen en formato PDF limpio con membrete institucional.
+ */
+export function descargarDictamenPDF({ markdown = '', titulo = 'Dictamen Jurídico PIDA', caso = {} }) {
+  const htmlDoc = construirDocumentoEditorialHtml({ markdown, titulo, caso });
+  const printWin = window.open('', '_blank', 'width=900,height=800');
+  if (!printWin) {
+    throw new Error('Permite las ventanas emergentes en tu navegador para generar el PDF.');
+  }
+  printWin.document.open();
+  printWin.document.write(htmlDoc);
+  printWin.document.close();
+  printWin.focus();
+  setTimeout(() => {
+    printWin.print();
+  }, 350);
+}
+
+/**
+ * 4) Guardar el Dictamen directamente en el Google Drive del abogado como un Google Doc editable.
+ */
+export async function guardarDictamenEnGoogleDrive({
+  markdown = '',
+  titulo = 'Dictamen Jurídico PIDA',
+  caso = {},
+  userEmail = ''
+}) {
+  let token = obtenerTokenGoogleDriveActivo();
+  if (!token) {
+    token = await solicitarTokenGoogleDrive(userEmail, false);
+  }
+  if (!token) {
+    throw new Error('No se pudo autorizar la conexión con tu cuenta de Google Drive.');
+  }
+
+  const htmlDoc = construirDocumentoEditorialHtml({ markdown, titulo, caso });
+  const fechaCorta = new Date().toISOString().slice(0, 10);
+  const nombreDoc = `[PIDA] ${titulo} - ${caso.expediente_oficial || caso.nombre || 'IIRESODH'} (${fechaCorta})`;
+
+  const construirMultipart = () => {
+    const boundary = '-------314159265358979323846';
+    const metadata = {
+      name: nombreDoc,
+      mimeType: 'application/vnd.google-apps.document'
+    };
+    const multipartBody =
+      `--${boundary}\r\n` +
+      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+      `${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: text/html; charset=UTF-8\r\n\r\n` +
+      `${htmlDoc}\r\n` +
+      `--${boundary}--`;
+    return { boundary, multipartBody };
+  };
+
+  let { boundary, multipartBody } = construirMultipart();
+  let response = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`
+      },
+      body: multipartBody
+    }
+  );
+
+  // Si el token anterior solo tenía drive.readonly y falta drive.file, solicitamos permiso con popup
+  if (response.status === 401 || response.status === 403) {
+    token = await solicitarTokenGoogleDrive(userEmail, false);
+    if (!token) {
+      throw new Error('Autorización de Google Drive cancelada.');
+    }
+    ({ boundary, multipartBody } = construirMultipart());
+    response = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: multipartBody
+      }
+    );
+  }
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`No se pudo crear el documento en Google Drive (${response.status}): ${errText}`);
+  }
+
+  const data = await response.json();
+  return {
+    id: data.id,
+    name: data.name,
+    webViewLink: data.webViewLink || `https://docs.google.com/document/d/${data.id}/edit`
+  };
+}
+

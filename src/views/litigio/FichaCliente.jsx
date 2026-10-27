@@ -62,7 +62,12 @@ import {
 import { registrarLogAuditoria } from '../../utils/auditLogger';
 import {
   extraerDatosIdentificacionIA,
-  sintetizarExpedienteRepresentadoIA
+  sintetizarExpedienteRepresentadoIA,
+  convertirMarkdownAHtmlJuridico,
+  copiarDictamenConFormato,
+  descargarDictamenWord,
+  descargarDictamenPDF,
+  guardarDictamenEnGoogleDrive
 } from '../../utils/litigioAiService';
 
 const DOC_TYPES = [
@@ -814,7 +819,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               }
             }}
           >
-            {generandoResumenIA ? 'Generando Síntesis IA...' : '✨ Síntesis Ejecutiva IA del Representado'}
+            {generandoResumenIA ? 'Generando Síntesis con PIDA...' : '✨ Síntesis Ejecutiva PIDA del Representado'}
           </Button>
         </Box>
       </Box>
@@ -838,7 +843,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                 Semáforo de Acreditación Individual (Art. 35 Reglamento Corte IDH)
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Estado automático verificado por IA según los archivos vigentes en &ldquo;Documentos y Poderes&rdquo; (no editable manualmente):
+                Estado automático verificado por PIDA según los archivos vigentes en &ldquo;Documentos y Poderes&rdquo; (no editable manualmente):
               </Typography>
             </Box>
           </Box>
@@ -866,7 +871,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
         </Box>
       </Paper>
 
-      {/* PANEL DESPLEGABLE DE SÍNTESIS EJECUTIVA IA */}
+      {/* PANEL DESPLEGABLE DE SÍNTESIS EJECUTIVA PIDA */}
       {resumenEjecutivoIA && (
         <Paper
           sx={{
@@ -882,15 +887,79 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Sparkles size={18} color="#4338ca" />
               <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
-                Dictamen Ejecutivo Individual (Estándar SIDH)
+                Dictamen Ejecutivo Individual PIDA (Estándar SIDH)
               </Typography>
               <Chip
                 size="small"
-                label={resumenEjecutivoIA._metaIA?.modeloEjecutado || 'gemini-3.8-flash'}
+                label="PIDA · Síntesis Individual"
                 sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
               />
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={async () => {
+                  await copiarDictamenConFormato({
+                    markdown: resumenEjecutivoIA.resumen,
+                    titulo: `Ficha Ejecutiva PIDA - ${nombres} ${apellidos}`,
+                    caso: caso || {}
+                  });
+                  alert('✅ Síntesis ejecutiva copiada con formato.');
+                }}
+                sx={{ textTransform: 'none', fontWeight: 'bold', bgcolor: '#ffffff' }}
+              >
+                📋 Copiar con Formato
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="secondary"
+                onClick={async () => {
+                  try {
+                    const docDrive = await guardarDictamenEnGoogleDrive({
+                      markdown: resumenEjecutivoIA.resumen,
+                      titulo: `Síntesis Representado ${nombres} ${apellidos}`,
+                      caso: caso || {},
+                      userEmail: currentUserEmail
+                    });
+                    window.open(docDrive.webViewLink, '_blank');
+                  } catch (e) {
+                    setError(`No se pudo guardar en Google Drive: ${e.message}`);
+                  }
+                }}
+                sx={{ textTransform: 'none', fontWeight: 'bold', bgcolor: '#ffffff' }}
+              >
+                ☁️ Agregar a Mi Drive
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() =>
+                  descargarDictamenWord({
+                    markdown: resumenEjecutivoIA.resumen,
+                    titulo: `Sintesis_PIDA_${apellidos}_${nombres}`,
+                    caso: caso || {}
+                  })
+                }
+                sx={{ textTransform: 'none', fontWeight: 'bold', bgcolor: '#ffffff' }}
+              >
+                📝 Word (.doc)
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() =>
+                  descargarDictamenPDF({
+                    markdown: resumenEjecutivoIA.resumen,
+                    titulo: `Síntesis PIDA - ${nombres} ${apellidos}`,
+                    caso: caso || {}
+                  })
+                }
+                sx={{ textTransform: 'none', fontWeight: 'bold', bgcolor: '#ffffff' }}
+              >
+                📄 PDF
+              </Button>
               <Button
                 size="small"
                 variant="contained"
@@ -909,12 +978,20 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               </Button>
             </Box>
           </Box>
-          <Typography
-            variant="body2"
-            sx={{ whiteSpace: 'pre-wrap', bgcolor: '#ffffff', p: 2, borderRadius: 2, border: '1px solid #e0e7ff' }}
-          >
-            {resumenEjecutivoIA.resumen}
-          </Typography>
+          <Box
+            sx={{
+              bgcolor: '#ffffff',
+              p: 2.5,
+              borderRadius: 2,
+              border: '1px solid #e0e7ff',
+              fontFamily: '"Georgia", "Times New Roman", serif',
+              fontSize: '0.94rem',
+              lineHeight: 1.7
+            }}
+            dangerouslySetInnerHTML={{
+              __html: convertirMarkdownAHtmlJuridico(resumenEjecutivoIA.resumen)
+            }}
+          />
         </Paper>
       )}
 
@@ -1289,11 +1366,11 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               </Box>
             )}
 
-            {/* Resultado de Verificación OCR IA */}
+            {/* Resultado de Verificación OCR PIDA */}
             {resultadoDocIA && (
               <Box sx={{ mt: 2, p: 2, bgcolor: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 2 }}>
                 <Typography variant="caption" fontWeight="bold" color="#065f46" sx={{ display: 'block', mb: 0.5 }}>
-                  ✨ Verificación OCR IA ({resultadoDocIA.tipo_documento_detectado}) — {resultadoDocIA._metaIA?.modeloEjecutado}
+                  ✨ Verificación OCR PIDA ({resultadoDocIA.tipo_documento_detectado})
                 </Typography>
                 <Typography variant="caption" color="text.primary" sx={{ display: 'block', mb: 1 }}>
                   {resultadoDocIA.observaciones_verificacion}
@@ -1330,7 +1407,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             <List>
               {documentos.length === 0 ? (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', py: 1 }}>
-                  Al subir un Poder, Cédula o Prueba de Daño aquí, <strong>Gemini 3.8 Flash</strong> lo verifica automáticamente y activa en verde el requisito correspondiente del Semáforo Art. 35.
+                  Al subir un Poder, Cédula o Prueba de Daño aquí, <strong>PIDA</strong> lo verifica automáticamente y activa en verde el requisito correspondiente del Semáforo Art. 35.
                 </Typography>
               ) : (
                 documentos.map((d) => (
@@ -1370,7 +1447,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                         color="primary"
                         disabled={verificandoDocIAId === d.id}
                         onClick={() => handleVerificarDocIA(d)}
-                        title="Re-verificar documento con IA (OCR Gemini 3.8 Flash)"
+                        title="Re-verificar documento con PIDA"
                         sx={{ border: '1px solid #e0e7ff', bgcolor: '#eef2ff' }}
                       >
                         {verificandoDocIAId === d.id ? <CircularProgress size={14} /> : <Sparkles size={15} />}
@@ -1391,7 +1468,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                           <Chip
                             size="small"
                             color="success"
-                            label={`✓ IA: ${d.categoria_ia}`}
+                            label={`✓ PIDA: ${d.categoria_ia}`}
                             sx={{ height: 20, fontSize: '0.68rem', fontWeight: 'bold' }}
                           />
                         )}
