@@ -1053,11 +1053,14 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
     setResultadoAnalisisDocIA(null);
     setError('');
     try {
+      const requiereArgon =
+        docItem.categoria_procesal === 'Resolución / Notificación Tribunal' ||
+        docItem.categoria_procesal === 'Contestación del Estado';
       const res = await analizarPiezaProcesalIA({
         fileUrl: docItem.storage_path ? docItem.url : null,
         nombreArchivo: docItem.nombre,
         contextoCaso: caso,
-        usarPensamientoAvanzado: usarArgonEnDoc
+        usarPensamientoAvanzado: requiereArgon
       });
       setResultadoAnalisisDocIA({ ...res, docNombre: docItem.nombre });
     } catch (err) {
@@ -1259,17 +1262,10 @@ ${listaDocs || 'Sin documentos comunes aún.'}
 SOLICITUD JURÍDICA AL COPILOTO:
 ${promptBase.trim()}`;
 
-      const tierSeleccionado =
-        modeloCopilotoIA === 'gemini-4-argon'
-          ? 'deep'
-          : modeloCopilotoIA === 'gemini-3.8-flash'
-          ? 'secondary'
-          : 'simple';
-
       const res = await ejecutarConsultaJuridicaIA({
         prompt: promptContextualizado,
-        tier: tierSeleccionado,
-        modelOverride: modeloCopilotoIA
+        tier: 'deep',
+        modelOverride: 'gemini-4-argon'
       });
 
       setRespuestaCopilotoIA({
@@ -2089,7 +2085,6 @@ ${promptBase.trim()}`;
                             label={clienteItem.tiene_poder ? '✓ Poder' : '⚠ Poder'}
                             color={clienteItem.tiene_poder ? 'success' : 'default'}
                             variant={clienteItem.tiene_poder ? 'filled' : 'outlined'}
-                            onClick={() => handleToggleAcreditacionRapida(clienteItem, 'tiene_poder')}
                             sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
                           />
                           <Chip
@@ -2097,7 +2092,6 @@ ${promptBase.trim()}`;
                             label={clienteItem.tiene_documento_id ? '✓ ID' : '⚠ ID'}
                             color={clienteItem.tiene_documento_id ? 'success' : 'default'}
                             variant={clienteItem.tiene_documento_id ? 'filled' : 'outlined'}
-                            onClick={() => handleToggleAcreditacionRapida(clienteItem, 'tiene_documento_id')}
                             sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
                           />
                           <Chip
@@ -2105,7 +2099,6 @@ ${promptBase.trim()}`;
                             label={clienteItem.tiene_prueba_dano ? '✓ Daño' : 'Daño'}
                             color={clienteItem.tiene_prueba_dano ? 'info' : 'default'}
                             variant={clienteItem.tiene_prueba_dano ? 'filled' : 'outlined'}
-                            onClick={() => handleToggleAcreditacionRapida(clienteItem, 'tiene_prueba_dano')}
                             sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
                           />
                         </Box>
@@ -2189,16 +2182,6 @@ ${promptBase.trim()}`;
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={usarArgonEnDoc}
-                    onChange={(e) => setUsarArgonEnDoc(e.target.checked)}
-                  />
-                }
-                label={<Typography variant="caption" fontWeight="bold">🧠 Usar Gemini 4 Argon al analizar</Typography>}
-              />
               <Button
                 variant="outlined"
                 size="small"
@@ -2713,18 +2696,11 @@ ${promptBase.trim()}`;
               </Typography>
             </Box>
 
-            <FormControl size="small" sx={{ minWidth: 290, bgcolor: '#ffffff' }}>
-              <InputLabel>Motor de Razonamiento IA</InputLabel>
-              <Select
-                value={modeloCopilotoIA}
-                label="Motor de Razonamiento IA"
-                onChange={(e) => setModeloCopilotoIA(e.target.value)}
-              >
-                <MenuItem value="gemini-4-argon">🧠 Gemini 4 Argon (Pensamiento Avanzado)</MenuItem>
-                <MenuItem value="gemini-3.8-flash">⚡ Gemini 3.8 Flash (Multimodal Secundario)</MenuItem>
-                <MenuItem value="gemini-3.5-flash-lite">🚀 Gemini 3.5 Flash-Lite (Tareas Simples)</MenuItem>
-              </Select>
-            </FormControl>
+            <Chip
+              label="🧠 Enrutamiento Automático: Gemini 4 Argon (Pensamiento Avanzado)"
+              color="primary"
+              sx={{ fontWeight: 'bold', bgcolor: '#312e81', color: '#ffffff' }}
+            />
           </Box>
 
           {/* Plantillas Jurídicas Interamericanas de 1 Clic */}
@@ -2948,16 +2924,9 @@ ${promptBase.trim()}`;
             <TextField label="Dirección Física Completa" fullWidth multiline rows={2} value={direccion} onChange={(e) => setDireccion(e.target.value)} />
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-            <FormControlLabel
-              control={<Checkbox checked={tienePoderInput} onChange={(e) => setTienePoderInput(e.target.checked)} />}
-              label="Poder de representación ya verificado"
-            />
-            <FormControlLabel
-              control={<Checkbox checked={tieneIdInput} onChange={(e) => setTieneIdInput(e.target.checked)} />}
-              label="Cédula / ID legible verificado"
-            />
-          </Box>
+          <Alert severity="info" sx={{ mb: 2, py: 0.5, fontSize: '0.78rem' }}>
+            El Semáforo Art. 35 (Poder, Cédula/ID y Prueba de Daño) se activa en verde automáticamente al subir y verificar los documentos con IA.
+          </Alert>
           
           <TextField label="Notas Jurídicas Iniciales" fullWidth multiline rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />
         </DialogContent>

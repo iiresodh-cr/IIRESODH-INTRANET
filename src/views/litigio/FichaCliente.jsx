@@ -611,13 +611,37 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
       }
       await deleteDoc(doc(db, 'casos', casoId, 'clientes', clienteId, 'documentos', docId));
 
+      // Recalcular automáticamente los indicadores del Semáforo Art. 35 según los documentos vigentes restantes
+      const restantes = documentos.filter((d) => d.id !== docId);
+      const tienePoderRestante = restantes.some((d) => {
+        const c = (d.categoria_ia || '').toLowerCase();
+        const n = (d.nombre || '').toLowerCase();
+        return c.includes('poder') || n.includes('poder');
+      });
+      const tieneIdRestante = restantes.some((d) => {
+        const c = (d.categoria_ia || '').toLowerCase();
+        const n = (d.nombre || '').toLowerCase();
+        return c.includes('identifica') || n.includes('cedula') || n.includes('cédula') || n.includes('pasaporte') || n.includes('identidad');
+      });
+      const tieneDanoRestante = restantes.some((d) => {
+        const c = (d.categoria_ia || '').toLowerCase();
+        const n = (d.nombre || '').toLowerCase();
+        return c.includes('prueba') || n.includes('dano') || n.includes('daño') || n.includes('declaracion');
+      });
+
+      await updateDoc(clienteRef, {
+        tiene_poder: tienePoderRestante,
+        tiene_documento_id: tieneIdRestante,
+        tiene_prueba_dano: tieneDanoRestante
+      });
+
       await registrarLogAuditoria(
         currentUserEmail,
         'Eliminación de Poder/Doc',
-        `Se eliminó el documento ID: ${docId} perteneciente a: ${apellidos}, ${nombres}`
+        `Se eliminó el documento ID: ${docId} perteneciente a: ${apellidos}, ${nombres} y se actualizó el Semáforo Art. 35`
       );
 
-      setSuccess('Documento removido correctamente.');
+      setSuccess('Documento removido y Semáforo Art. 35 actualizado automáticamente.');
     } catch {
       setError('Error al eliminar archivo.');
     }
@@ -804,7 +828,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                 Semáforo de Acreditación Individual (Art. 35 Reglamento Corte IDH)
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Haz clic en cada requisito para marcarlo como verificado en el padrón oficial de víctimas:
+                Estado automático verificado por IA según los archivos vigentes en &ldquo;Documentos y Poderes&rdquo; (no editable manualmente):
               </Typography>
             </Box>
           </Box>
@@ -814,21 +838,18 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               label={cliente?.tiene_poder ? '✅ Poder Legal Verificado' : '⚠️ Poder Legal Pendiente'}
               color={cliente?.tiene_poder ? 'success' : 'warning'}
               variant={cliente?.tiene_poder ? 'filled' : 'outlined'}
-              onClick={() => handleToggleAcreditacion('tiene_poder')}
               sx={{ fontWeight: 'bold' }}
             />
             <Chip
               label={cliente?.tiene_documento_id ? '✅ Cédula / ID Legible' : '⚠️ Cédula / ID Pendiente'}
               color={cliente?.tiene_documento_id ? 'success' : 'warning'}
               variant={cliente?.tiene_documento_id ? 'filled' : 'outlined'}
-              onClick={() => handleToggleAcreditacion('tiene_documento_id')}
               sx={{ fontWeight: 'bold' }}
             />
             <Chip
               label={cliente?.tiene_prueba_dano ? '✅ Prueba de Daño' : '📂 Prueba de Daño en Recolección'}
               color={cliente?.tiene_prueba_dano ? 'success' : 'default'}
               variant={cliente?.tiene_prueba_dano ? 'filled' : 'outlined'}
-              onClick={() => handleToggleAcreditacion('tiene_prueba_dano')}
               sx={{ fontWeight: 'bold' }}
             />
           </Box>
