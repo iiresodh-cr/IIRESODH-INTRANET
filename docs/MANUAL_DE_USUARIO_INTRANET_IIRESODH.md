@@ -2,7 +2,7 @@
 
 **Instituto Internacional de Responsabilidad Social y Derechos Humanos (IIRESODH)**  
 **Portal Oficial:** `https://intra.iiresodh.org` / `https://litigio-management.web.app`  
-**Versión del Documento:** 2.1 (Incluye *IIRESODH Workspace*, Selector Directo de Google Drive, Comunicados vía Google Workspace con Trazabilidad por Destinatario e Indicador en Tiempo Real de WhatsApp Institucional)
+**Versión del Documento:** 2.2 (Incluye *IIRESODH Workspace*, Videollamadas Nativas de Google Meet por Canal y Externas, Selector Directo de Google Drive, Comunicados vía Google Workspace con Trazabilidad por Destinatario e Indicador en Tiempo Real de WhatsApp Institucional)
 
 ---
 
@@ -16,6 +16,7 @@
    - [3.3. Seguimiento de Proyectos y Tareas (Kanban y Lista)](#33-seguimiento-de-proyectos-y-tareas-kanban-y-lista)
    - [3.4. Calendario Privado y Agenda Propia de la Plataforma](#34-calendario-privado-y-agenda-propia-de-la-plataforma)
    - [3.5. Biblioteca y Visor Integrado de Google Drive](#35-biblioteca-y-visor-integrado-de-google-drive)
+   - [3.6. Videollamadas Nativas con Google Meet (Por Canal, Mensajes Directos, Calendario y Salas Externas)](#36-videollamadas-nativas-con-google-meet-por-canal-mensajes-directos-calendario-y-salas-externas)
 4. [Módulo: Centro de Recursos Institucionales](#4-módulo-centro-de-recursos-institucionales)
 5. [Módulo: Gestión de Litigios y Expedientes Jurídicos](#5-módulo-gestión-de-litigios-y-expedientes-jurídicos)
    - [5.1. Creación y Administración de Casos](#51-creación-y-administración-de-casos)
@@ -209,12 +210,12 @@ Al seleccionar la pestaña **`📅 Calendario & Agenda`**, accederá al calendar
 - 🟦 **Evento Institucional**
 - 🟩 **Recordatorio Interno**
 
-> **📌 Ejemplo Práctico 3 — Agendar una audiencia confidencial y notificar en un canal:**
+> **📌 Ejemplo Práctico 3 — Agendar una audiencia confidencial con sala oficial de Google Meet y notificar en un canal:**
 > 1. Haga clic sobre el día deseado en la cuadrícula del calendario (o pulse el botón **`+ Agendar Evento`**).
 > 2. Escriba el título *"Audiencia Pública - Caso Empleados vs. Estado"*, seleccione la categoría **Audiencia Judicial / CIDH** y defina la hora de inicio y finalización.
-> 3. En **Ubicación**, pegue el enlace de Google Meet o Zoom y seleccione a los **Participantes convocados del equipo**.
+> 3. Junto al campo **Ubicación**, haga clic en el botón **`📹 Generar Google Meet`**: el sistema creará al instante un enlace oficial `https://meet.google.com/xxx-xxxx-xxx` bajo su cuenta `@iiresodh.org` y lo colocará automáticamente en la ubicación. Seleccione luego a los **Participantes convocados del equipo**.
 > 4. Si se trata de una reunión sensible de estrategia, active el interruptor **`Evento Confidencial (Solo participantes convocados)`**; o déjelo abierto para todo el equipo y seleccione anunciar en **`#litigios-y-casos`**.
-> 5. Haga clic en **Agendar Evento**. El evento quedará resguardado inmediatamente en el calendario propio de la plataforma y en la columna derecha de *Próximos Eventos y Plazos*.
+> 5. Haga clic en **Agendar Evento**. El evento quedará resguardado inmediatamente en el calendario propio de la plataforma y al abrir su detalle cualquier participante verá el botón verde **`📹 Unirse a Google Meet`**.
 
 ---
 
@@ -235,6 +236,23 @@ La pestaña **`📁 Google Drive`** conecta el Workspace con los documentos y ca
 4. **Fijar Favoritos (`⭐`) y Compartir en Canales (`✈️`)**:
    - Pulse la estrella **`⭐`** en las carpetas o matrices más usadas para que aparezcan siempre de primeras y bajo el filtro **`⭐ Fijados`**.
    - Pulse el ícono de enviar **`✈️`** para compartir una tarjeta de acceso directo al documento en el chat.
+
+---
+
+### 3.6. Videollamadas Nativas con Google Meet (Por Canal, Mensajes Directos, Calendario y Salas Externas)
+
+El Workspace está conectado de forma nativa con **Google Meet REST API v2**, permitiendo abrir salas oficiales `https://meet.google.com/xxx-xxxx-xxx` donde el usuario autenticado `@iiresodh.org` entra automáticamente como **Anfitrión (*Host*)**:
+
+1. **Salas en Vivo dentro de Canales y Mensajes Directos (1 a 1)**:
+   - En la cabecera superior derecha de cualquier canal (`#general`, `#litigios-y-casos`, canales privados 🔒) o conversación directa, haga clic en el botón **`📹 Iniciar Meet`** (o escriba el comando rápido `/meet [tema]` en la caja de mensajes, por ejemplo: `/meet Coordinación urgente CIDH`).
+   - El sistema genera un espacio real de Google Meet en menos de 1 segundo, publica automáticamente una **Tarjeta Interactiva de Videollamada** en el canal y despliega una **Barra Verde en Tiempo Real de Sala en Curso** en la parte superior del canal (además de un ícono verde `📹` junto al nombre del canal en la barra lateral izquierda).
+   - Cualquier miembro del canal puede pulsar **`Unirse ahora`** (que fuerza automáticamente el uso de su cuenta institucional `@iiresodh.org`), **`Copiar enlace`** o **`Finalizar sala`** cuando concluya la llamada.
+2. **Salas de Google Meet Fuera de los Canales (Para Reuniones Externas, Testigos, Peritos o Clientes)**:
+   - En la barra superior oscura del Workspace dispone siempre del botón verde **`📹 Sala Meet`**.
+   - Al pulsarlo se abre el generador de **Sala Instantánea de Google Meet**, ideal para reuniones con personas externas al Instituto sin necesidad de publicarlas en un canal.
+   - Escriba el asunto de la reunión y haga clic en **`Generar enlace oficial de Google Meet`**: obtendrá al instante el enlace `https://meet.google.com/xxx-xxxx-xxx` con botones de un clic para **`Entrar a la Sala Meet`**, **`Copiar enlace para invitados`** (para enviarlo por WhatsApp o correo) o publicarlo opcionalmente en un canal.
+3. **Generación de Sala Google Meet en Eventos del Calendario**:
+   - Al crear o editar cualquier evento o audiencia en **`Calendario & Agenda`**, pulse el botón **`📹 Generar Google Meet`** situado junto al campo de ubicación para adjuntar una sala única al evento.
 
 ---
 

@@ -51,7 +51,9 @@ import {
   Edit3,
   X,
   Check,
-  Send
+  Send,
+  Video,
+  Copy
 } from 'lucide-react';
 import {
   collection,
@@ -65,6 +67,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { crearEspacioGoogleMeet } from '../../context/AuthContext';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
 
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -147,6 +150,32 @@ export default function CalendarioHibridoPanel({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [generandoMeet, setGenerandoMeet] = useState(false);
+
+  const handleGenerarMeetParaEvento = async () => {
+    if (generandoMeet) return;
+    setGenerandoMeet(true);
+    try {
+      const espacio = await crearEspacioGoogleMeet(currentUserEmail);
+      setForm((prev) => ({
+        ...prev,
+        ubicacion: espacio.meetingUri
+      }));
+      setSnackbar({
+        open: true,
+        message: `Sala oficial de Google Meet generada (${espacio.meetingCode})`,
+        severity: 'success'
+      });
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err?.message || 'No se pudo generar la sala de Google Meet.',
+        severity: 'error'
+      });
+    } finally {
+      setGenerandoMeet(false);
+    }
+  };
 
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -1279,15 +1308,44 @@ export default function CalendarioHibridoPanel({
             </Box>
           )}
 
-          <TextField
-            name="ubicacion"
-            label="Ubicación física o enlace de videollamada (Meet / Zoom)"
-            placeholder="Ej: Sala Principal IIRESODH o https://meet.google.com/..."
-            value={form.ubicacion}
-            onChange={handleFormChange}
-            size="small"
-            fullWidth
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+              <TextField
+                name="ubicacion"
+                label="Ubicación física o enlace de videollamada (Meet / Zoom)"
+                placeholder="Ej: Sala Principal IIRESODH o https://meet.google.com/..."
+                value={form.ubicacion}
+                onChange={handleFormChange}
+                size="small"
+                fullWidth
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={generandoMeet}
+                startIcon={
+                  generandoMeet ? <CircularProgress size={14} color="inherit" /> : <Video size={15} color="#0f9d58" />
+                }
+                onClick={handleGenerarMeetParaEvento}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.76rem',
+                  whiteSpace: 'nowrap',
+                  height: 40,
+                  px: 1.5,
+                  borderRadius: 1.5,
+                  borderColor: '#86efac',
+                  bgcolor: '#f0fdf4',
+                  color: '#166534',
+                  flexShrink: 0,
+                  '&:hover': { bgcolor: '#dcfce7', borderColor: '#22c55e' }
+                }}
+              >
+                {generandoMeet ? 'Creando...' : 'Generar Google Meet'}
+              </Button>
+            </Box>
+          </Box>
 
           {/* PARTICIPANTES DEL EQUIPO */}
           <FormControl size="small" fullWidth>
@@ -1463,9 +1521,67 @@ export default function CalendarioHibridoPanel({
                     🕒 Horario: {formatearHora(eventoSeleccionado)}
                   </Typography>
                   {eventoSeleccionado.location && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      📍 Ubicación: {eventoSeleccionado.location}
-                    </Typography>
+                    <Box sx={{ mt: 0.75 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        📍 Ubicación: {eventoSeleccionado.location}
+                      </Typography>
+                      {eventoSeleccionado.location.includes('meet.google.com') && (
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<Video size={14} />}
+                            endIcon={<ExternalLink size={12} />}
+                            onClick={() => {
+                              const match = eventoSeleccionado.location.match(/https?:\/\/meet\.google\.com\/[a-z0-9-]+/i);
+                              const baseUri = match ? match[0] : eventoSeleccionado.location;
+                              const targetUrl = currentUserEmail
+                                ? `${baseUri}${baseUri.includes('?') ? '&' : '?'}authuser=${encodeURIComponent(currentUserEmail)}`
+                                : baseUri;
+                              window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                            }}
+                            sx={{
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              fontSize: '0.75rem',
+                              borderRadius: 1.5,
+                              bgcolor: '#0f9d58',
+                              '&:hover': { bgcolor: '#0b8043' }
+                            }}
+                          >
+                            Unirse a Google Meet
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<Copy size={13} />}
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(eventoSeleccionado.location);
+                                setSnackbar({
+                                  open: true,
+                                  message: 'Enlace de Google Meet copiado al portapapeles',
+                                  severity: 'success'
+                                });
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                            sx={{
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              fontSize: '0.74rem',
+                              borderRadius: 1.5,
+                              borderColor: '#86efac',
+                              color: '#065f46',
+                              bgcolor: '#ffffff'
+                            }}
+                          >
+                            Copiar enlace
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
                   )}
                   {eventoSeleccionado.creadoPorNombre && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>

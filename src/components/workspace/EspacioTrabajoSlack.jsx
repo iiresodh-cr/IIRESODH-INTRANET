@@ -28,7 +28,9 @@ import {
   CircularProgress,
   LinearProgress,
   Paper,
-  InputAdornment
+  InputAdornment,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Hash,
@@ -66,7 +68,11 @@ import {
   List as ListIcon,
   Quote,
   Volume2,
-  CheckCircle2
+  CheckCircle2,
+  Video,
+  ExternalLink,
+  Copy,
+  PhoneOff
 } from 'lucide-react';
 import {
   collection,
@@ -93,7 +99,7 @@ import {
   serverTimestamp as rtdbServerTimestamp
 } from 'firebase/database';
 import { db, rtdb, storage } from '../../config/firebase';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, crearEspacioGoogleMeet } from '../../context/AuthContext';
 import CalendarioHibridoPanel, { CATEGORIAS_EVENTO } from './CalendarioHibridoPanel';
 import ProyectosKanbanPanel from './ProyectosKanbanPanel';
 import GoogleDriveWorkspacePanel from './GoogleDriveWorkspacePanel';
@@ -113,6 +119,11 @@ const ESTADOS_USUARIO = [
 ];
 
 const SLASH_COMMANDS = [
+  {
+    cmd: '/meet',
+    ejemplo: '/meet Coordinación urgente CIDH',
+    desc: 'Inicia una sala real de Google Meet en este canal o mensaje directo'
+  },
   {
     cmd: '/tarea',
     ejemplo: '/tarea Revisar jurisprudencia CIDH',
@@ -286,6 +297,18 @@ export default function EspacioTrabajoSlack({
   const [signalNuevoEvento, setSignalNuevoEvento] = useState(0);
   // Item de Google Drive seleccionado para abrir en el visor embebido
   const [drivePreviewItem, setDrivePreviewItem] = useState(null);
+
+  // Integración Nativa Google Meet (Por canal/DM y Sala Instantánea Global)
+  const [creandoMeetCanal, setCreandoMeetCanal] = useState(false);
+  const [modalMeetExternoOpen, setModalMeetExternoOpen] = useState(false);
+  const [creandoMeetExterno, setCreandoMeetExterno] = useState(false);
+  const [meetExternoForm, setMeetExternoForm] = useState({
+    titulo: 'Reunión Institucional IIRESODH',
+    meetingUri: '',
+    meetingCode: '',
+    compartirCanalId: 'general'
+  });
+  const [meetToast, setMeetToast] = useState({ open: false, text: '', severity: 'success' });
 
   // =========================================================================
   // 1. CARGAR USUARIOS AUTORIZADOS Y PRESENCIA NATIVA EN REALTIME DATABASE
@@ -982,9 +1005,200 @@ export default function EspacioTrabajoSlack({
     }
   };
 
+  // =========================================================================
+  // 6.B INTEGRACIÓN NATIVA GOOGLE MEET (EN CANALES/DMs Y SALAS EXTERNAS)
+  // =========================================================================
+  const obtenerUrlMeetConCuenta = (url = '') => {
+    if (!url) return '';
+    if (!currentUserEmail) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}authuser=${encodeURIComponent(currentUserEmail)}`;
+  };
+
+  const handleCopiarEnlaceMeet = async (url, label = 'Enlace de Google Meet copiado al portapapeles') => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setMeetToast({ open: true, text: label, severity: 'success' });
+    } catch {
+      setMeetToast({ open: true, text: url, severity: 'info' });
+    }
+  };
+
+  const handleIniciarMeetEnCanal = async (temaOpcional = '') => {
+    if (!canalActivoId || creandoMeetCanal) return;
+    setCreandoMeetCanal(true);
+    try {
+      const espacio = await crearEspacioGoogleMeet(currentUserEmail);
+      const tituloBase =
+        canalActivo?.tipo === 'dm'
+          ? `Videollamada con ${obtenerTituloCanal(canalActivo)}`
+          : `Sala de #${obtenerTituloCanal(canalActivo)}`;
+      const tituloReunion = temaOpcional ? temaOpcional.trim() : tituloBase;
+
+      const meetObj = {
+        meetingUri: espacio.meetingUri,
+        meetingCode: espacio.meetingCode,
+        spaceName: espacio.spaceName,
+        titulo: tituloReunion,
+        creadoPorEmail: currentUserEmail,
+        creadoPorNombre: currentUserName,
+        creadoEnMs: Date.now()
+      };
+
+      await setDoc(
+        doc(db, 'workspace_canales', canalActivoId),
+        {
+          meetActivo: meetObj,
+          ultimoMensajeAt: serverTimestamp(),
+          ultimoMensajeMs: Date.now(),
+          ultimoMensajeTexto: `📹 Videollamada de Google Meet activa: ${tituloReunion}`,
+          ultimoMensajeAutor: currentUserName
+        },
+        { merge: true }
+      );
+
+      await addDoc(collection(db, 'workspace_canales', canalActivoId, 'mensajes'), {
+        texto: `📹 *${currentUserName}* inició una sala de Google Meet en vivo: *${tituloReunion}*`,
+        autorEmail: currentUserEmail,
+        autorNombre: currentUserName,
+        autorAvatar: user?.photoURL || '',
+        autorRol: userRole,
+        creadoEn: serverTimestamp(),
+        creadoEnMs: Date.now(),
+        reacciones: {},
+        fijado: false,
+        adjuntos: [],
+        meetAdjunto: meetObj,
+        parentId: null,
+        respuestasCount: 0
+      });
+
+      setMeetToast({
+        open: true,
+        text: `Sala de Google Meet (${espacio.meetingCode}) iniciada y publicada en el canal.`,
+        severity: 'success'
+      });
+
+      window.open(obtenerUrlMeetConCuenta(espacio.meetingUri), '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('Error iniciando Google Meet en el canal:', err);
+      setMeetToast({
+        open: true,
+        text: err?.message || 'No se pudo crear la sala de Google Meet.',
+        severity: 'error'
+      });
+    } finally {
+      setCreandoMeetCanal(false);
+    }
+  };
+
+  const handleFinalizarMeetEnCanal = async () => {
+    if (!canalActivoId) return;
+    try {
+      await setDoc(
+        doc(db, 'workspace_canales', canalActivoId),
+        { meetActivo: null },
+        { merge: true }
+      );
+      setMeetToast({
+        open: true,
+        text: 'Sala activa marcada como finalizada en el canal.',
+        severity: 'info'
+      });
+    } catch (err) {
+      console.error('Error finalizando sala Meet:', err);
+    }
+  };
+
+  const handleGenerarMeetExterno = async () => {
+    if (creandoMeetExterno) return;
+    setCreandoMeetExterno(true);
+    try {
+      const espacio = await crearEspacioGoogleMeet(currentUserEmail);
+      setMeetExternoForm((prev) => ({
+        ...prev,
+        meetingUri: espacio.meetingUri,
+        meetingCode: espacio.meetingCode,
+        compartirCanalId: canalActivo?.tipo !== 'dm' ? canalActivoId : 'general'
+      }));
+      setMeetToast({
+        open: true,
+        text: `Sala oficial generada: ${espacio.meetingUri}`,
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error generando sala Meet externa:', err);
+      setMeetToast({
+        open: true,
+        text: err?.message || 'No se pudo generar la sala de Google Meet.',
+        severity: 'error'
+      });
+    } finally {
+      setCreandoMeetExterno(false);
+    }
+  };
+
+  const handleCompartirMeetExternoEnCanal = async () => {
+    if (!meetExternoForm.meetingUri || !meetExternoForm.compartirCanalId) return;
+    try {
+      const titulo = (meetExternoForm.titulo || 'Reunión Institucional IIRESODH').trim();
+      const meetObj = {
+        meetingUri: meetExternoForm.meetingUri,
+        meetingCode: meetExternoForm.meetingCode,
+        titulo,
+        creadoPorEmail: currentUserEmail,
+        creadoPorNombre: currentUserName,
+        creadoEnMs: Date.now()
+      };
+
+      await addDoc(collection(db, 'workspace_canales', meetExternoForm.compartirCanalId, 'mensajes'), {
+        texto: `📹 *${currentUserName}* compartió una sala de Google Meet: *${titulo}*`,
+        autorEmail: currentUserEmail,
+        autorNombre: currentUserName,
+        autorAvatar: user?.photoURL || '',
+        autorRol: userRole,
+        creadoEn: serverTimestamp(),
+        creadoEnMs: Date.now(),
+        reacciones: {},
+        fijado: false,
+        adjuntos: [],
+        meetAdjunto: meetObj,
+        parentId: null,
+        respuestasCount: 0
+      });
+
+      await setDoc(
+        doc(db, 'workspace_canales', meetExternoForm.compartirCanalId),
+        {
+          ultimoMensajeAt: serverTimestamp(),
+          ultimoMensajeMs: Date.now(),
+          ultimoMensajeTexto: `📹 Sala de Google Meet: ${titulo}`,
+          ultimoMensajeAutor: currentUserName
+        },
+        { merge: true }
+      );
+
+      setMeetToast({
+        open: true,
+        text: 'Enlace de Google Meet publicado en el canal seleccionado.',
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error compartiendo Meet en canal:', err);
+    }
+  };
+
   // EJECUCIÓN DE COMANDOS SLASH (/)
   const ejecutarComandoSlash = async (cmdTexto) => {
     const limpio = cmdTexto.trim();
+    if (limpio === '/meet' || limpio.startsWith('/meet ')) {
+      const temaMeet = limpio.replace('/meet', '').trim();
+      setTextoMensaje('');
+      setMostrarMenuSlash(false);
+      await handleIniciarMeetEnCanal(temaMeet);
+      return true;
+    }
     if (limpio === '/encuesta') {
       setTextoMensaje('');
       setMostrarMenuSlash(false);
@@ -1564,8 +1778,37 @@ export default function EspacioTrabajoSlack({
           </Box>
         </Box>
 
-        {/* DERECHA: ESTADO PERSONALIZADO DEL USUARIO Y MODO PANTALLA COMPLETA */}
+        {/* DERECHA: SALA INSTANTÁNEA MEET, ESTADO PERSONALIZADO DEL USUARIO Y MODO PANTALLA COMPLETA */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Crear sala instantánea de Google Meet (para reuniones externas, clientes, testigos o equipo)">
+            <Button
+              size="small"
+              startIcon={<Video size={15} />}
+              onClick={() => {
+                setMeetExternoForm((prev) => ({
+                  ...prev,
+                  compartirCanalId: canalActivo?.tipo !== 'dm' ? canalActivoId : 'general'
+                }));
+                setModalMeetExternoOpen(true);
+              }}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '0.76rem',
+                px: 1.35,
+                py: 0.4,
+                borderRadius: 1.5,
+                whiteSpace: 'nowrap',
+                color: '#ffffff',
+                bgcolor: '#0f9d58',
+                border: '1px solid rgba(255,255,255,0.24)',
+                '&:hover': { bgcolor: '#0b8043' }
+              }}
+            >
+              Sala Meet
+            </Button>
+          </Tooltip>
+
           <Tooltip title="Cambiar tu estado en el espacio de trabajo">
             <Chip
               onClick={(e) => setAnchorEstadoUsuario(e.currentTarget)}
@@ -1926,17 +2169,36 @@ export default function EspacioTrabajoSlack({
                     </Typography>
                   </Box>
 
-                  {noLeido && (
-                    <Box
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        bgcolor: '#A8DADC',
-                        flexShrink: 0
-                      }}
-                    />
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+                    {canal.meetActivo?.meetingUri && (
+                      <Tooltip title={`Sala de Google Meet activa: ${canal.meetActivo.titulo || canal.meetActivo.meetingCode}`}>
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            px: 0.5,
+                            py: 0.15,
+                            borderRadius: 1,
+                            bgcolor: '#16a34a',
+                            color: '#ffffff'
+                          }}
+                        >
+                          <Video size={11} />
+                        </Box>
+                      </Tooltip>
+                    )}
+                    {noLeido && (
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          bgcolor: '#A8DADC',
+                          flexShrink: 0
+                        }}
+                      />
+                    )}
+                  </Box>
                 </Box>
               );
             })}
@@ -2053,6 +2315,23 @@ export default function EspacioTrabajoSlack({
                   </Box>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {canalDm?.meetActivo?.meetingUri && (
+                      <Tooltip title="Videollamada de Google Meet activa">
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            px: 0.5,
+                            py: 0.15,
+                            borderRadius: 1,
+                            bgcolor: '#16a34a',
+                            color: '#ffffff'
+                          }}
+                        >
+                          <Video size={11} />
+                        </Box>
+                      </Tooltip>
+                    )}
                     {presColega?.estadoEmoji && presColega.estadoId !== 'disponible' && (
                       <Tooltip title={presColega.estadoTexto || ''}>
                         <span style={{ fontSize: '0.75rem' }}>{presColega.estadoEmoji}</span>
@@ -2247,6 +2526,63 @@ export default function EspacioTrabajoSlack({
                   </IconButton>
                 </Tooltip>
 
+                {/* BOTÓN NATIVO GOOGLE MEET POR CANAL O MENSAJE DIRECTO */}
+                {canalActivo?.meetActivo?.meetingUri ? (
+                  <Tooltip title="Hay una videollamada de Google Meet activa en este canal. Haz clic para unirte.">
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<Video size={15} />}
+                      onClick={() =>
+                        window.open(
+                          obtenerUrlMeetConCuenta(canalActivo.meetActivo.meetingUri),
+                          '_blank',
+                          'noopener,noreferrer'
+                        )
+                      }
+                      sx={{
+                        textTransform: 'none',
+                        borderRadius: 2,
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        bgcolor: '#0f9d58',
+                        color: '#ffffff',
+                        '&:hover': { bgcolor: '#0b8043' }
+                      }}
+                    >
+                      Unirse al Meet
+                    </Button>
+                  </Tooltip>
+                ) : (
+                  <Tooltip title="Iniciar videollamada oficial de Google Meet en este canal / conversación (o escribe /meet)">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={creandoMeetCanal}
+                      startIcon={
+                        creandoMeetCanal ? (
+                          <CircularProgress size={13} color="inherit" />
+                        ) : (
+                          <Video size={15} color="#0f9d58" />
+                        )
+                      }
+                      onClick={() => handleIniciarMeetEnCanal('')}
+                      sx={{
+                        textTransform: 'none',
+                        borderRadius: 2,
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        borderColor: '#86efac',
+                        bgcolor: '#f0fdf4',
+                        color: '#166534',
+                        '&:hover': { bgcolor: '#dcfce7', borderColor: '#22c55e' }
+                      }}
+                    >
+                      {creandoMeetCanal ? 'Creando...' : 'Iniciar Meet'}
+                    </Button>
+                  </Tooltip>
+                )}
+
                 <Button
                   size="small"
                   variant="outlined"
@@ -2269,6 +2605,113 @@ export default function EspacioTrabajoSlack({
                 </Button>
               </Box>
             </Box>
+
+            {/* BARRA EN TIEMPO REAL DE SALA ACTIVA DE GOOGLE MEET EN EL CANAL / DM */}
+            {canalActivo?.meetActivo?.meetingUri && (
+              <Box
+                sx={{
+                  px: { xs: 1.5, sm: 2.5 },
+                  py: 1,
+                  bgcolor: '#ecfdf5',
+                  borderBottom: '1px solid #a7f3d0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 1.5,
+                  flexShrink: 0
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                  <Box
+                    sx={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 1.5,
+                      bgcolor: '#0f9d58',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Video size={16} />
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" fontWeight="800" color="#065f46" noWrap>
+                      🟢 Sala de Google Meet en curso: {canalActivo.meetActivo.titulo}
+                    </Typography>
+                    <Typography variant="caption" color="#047857" sx={{ display: 'block' }}>
+                      Iniciada por {canalActivo.meetActivo.creadoPorNombre || 'Equipo'} • Código:{' '}
+                      <strong>{canalActivo.meetActivo.meetingCode || 'meet.google.com'}</strong>
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<ExternalLink size={13} />}
+                    onClick={() =>
+                      window.open(
+                        obtenerUrlMeetConCuenta(canalActivo.meetActivo.meetingUri),
+                        '_blank',
+                        'noopener,noreferrer'
+                      )
+                    }
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      borderRadius: 1.5,
+                      bgcolor: '#0f9d58',
+                      '&:hover': { bgcolor: '#0b8043' }
+                    }}
+                  >
+                    Unirse ahora
+                  </Button>
+                  <Tooltip title="Copiar enlace de la reunión para compartir">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<Copy size={13} />}
+                      onClick={() => handleCopiarEnlaceMeet(canalActivo.meetActivo.meetingUri)}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.73rem',
+                        borderRadius: 1.5,
+                        borderColor: '#6ee7b7',
+                        color: '#065f46',
+                        bgcolor: '#ffffff'
+                      }}
+                    >
+                      Copiar enlace
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Finalizar el aviso de sala activa en el canal">
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      startIcon={<PhoneOff size={13} />}
+                      onClick={handleFinalizarMeetEnCanal}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.73rem',
+                        borderRadius: 1.5,
+                        bgcolor: '#ffffff'
+                      }}
+                    >
+                      Finalizar sala
+                    </Button>
+                  </Tooltip>
+                </Box>
+              </Box>
+            )}
 
             {/* FEED DE MENSAJES */}
             <Box
@@ -2741,6 +3184,92 @@ export default function EspacioTrabajoSlack({
                             >
                               Ver Calendario
                             </Button>
+                          </Paper>
+                        )}
+
+                        {/* TARJETA INTERACTIVA DE VIDEOLLAMADA GOOGLE MEET */}
+                        {msg.meetAdjunto && (
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              mt: 1,
+                              p: 1.5,
+                              maxWidth: 460,
+                              borderRadius: '0 10px 10px 0',
+                              border: '1px solid #a7f3d0',
+                              borderLeft: '4px solid #0f9d58',
+                              bgcolor: '#f0fdf4',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: 1.5
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                              <Box
+                                sx={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: 2,
+                                  bgcolor: '#0f9d58',
+                                  color: '#ffffff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}
+                              >
+                                <Video size={18} />
+                              </Box>
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="subtitle2" fontWeight="800" color="#065f46" noWrap>
+                                  {msg.meetAdjunto.titulo || 'Sala de Videollamada Google Meet'}
+                                </Typography>
+                                <Typography variant="caption" color="#047857" sx={{ display: 'block' }}>
+                                  Google Meet Oficial • Código:{' '}
+                                  <strong>{msg.meetAdjunto.meetingCode || 'meet.google.com'}</strong>
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <Tooltip title="Copiar enlace de la sala">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleCopiarEnlaceMeet(msg.meetAdjunto.meetingUri)}
+                                  sx={{
+                                    border: '1px solid #86efac',
+                                    bgcolor: '#ffffff',
+                                    color: '#065f46',
+                                    '&:hover': { bgcolor: '#dcfce7' }
+                                  }}
+                                >
+                                  <Copy size={14} />
+                                </IconButton>
+                              </Tooltip>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<ExternalLink size={13} />}
+                                onClick={() =>
+                                  window.open(
+                                    obtenerUrlMeetConCuenta(msg.meetAdjunto.meetingUri),
+                                    '_blank',
+                                    'noopener,noreferrer'
+                                  )
+                                }
+                                sx={{
+                                  textTransform: 'none',
+                                  borderRadius: 1.5,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  bgcolor: '#0f9d58',
+                                  '&:hover': { bgcolor: '#0b8043' }
+                                }}
+                              >
+                                Unirse a Meet
+                              </Button>
+                            </Box>
                           </Paper>
                         )}
 
@@ -3763,6 +4292,231 @@ export default function EspacioTrabajoSlack({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ===================================================================== */}
+      {/* MODAL SALA INSTANTÁNEA DE GOOGLE MEET (FUERA DE CANALES / EXTERNA)    */}
+      {/* ===================================================================== */}
+      <Dialog
+        open={modalMeetExternoOpen}
+        onClose={() => setModalMeetExternoOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: 2,
+                bgcolor: 'rgba(15, 157, 88, 0.12)',
+                color: '#0f9d58',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Video size={20} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" fontWeight="800" color="#1D3557">
+                Sala Instantánea de Google Meet
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Crea una sala oficial (@iiresodh.org) para reuniones externas, clientes, peritos o equipo
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton size="small" onClick={() => setModalMeetExternoOpen(false)}>
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Asunto o nombre de la reunión"
+            placeholder="Ej: Entrevista con víctimas, Reunión con perito, Coordinación externa..."
+            size="small"
+            fullWidth
+            value={meetExternoForm.titulo}
+            onChange={(e) => setMeetExternoForm((p) => ({ ...p, titulo: e.target.value }))}
+          />
+
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              bgcolor: meetExternoForm.meetingUri ? '#f0fdf4' : '#f8fafc',
+              border: meetExternoForm.meetingUri ? '1px solid #86efac' : '1px dashed #cbd5e1',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.5
+            }}
+          >
+            {!meetExternoForm.meetingUri ? (
+              <Box sx={{ textAlign: 'center', py: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Genera un enlace único de Google Meet donde tu cuenta institucional{' '}
+                  <strong>{currentUserEmail}</strong> será anfitriona (Host).
+                </Typography>
+                <Button
+                  variant="contained"
+                  disabled={creandoMeetExterno}
+                  startIcon={
+                    creandoMeetExterno ? <CircularProgress size={16} color="inherit" /> : <Video size={17} />
+                  }
+                  onClick={handleGenerarMeetExterno}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    borderRadius: 2,
+                    bgcolor: '#0f9d58',
+                    '&:hover': { bgcolor: '#0b8043' }
+                  }}
+                >
+                  {creandoMeetExterno ? 'Creando sala en Google Workspace...' : 'Generar enlace oficial de Google Meet'}
+                </Button>
+              </Box>
+            ) : (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+                  <Box>
+                    <Typography variant="caption" fontWeight="800" color="#065f46">
+                      ENLACE OFICIAL GENERADO
+                    </Typography>
+                    <Typography variant="body2" fontWeight="800" color="#1D3557" sx={{ wordBreak: 'break-all' }}>
+                      {meetExternoForm.meetingUri}
+                    </Typography>
+                    {meetExternoForm.meetingCode && (
+                      <Typography variant="caption" color="text.secondary">
+                        Código de acceso: <strong>{meetExternoForm.meetingCode}</strong>
+                      </Typography>
+                    )}
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={handleGenerarMeetExterno}
+                    disabled={creandoMeetExterno}
+                    sx={{ textTransform: 'none', fontSize: '0.73rem', borderRadius: 1.5 }}
+                  >
+                    Generar otra
+                  </Button>
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<ExternalLink size={15} />}
+                    onClick={() =>
+                      window.open(
+                        obtenerUrlMeetConCuenta(meetExternoForm.meetingUri),
+                        '_blank',
+                        'noopener,noreferrer'
+                      )
+                    }
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      borderRadius: 1.5,
+                      bgcolor: '#0f9d58',
+                      '&:hover': { bgcolor: '#0b8043' }
+                    }}
+                  >
+                    Entrar a la Sala Meet
+                  </Button>
+
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Copy size={14} />}
+                    onClick={() =>
+                      handleCopiarEnlaceMeet(
+                        meetExternoForm.meetingUri,
+                        'Enlace copiado. Listo para enviar por WhatsApp, correo o chat.'
+                      )
+                    }
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      borderRadius: 1.5,
+                      borderColor: '#0f9d58',
+                      color: '#065f46',
+                      bgcolor: '#ffffff'
+                    }}
+                  >
+                    Copiar enlace para invitados
+                  </Button>
+                </Box>
+
+                <Divider sx={{ my: 0.5 }} />
+
+                {/* OPCIÓN PARA COMPARTIR TAMBIÉN EN UN CANAL DEL WORKSPACE */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <FormControl size="small" sx={{ minWidth: 210, flexGrow: 1 }}>
+                    <InputLabel>Compartir también en un canal (Opcional)</InputLabel>
+                    <Select
+                      label="Compartir también en un canal (Opcional)"
+                      value={meetExternoForm.compartirCanalId}
+                      onChange={(e) =>
+                        setMeetExternoForm((p) => ({ ...p, compartirCanalId: e.target.value }))
+                      }
+                      sx={{ bgcolor: '#ffffff' }}
+                    >
+                      {canales
+                        .filter((c) => c.tipo !== 'dm')
+                        .map((c) => (
+                          <MenuItem key={c.id} value={c.id}>
+                            #{c.nombre}
+                          </MenuItem>
+                        ))}
+                    </Select>
+                  </FormControl>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<Send size={14} />}
+                    onClick={handleCompartirMeetExternoEnCanal}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      borderRadius: 1.5,
+                      bgcolor: '#1D3557',
+                      height: 40
+                    }}
+                  >
+                    Publicar en canal
+                  </Button>
+                </Box>
+              </>
+            )}
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setModalMeetExternoOpen(false)} sx={{ textTransform: 'none' }}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={meetToast.open}
+        autoHideDuration={4000}
+        onClose={() => setMeetToast((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity={meetToast.severity}
+          variant="filled"
+          onClose={() => setMeetToast((s) => ({ ...s, open: false }))}
+          sx={{ borderRadius: 2 }}
+        >
+          {meetToast.text}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
