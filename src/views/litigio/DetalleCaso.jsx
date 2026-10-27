@@ -4,6 +4,7 @@ import {
   collection, 
   addDoc, 
   setDoc,
+  getDoc,
   getDocs, 
   serverTimestamp, 
   doc, 
@@ -127,9 +128,86 @@ function TabPanel(props) {
 // =====================================================================================
 // SUB-COMPONENTE ENCAPSULADO: Maneja la expansión individual en el Historial de Casos
 // =====================================================================================
-function ItemComunicadoMasivo({ c }) {
+function ItemComunicadoMasivo({ c, casoId, clientes = [], onVerCliente }) {
   const [expanded, setExpanded] = useState(false);
+  const [showTelemetry, setShowTelemetry] = useState(false);
+  const [loadingTelemetry, setLoadingTelemetry] = useState(false);
+  const [telemetryRows, setTelemetryRows] = useState([]);
   const deliveryState = c.delivery?.state || null;
+
+  const cargarTelemetriaDestinatarios = async () => {
+    if (!casoId) return;
+    setLoadingTelemetry(true);
+    try {
+      const listaCorreosRaw = Array.isArray(c.to) ? c.to : c.to ? [c.to] : [];
+      const setCorreos = new Set(listaCorreosRaw.map(em => String(em || '').trim().toLowerCase()).filter(Boolean));
+
+      let destinatariosBase = [];
+      if (Array.isArray(c.destinatarios_detalle) && c.destinatarios_detalle.length > 0) {
+        destinatariosBase = c.destinatarios_detalle.map(d => {
+          const found = clientes.find(cl => cl.id === d.clienteId);
+          return {
+            clienteId: d.clienteId,
+            nombre: d.nombre || (found ? `${found.nombres || ''} ${found.apellidos || ''}`.trim() : 'Representado'),
+            email: d.email || found?.correo_principal || ''
+          };
+        });
+      } else {
+        destinatariosBase = clientes
+          .filter(cl => {
+            const em = String(cl.correo_principal || '').trim().toLowerCase();
+            return em && (setCorreos.size === 0 || setCorreos.has(em));
+          })
+          .map(cl => ({
+            clienteId: cl.id,
+            nombre: `${cl.nombres || ''} ${cl.apellidos || ''}`.trim(),
+            email: cl.correo_principal || ''
+          }));
+      }
+
+      const resultados = await Promise.all(
+        destinatariosBase.map(async (dest) => {
+          if (!dest.clienteId) {
+            return { ...dest, estado: 'Enviado', entregado_at: null, abierto_at: null, rebotado_at: null };
+          }
+          try {
+            const histRef = doc(db, 'casos', casoId, 'clientes', dest.clienteId, 'historial_comunicados', c.id);
+            const snap = await getDoc(histRef);
+            if (snap.exists()) {
+              const data = snap.data() || {};
+              return {
+                ...dest,
+                estado: data.estado || 'Enviado',
+                entregado_at: data.entregado_at || null,
+                abierto_at: data.abierto_at || null,
+                rebotado_at: data.rebotado_at || null,
+                causa_rebote: data.causa_rebote || null
+              };
+            }
+          } catch (e) {
+            console.warn('Error leyendo historial de destinatario:', e);
+          }
+          return { ...dest, estado: 'Enviado', entregado_at: null, abierto_at: null, rebotado_at: null };
+        })
+      );
+
+      setTelemetryRows(resultados);
+    } finally {
+      setLoadingTelemetry(false);
+    }
+  };
+
+  const handleToggleTelemetry = () => {
+    const next = !showTelemetry;
+    setShowTelemetry(next);
+    if (next && telemetryRows.length === 0) {
+      cargarTelemetriaDestinatarios();
+    }
+  };
+
+  const conteoAbiertos = telemetryRows.filter(r => r.estado === 'Abierto' || r.abierto_at).length;
+  const conteoEntregados = telemetryRows.filter(r => r.estado === 'Entregado' || r.estado === 'Abierto' || r.entregado_at).length;
+  const conteoRebotados = telemetryRows.filter(r => r.estado === 'Rebotado' || r.rebotado_at).length;
 
   return (
     <ListItem disablePadding sx={{ mb: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0', display: 'block' }}>
@@ -163,19 +241,130 @@ function ItemComunicadoMasivo({ c }) {
         )}
       </Box>
 
-      <Button
-        size="small"
-        variant="text"
-        onClick={() => setExpanded(!expanded)}
-        sx={{ textTransform: 'none', fontSize: '0.75rem', p: 0, minWidth: 0, mb: 0.5, fontWeight: 'bold', color: 'primary.main' }}
-      >
-        {expanded ? "Ocultar contenido del mensaje" : "Ver contenido del mensaje"}
-      </Button>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap', mb: 0.5 }}>
+        <Button
+          size="small"
+          variant="text"
+          onClick={() => setExpanded(!expanded)}
+          sx={{ textTransform: 'none', fontSize: '0.75rem', p: 0, minWidth: 0, fontWeight: 'bold', color: 'primary.main' }}
+        >
+          {expanded ? "Ocultar contenido del mensaje" : "Ver contenido del mensaje"}
+        </Button>
+
+        <Button
+          size="small"
+          variant="text"
+          onClick={handleToggleTelemetry}
+          sx={{ textTransform: 'none', fontSize: '0.75rem', p: 0, minWidth: 0, fontWeight: 'bold', color: '#0f766e' }}
+        >
+          {showTelemetry
+            ? "Ocultar estado por destinatario (Entregados / Abiertos)"
+            : "Ver estado por destinatario (Entregados / Abiertos)"}
+        </Button>
+      </Box>
 
       <Collapse in={expanded}>
         <Typography variant="body2" sx={{ my: 1, whiteSpace: 'pre-wrap', color: 'text.primary', bgcolor: '#ffffff', p: 1.5, borderRadius: 1, border: '1px solid #e2e8f0' }}>
           {c.cuerpo}
         </Typography>
+      </Collapse>
+
+      <Collapse in={showTelemetry}>
+        <Box sx={{ my: 1.5, p: 1.5, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Typography variant="caption" fontWeight="bold" color="text.primary">
+                Prueba de Entrega y Lectura:
+              </Typography>
+              <Chip size="small" label={`Recibidos: ${conteoEntregados}/${telemetryRows.length}`} color="info" variant="outlined" sx={{ fontWeight: 'bold', fontSize: '0.7rem', height: 22 }} />
+              <Chip size="small" label={`Abiertos: ${conteoAbiertos}/${telemetryRows.length}`} color="success" variant="outlined" sx={{ fontWeight: 'bold', fontSize: '0.7rem', height: 22 }} />
+              {conteoRebotados > 0 && (
+                <Chip size="small" label={`Rebotes: ${conteoRebotados}`} color="error" variant="outlined" sx={{ fontWeight: 'bold', fontSize: '0.7rem', height: 22 }} />
+              )}
+            </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={cargarTelemetriaDestinatarios}
+              disabled={loadingTelemetry}
+              sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, px: 1 }}
+            >
+              {loadingTelemetry ? 'Actualizando...' : 'Actualizar estado'}
+            </Button>
+          </Box>
+
+          {loadingTelemetry ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <CircularProgress size={22} />
+            </Box>
+          ) : telemetryRows.length === 0 ? (
+            <Typography variant="caption" color="text.secondary">
+              No se localizaron registros individuales para este comunicado.
+            </Typography>
+          ) : (
+            <TableContainer sx={{ maxHeight: 280 }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Representado</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Correo</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Estado</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Recibido (Entrega)</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Abierto (Lectura)</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {telemetryRows.map((row, idx) => {
+                    const chipColor =
+                      row.estado === 'Abierto' || row.abierto_at
+                        ? 'success'
+                        : row.estado === 'Entregado' || row.entregado_at
+                          ? 'info'
+                          : row.estado === 'Rebotado' || row.rebotado_at
+                            ? 'error'
+                            : 'default';
+                    const chipLabel =
+                      row.estado === 'Abierto' || row.abierto_at
+                        ? 'Abierto'
+                        : row.estado === 'Entregado' || row.entregado_at
+                          ? 'Entregado'
+                          : row.estado === 'Rebotado' || row.rebotado_at
+                            ? 'Rebotado'
+                            : 'Enviado';
+                    return (
+                      <TableRow key={row.clienteId || idx} hover>
+                        <TableCell sx={{ fontSize: '0.75rem', fontWeight: 'medium' }}>
+                          {onVerCliente && row.clienteId ? (
+                            <Button
+                              variant="text"
+                              size="small"
+                              onClick={() => onVerCliente(row.clienteId)}
+                              sx={{ textTransform: 'none', p: 0, minWidth: 0, fontSize: '0.75rem', fontWeight: 'bold' }}
+                            >
+                              {row.nombre || 'Ver ficha'}
+                            </Button>
+                          ) : (
+                            row.nombre
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{row.email}</TableCell>
+                        <TableCell>
+                          <Chip size="small" color={chipColor} label={chipLabel} sx={{ fontWeight: 'bold', fontSize: '0.68rem', height: 20 }} />
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
+                          {row.entregado_at || '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.72rem', color: row.abierto_at ? 'success.main' : 'text.secondary', fontWeight: row.abierto_at ? 'bold' : 'normal' }}>
+                          {row.abierto_at || (row.rebotado_at ? `Rebote: ${row.rebotado_at}` : '—')}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
       </Collapse>
 
       <Divider sx={{ my: 1 }} />
@@ -1181,7 +1370,13 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           ) : (
             <List>
               {comunicados.map((c) => (
-                <ItemComunicadoMasivo key={c.id} c={c} />
+                <ItemComunicadoMasivo
+                  key={c.id}
+                  c={c}
+                  casoId={caso.id}
+                  clientes={clientes}
+                  onVerCliente={(id) => setClienteSeleccionadoId(id)}
+                />
               ))}
             </List>
           )}
