@@ -17,6 +17,7 @@ import {
   DialogActions,
   Menu,
   MenuItem,
+  Popover,
   Switch,
   FormControl,
   InputLabel,
@@ -218,6 +219,7 @@ export default function EspacioTrabajoSlack({
   // Estado personalizado libre del usuario
   const [customStatusEmoji, setCustomStatusEmoji] = useState('💬');
   const [customStatusTexto, setCustomStatusTexto] = useState('');
+  const [mostrarSelectorEmojiEstado, setMostrarSelectorEmojiEstado] = useState(false);
 
   // Mensajes del canal activo
   const [mensajes, setMensajes] = useState([]);
@@ -1581,26 +1583,58 @@ export default function EspacioTrabajoSlack({
             />
           </Tooltip>
 
-          <Menu
+          <Popover
             anchorEl={anchorEstadoUsuario}
             open={Boolean(anchorEstadoUsuario)}
-            onClose={() => setAnchorEstadoUsuario(null)}
-            PaperProps={{ sx: { width: 290, p: 0.5 } }}
+            onClose={() => {
+              setAnchorEstadoUsuario(null);
+              setMostrarSelectorEmojiEstado(false);
+            }}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            PaperProps={{
+              sx: {
+                width: 315,
+                p: 1,
+                mt: 0.75,
+                borderRadius: '0 0 10px 10px',
+                borderTop: '3px solid #1D3557',
+                boxShadow: '0 10px 28px rgba(29, 53, 87, 0.18)'
+              }
+            }}
           >
-            <Box sx={{ px: 2, py: 1 }}>
-              <Typography variant="caption" fontWeight="bold" color="text.secondary">
+            <Box sx={{ px: 1, py: 0.75, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography variant="caption" fontWeight="800" color="#1D3557" sx={{ letterSpacing: '0.04em' }}>
                 ESTADO DE DISPONIBILIDAD
               </Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.68rem', color: '#64748b' }}>
+                Elige ícono y estado
+              </Typography>
             </Box>
-            {/* Input para estado personalizado libre */}
-            <Box sx={{ px: 1.5, pb: 1, display: 'flex', gap: 0.75, alignItems: 'center' }}>
-              <TextField
-                size="small"
-                value={customStatusEmoji}
-                onChange={(e) => setCustomStatusEmoji(e.target.value)}
-                sx={{ width: 52 }}
-                slotProps={{ input: { sx: { fontSize: '0.9rem', textAlign: 'center', px: 0.5 } } }}
-              />
+
+            {/* Input para estado personalizado libre + botón selector de emoji */}
+            <Box sx={{ px: 1, pb: 1, display: 'flex', gap: 0.75, alignItems: 'center' }}>
+              <Tooltip title="Elegir ícono / emoji para tu estado">
+                <Button
+                  variant="outlined"
+                  onClick={() => setMostrarSelectorEmojiEstado((v) => !v)}
+                  sx={{
+                    minWidth: 40,
+                    width: 40,
+                    height: 37,
+                    p: 0,
+                    fontSize: '1.15rem',
+                    lineHeight: 1,
+                    borderRadius: 1.5,
+                    borderColor: mostrarSelectorEmojiEstado ? '#1D3557' : '#cbd5e1',
+                    bgcolor: mostrarSelectorEmojiEstado ? 'rgba(29, 53, 87, 0.08)' : '#f8fafc',
+                    '&:hover': { bgcolor: '#f1f5f9', borderColor: '#1D3557' }
+                  }}
+                >
+                  {customStatusEmoji || '💬'}
+                </Button>
+              </Tooltip>
+
               <TextField
                 size="small"
                 placeholder="Estado personalizado..."
@@ -1608,36 +1642,94 @@ export default function EspacioTrabajoSlack({
                 value={customStatusTexto}
                 onChange={(e) => setCustomStatusTexto(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  e.stopPropagation();
+                  if (e.key === 'Enter' && customStatusTexto.trim()) {
                     e.preventDefault();
                     handleGuardarEstadoLibre();
+                    setMostrarSelectorEmojiEstado(false);
                   }
                 }}
-                slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
+                slotProps={{ input: { sx: { fontSize: '0.82rem', bgcolor: '#ffffff' } } }}
               />
               <Button
                 size="small"
                 variant="contained"
                 disabled={!customStatusTexto.trim()}
-                onClick={handleGuardarEstadoLibre}
-                sx={{ minWidth: 'auto', px: 1.2, bgcolor: '#1D3557', textTransform: 'none', fontSize: '0.75rem' }}
+                onClick={() => {
+                  handleGuardarEstadoLibre();
+                  setMostrarSelectorEmojiEstado(false);
+                }}
+                sx={{
+                  minWidth: 'auto',
+                  height: 37,
+                  px: 1.4,
+                  bgcolor: '#1D3557',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.76rem',
+                  '&:hover': { bgcolor: '#152742' }
+                }}
               >
                 OK
               </Button>
             </Box>
+
+            {/* Paleta desplegable de emojis al pulsar el recuadro de ícono */}
+            {mostrarSelectorEmojiEstado && (
+              <Box
+                sx={{
+                  mx: 1,
+                  mb: 1,
+                  p: 1,
+                  borderRadius: 1.5,
+                  bgcolor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(8, 1fr)',
+                  gap: 0.5
+                }}
+              >
+                {[
+                  '💬', '⚖️', '🏛️', '📅', '📝', '📞', '✈️', '☕',
+                  '🍽️', '🏠', '🔕', '⏳', '🔍', '🌴', '🤒', '💡'
+                ].map((emo) => (
+                  <IconButton
+                    key={emo}
+                    size="small"
+                    onClick={() => {
+                      setCustomStatusEmoji(emo);
+                      setMostrarSelectorEmojiEstado(false);
+                    }}
+                    sx={{
+                      fontSize: '1.05rem',
+                      p: 0.4,
+                      borderRadius: 1,
+                      bgcolor: customStatusEmoji === emo ? 'rgba(29, 53, 87, 0.14)' : 'transparent',
+                      '&:hover': { bgcolor: 'rgba(29, 53, 87, 0.1)' }
+                    }}
+                  >
+                    <span>{emo}</span>
+                  </IconButton>
+                ))}
+              </Box>
+            )}
+
             <Divider sx={{ my: 0.5 }} />
             {ESTADOS_USUARIO.map((est) => (
               <MenuItem
                 key={est.id}
                 selected={miEstadoActual.id === est.id}
-                onClick={() => handleCambiarEstado(est)}
-                sx={{ fontSize: '0.84rem', gap: 1, borderRadius: 1 }}
+                onClick={() => {
+                  handleCambiarEstado(est);
+                  setMostrarSelectorEmojiEstado(false);
+                }}
+                sx={{ fontSize: '0.84rem', gap: 1.25, borderRadius: 1.25, py: 0.8 }}
               >
-                <span>{est.emoji}</span>
+                <span style={{ fontSize: '1rem' }}>{est.emoji}</span>
                 <span>{est.texto}</span>
               </MenuItem>
             ))}
-          </Menu>
+          </Popover>
 
           <Button
             size="small"
