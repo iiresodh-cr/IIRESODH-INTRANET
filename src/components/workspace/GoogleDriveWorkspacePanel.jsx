@@ -58,6 +58,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import GoogleDriveSelectorBrowser from './GoogleDriveSelectorBrowser';
 
 export const TIPOS_DRIVE = {
   carpeta: {
@@ -920,14 +921,55 @@ export default function GoogleDriveWorkspacePanel({
       </Box>
 
       {/* MODAL PARA VINCULAR NUEVO ARCHIVO O CARPETA DE GOOGLE DRIVE */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ fontWeight: '800', color: '#1a365d' }}>
+      <Dialog
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '0 0 12px 12px',
+            borderTop: '4px solid #1D3557'
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: '800', color: '#1D3557', pb: 1.25 }}>
           {editandoId ? 'Editar Recurso de Google Drive' : 'Vincular Archivo o Carpeta de Google Drive'}
         </DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          {/* EXPLORADOR DIRECTO DE GOOGLE DRIVE */}
+          <GoogleDriveSelectorBrowser
+            userEmail={userEmail}
+            tipoFiltroInicial={form.tipo === 'carpeta' ? 'carpeta' : 'todos'}
+            itemSeleccionadoUrl={form.url}
+            onSelectItem={(itemElegido) => {
+              setForm((prev) => ({
+                ...prev,
+                url: itemElegido.url,
+                titulo: itemElegido.titulo,
+                tipo: itemElegido.tipo
+              }));
+              setSnackbar({
+                open: true,
+                message: `Seleccionado desde Drive: "${itemElegido.titulo}"`,
+                severity: 'success'
+              });
+            }}
+          />
+
           <TextField
-            label="Enlace de Google Drive / Docs / Sheets / Carpeta"
-            placeholder="Pega aquí el enlace (ej: https://drive.google.com/... o https://docs.google.com/...)"
+            label="Nombre o título del documento / carpeta"
+            placeholder="Se completa automáticamente al elegir en Drive o escríbelo aquí..."
+            size="small"
+            fullWidth
+            required
+            value={form.titulo}
+            onChange={(e) => setForm((prev) => ({ ...prev, titulo: e.target.value }))}
+          />
+
+          <TextField
+            label="Enlace de Google Drive / Docs / Sheets / Carpeta (Autocompletado o manual)"
+            placeholder="Selecciona arriba desde tu Drive o pega el enlace aquí..."
             size="small"
             fullWidth
             required
@@ -941,16 +983,6 @@ export default function GoogleDriveWorkspacePanel({
                 tipo: tipoAuto
               }));
             }}
-          />
-
-          <TextField
-            label="Nombre o título del documento / carpeta"
-            placeholder="Ej: Carpeta Maestra Casos CIDH 2026, Matriz de Plazos..."
-            size="small"
-            fullWidth
-            required
-            value={form.titulo}
-            onChange={(e) => setForm((prev) => ({ ...prev, titulo: e.target.value }))}
           />
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>

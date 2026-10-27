@@ -177,7 +177,7 @@ Al hacer clic en la pestaña **`📋 Proyectos y Tareas`** en la barra superior 
 > 3. **Proyecto**: *Litigios Estratégicos & CIDH* | **Prioridad**: *🚨 Urgente / Plazo Fatal*.
 > 4. **Responsables**: Seleccione a los abogados encargados y defina la **Fecha límite**.
 > 5. En **Subtareas**, agregue: *"1. Validar firma del perito"*, *"2. Anexar traducción oficial"*, *"3. Foliar PDF final"*.
-> 6. Pegue el enlace del borrador de Google Docs en **Enlace de Google Drive**, elija anunciar en el canal **`#litigios-y-casos`** y active **Agendar fecha en Calendario**.
+> 6. Haga clic en **`Elegir directamente desde Google Drive`** para seleccionar el borrador o carpeta desde su unidad institucional `@iiresodh.org` (sin necesidad de copiar ni pegar enlaces), elija anunciar en el canal **`#litigios-y-casos`** y active **Agendar fecha en Calendario**.
 > 7. Al pulsar **Crear Tarea**, la tarjeta aparece en el tablero Kanban, la fecha queda agendada en el Calendario Institucional y el canal `#litigios-y-casos` recibe automáticamente una tarjeta interactiva mencionando a los responsables.
 
 ---
@@ -214,9 +214,11 @@ La pestaña **`📁 Google Drive`** conecta el Workspace con los documentos y ca
 
 #### Capacidades principales:
 1. **Creación rápida en Google Workspace**: En la esquina superior derecha dispone de botones directos para **`Abrir Mi Google Drive`**, crear un **`Nuevo Doc`** (Google Docs) o un **`Nuevo Sheet`** (Hojas de cálculo) forzando automáticamente su cuenta institucional `@iiresodh.org`.
-2. **Vincular Archivos y Carpetas Compartidas**:
+2. **Explorador y Selector Directo de Google Drive (Sin copiar ni pegar rutas)**:
    - Haga clic en **`+ Vincular Archivo / Carpeta de Drive`**.
-   -Al pegar el enlace de cualquier carpeta de Drive, Google Doc, Google Sheet, Presentación o PDF, el sistema **detecta automáticamente el tipo de archivo** y le asigna su ícono correspondiente.
+   - Dentro de la ventana verá el **Explorador Directo de Google Drive**, donde puede navegar por **`Mi Unidad`**, **`Compartidos conmigo`**, **`Unidades compartidas`** y **`Recientes`**, o buscar en tiempo real por nombre.
+   - Puede abrir carpetas para navegar por sus subcarpetas y hacer clic en **`Elegir carpeta`** (para vincular la carpeta completa) o **`Elegir`** sobre cualquier documento individual; el sistema rellena automáticamente el nombre, el enlace oficial y el tipo de recurso.
+   - Si lo prefiere, también puede pegar manualmente un enlace externo en el campo inferior.
 3. **Visor y Editor Embebido (Sin salir de la Intranet)**:
    - Al hacer clic en el botón **`👁️ Vista Previa`** de cualquier documento de la biblioteca (o desde una tarjeta de Drive compartida en el chat o en una tarea), se abre un **visor integrado en pantalla dividida** dentro del mismo Workspace.
    - Si es un Google Doc, Sheet o Slide, puede alternar arriba entre **`Vista Lectura`** y **`Modo Edición`** para trabajar sobre el documento en tiempo real mientras conversa con su equipo.
@@ -350,4 +352,4 @@ En la lista de **Mensajes Directos** del Workspace, mire el círculo junto a su 
 Sí. Vaya a la pestaña **`📁 Google Drive`** dentro del Workspace (o haga clic en **`Vista Previa Drive`** sobre cualquier documento compartido en un canal o tarea) y se abrirá el visor lateral integrado donde puede leerlo o cambiar a **`Modo Edición`**.
 
 **4. ¿Qué ocurre si agendo una audiencia en el Calendario del Workspace?**  
-Queda guardada instantáneamente en el calendario de la Intranet, se sincroniza con el Google Calendar institucional (`contacto@iiresodh.org`) y, si seleccionó un canal al crearla, publica automáticamente un aviso en ese canal para todo el equipo.
+Queda resguardada de forma 100% privada e interna dentro del calendario propio de la plataforma (sin exponerse en cuentas externas como `contacto@iiresodh.org`). Además, puede marcarla como **`Evento Confidencial 🔒`** para que solo los participantes convocados la vean, o anunciarla automáticamente en un canal del equipo.

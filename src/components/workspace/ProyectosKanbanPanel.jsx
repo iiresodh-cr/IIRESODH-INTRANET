@@ -71,6 +71,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import GoogleDriveSelectorBrowser from './GoogleDriveSelectorBrowser';
 
 export const COLUMNAS_KANBAN = [
   { id: 'pendiente', titulo: 'Por Hacer', emoji: '📋', color: '#475569', bg: '#f1f5f9', border: '#cbd5e1' },
@@ -125,6 +126,7 @@ export default function ProyectosKanbanPanel({
 
   // Modal de Nueva/Editar Tarea
   const [modalTareaOpen, setModalTareaOpen] = useState(false);
+  const [mostrarSelectorDriveTarea, setMostrarSelectorDriveTarea] = useState(false);
   const [tareaEditandoId, setTareaEditandoId] = useState(null);
   const [nuevaSubtareaTexto, setNuevaSubtareaTexto] = useState('');
   const [formTarea, setFormTarea] = useState({
@@ -1268,23 +1270,65 @@ export default function ProyectosKanbanPanel({
           </Box>
 
           {/* VINCULAR DOCUMENTO O CARPETA DE GOOGLE DRIVE */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-            <TextField
-              label="Enlace de Google Drive (Opcional)"
-              placeholder="https://docs.google.com/..."
-              size="small"
-              fullWidth
-              value={formTarea.driveUrl}
-              onChange={(e) => setFormTarea((p) => ({ ...p, driveUrl: e.target.value }))}
-            />
-            <TextField
-              label="Nombre del archivo Drive"
-              placeholder="Ej: Borrador Escrito CIDH"
-              size="small"
-              fullWidth
-              value={formTarea.driveTitulo}
-              onChange={(e) => setFormTarea((p) => ({ ...p, driveTitulo: e.target.value }))}
-            />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="caption" fontWeight="800" color="#1D3557">
+                ARCHIVO O CARPETA DE GOOGLE DRIVE VINCULADO (OPCIONAL)
+              </Typography>
+              <Button
+                size="small"
+                variant={mostrarSelectorDriveTarea ? 'contained' : 'outlined'}
+                startIcon={<HardDrive size={14} />}
+                onClick={() => setMostrarSelectorDriveTarea((v) => !v)}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.73rem',
+                  fontWeight: 700,
+                  py: 0.25,
+                  px: 1.25,
+                  borderRadius: 1.5,
+                  ...(mostrarSelectorDriveTarea
+                    ? { bgcolor: '#1D3557', '&:hover': { bgcolor: '#152742' } }
+                    : { borderColor: '#cbd5e1', color: '#1D3557' })
+                }}
+              >
+                {mostrarSelectorDriveTarea ? 'Ocultar explorador de Drive' : 'Elegir directamente desde Google Drive'}
+              </Button>
+            </Box>
+
+            {mostrarSelectorDriveTarea && (
+              <GoogleDriveSelectorBrowser
+                userEmail={userEmail}
+                itemSeleccionadoUrl={formTarea.driveUrl}
+                onSelectItem={(itemElegido) => {
+                  setFormTarea((p) => ({
+                    ...p,
+                    driveUrl: itemElegido.url,
+                    driveTitulo: itemElegido.titulo
+                  }));
+                  setMostrarSelectorDriveTarea(false);
+                }}
+              />
+            )}
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+              <TextField
+                label="Nombre del archivo o carpeta Drive"
+                placeholder="Se completa al elegir en Drive o escríbelo..."
+                size="small"
+                fullWidth
+                value={formTarea.driveTitulo}
+                onChange={(e) => setFormTarea((p) => ({ ...p, driveTitulo: e.target.value }))}
+              />
+              <TextField
+                label="Enlace de Google Drive (Opcional)"
+                placeholder="https://drive.google.com/..."
+                size="small"
+                fullWidth
+                value={formTarea.driveUrl}
+                onChange={(e) => setFormTarea((p) => ({ ...p, driveUrl: e.target.value }))}
+              />
+            </Box>
           </Box>
 
           {!tareaEditandoId && (
