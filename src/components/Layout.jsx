@@ -174,31 +174,17 @@ export default function Layout({ children, currentView, setView, userRole, userP
                 '&:hover': { opacity: 0.92 }
               }}
             >
-              {/* Contenedor blanco para el isotipo oficial con gradiente */}
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 1.75,
-                  bgcolor: '#FFFFFF',
-                  p: 0.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.18)'
-                }}
-              >
-                <img 
-                  src="/iiresodh-isotipo-gradient.png" 
-                  alt="Isotipo IIRESODH" 
-                  style={{ 
-                    width: '100%', 
-                    height: '100%',
-                    objectFit: 'contain',
-                    display: 'block'
-                  }} 
-                />
-              </Box>
+              {/* Isotipo circular oficial sin rebordes */}
+              <img 
+                src="/iiresodh-isotipo-round.png" 
+                alt="Isotipo IIRESODH" 
+                style={{ 
+                  width: '36px', 
+                  height: '36px',
+                  objectFit: 'contain',
+                  display: 'block'
+                }} 
+              />
               
               {/* Tipografía Institucional IIRESODH */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>

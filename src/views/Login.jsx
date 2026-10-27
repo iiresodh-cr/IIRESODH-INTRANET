@@ -77,25 +77,11 @@ export default function Login({ institutionalError, setInstitutionalError }) {
         <Box sx={{ position: 'relative', zIndex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, mb: { xs: 3, md: 5 } }}>
             <Box
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 2,
-                bgcolor: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                p: 0.75,
-                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)'
-              }}
-            >
-              <Box
-                component="img"
-                src="/iiresodh-isotipo-gradient.png"
-                alt="Isotipo IIRESODH"
-                sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            </Box>
+              component="img"
+              src="/iiresodh-isotipo-round.png"
+              alt="Isotipo IIRESODH"
+              sx={{ width: 44, height: 44, objectFit: 'contain', display: 'block' }}
+            />
             <Box>
               <Typography
                 sx={{

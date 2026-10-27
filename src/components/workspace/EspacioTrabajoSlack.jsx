@@ -1428,24 +1428,11 @@ export default function EspacioTrabajoSlack({
           </IconButton>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: 1.5,
-                bgcolor: '#FFFFFF',
-                p: 0.35,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <img
-                src="/iiresodh-isotipo-gradient.png"
-                alt="IIRESODH"
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            </Box>
+            <img
+              src="/iiresodh-isotipo-round.png"
+              alt="IIRESODH"
+              style={{ width: 28, height: 28, objectFit: 'contain', display: 'block' }}
+            />
             <Typography
               variant="subtitle2"
               fontWeight="800"
