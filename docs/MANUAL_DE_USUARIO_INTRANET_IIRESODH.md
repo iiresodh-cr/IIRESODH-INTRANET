@@ -2,7 +2,7 @@
 
 **Instituto Internacional de Responsabilidad Social y Derechos Humanos (IIRESODH)**  
 **Portal Oficial:** `https://intra.iiresodh.org` / `https://litigio-management.web.app`  
-**Versión del Documento:** 2.0 (Incluye *IIRESODH Workspace*, Gestión de Proyectos Kanban, Calendario Híbrido e Integración con Google Drive)
+**Versión del Documento:** 2.1 (Incluye *IIRESODH Workspace*, Selector Directo de Google Drive, Comunicados vía Google Workspace con Trazabilidad por Destinatario e Indicador en Tiempo Real de WhatsApp Institucional)
 
 ---
 
@@ -14,14 +14,14 @@
    - [3.1. Canales y Mensajes Directos en Tiempo Real](#31-canales-y-mensajes-directos-en-tiempo-real)
    - [3.2. Indicador de Presencia y Estados de Disponibilidad](#32-indicador-de-presencia-y-estados-de-disponibilidad)
    - [3.3. Seguimiento de Proyectos y Tareas (Kanban y Lista)](#33-seguimiento-de-proyectos-y-tareas-kanban-y-lista)
-   - [3.4. Calendario y Agenda Híbrida Institucional](#34-calendario-y-agenda-híbrida-institucional)
+   - [3.4. Calendario Privado y Agenda Propia de la Plataforma](#34-calendario-privado-y-agenda-propia-de-la-plataforma)
    - [3.5. Biblioteca y Visor Integrado de Google Drive](#35-biblioteca-y-visor-integrado-de-google-drive)
 4. [Módulo: Centro de Recursos Institucionales](#4-módulo-centro-de-recursos-institucionales)
 5. [Módulo: Gestión de Litigios y Expedientes Jurídicos](#5-módulo-gestión-de-litigios-y-expedientes-jurídicos)
    - [5.1. Creación y Administración de Casos](#51-creación-y-administración-de-casos)
    - [5.2. Gestión de Representados y Ficha Individual](#52-gestión-de-representados-y-ficha-individual)
    - [5.3. Plazos Fatales y Documentos del Expediente](#53-plazos-fatales-y-documentos-del-expediente)
-   - [5.4. Comunicados Masivos y Rastreo de Apertura (SendGrid)](#54-comunicados-masivos-y-rastreo-de-apertura-sendgrid)
+   - [5.4. Comunicados Masivos y Trazabilidad de Entrega y Apertura](#54-comunicados-masivos-y-trazabilidad-de-entrega-y-apertura)
 6. [Módulo: Mensajería Oficial WhatsApp Business API](#6-módulo-mensajería-oficial-whatsapp-business-api)
 7. [Módulo: Administración del Sitio Web Público](#7-módulo-administración-del-sitio-web-público)
 8. [Administración de Seguridad: Usuarios y Auditoría](#8-administración-de-seguridad-usuarios-y-auditoría)
@@ -61,7 +61,14 @@ El sistema cuenta con un **doble anillo de seguridad perimetral**:
 
 ## 3. Hub Central e IIRESODH Workspace (Estilo Slack)
 
-Al iniciar sesión, ingresará al **Hub Central de IIRESODH**. En la parte superior encontrará su banner de bienvenida con su rol activo y, justo debajo, el **Espacio de Trabajo & Agenda Institucional (*IIRESODH Workspace*)**.
+Al iniciar sesión, ingresará al **Hub Central de IIRESODH**. En la parte superior encontrará su banner ejecutivo de bienvenida con su rol activo, accesos directos al ecosistema institucional (*Portal iiresodh.org* y *Campus Virtual*) y, justo debajo, el **Espacio de Trabajo & Agenda Institucional (*IIRESODH Workspace*)**.
+
+#### Indicador en Tiempo Real de WhatsApp Institucional en el Banner:
+- **Visibilidad por permisos**: Exclusivamente para los usuarios que tienen habilitado el permiso de **WhatsApp Institucional** (o rol `Superadmin`), aparece en la esquina superior derecha del banner el indicador **`WhatsApp Institucional`**.
+- **Conteo en vivo y alertas instantáneas**:
+  - Muestra en tiempo real el número total de mensajes pendientes de lectura (**`X sin leer`**), iluminándose en verde con un punto pulsante cuando existen mensajes sin atender.
+  - Al hacer clic sobre el indicador, lleva directamente a la consola de **WhatsApp Institucional**.
+  - Si entra un nuevo mensaje de WhatsApp mientras el usuario se encuentra en el Hub Central, el sistema emite un aviso sonoro suave y despliega una notificación emergente en la esquina superior derecha con el nombre o número del remitente, vista previa del mensaje y botón **`Abrir`**.
 
 > **💡 Tip de Pantalla Completa:** En la esquina superior derecha del Workspace encontrará el botón **`Expandir`**. Al pulsarlo, el espacio de trabajo ocupa toda la pantalla para trabajar cómodamente como una aplicación de escritorio. Para volver al Hub, pulse el botón dorado **`Volver al Hub (Esc)`** o presione la tecla **`Escape`** en su teclado.
 
@@ -91,7 +98,8 @@ Los canales organizan las conversaciones del equipo por tema, departamento o cas
 4. Haga clic en **Crear Canal**.
 
 #### B. Mensajes Directos (1 a 1)
-Debajo de los canales encontrará la lista de todos sus colegas autorizados en la Intranet.
+Debajo de los canales encontrará la lista de sus colegas autorizados en la Intranet (excluyendo su propio usuario para evitar envíos accidentales a sí mismo):
+- **Ordenamiento inteligente por conexión**: Los compañeros que están **conectados en línea (`🟢`) aparecen automáticamente en la parte superior** de la lista, seguidos en orden alfabético por quienes están desconectados (`⚫`).
 - Haga clic sobre el nombre de cualquier colega para abrir un **chat privado 1 a 1**.
 - Cuando reciba mensajes nuevos en un canal o conversación directa que no ha abierto, aparecerá un **punto celeste brillante (`🔵`)** y el nombre resaltado en negrita.
 
@@ -138,8 +146,10 @@ El Workspace utiliza **Firebase Realtime Database** con detección instantánea 
 
 **¿Cómo cambiar su estado de disponibilidad o escribir un estado personalizado?**
 En la esquina superior derecha de la barra superior del Workspace, haga clic sobre el botón de estado (por defecto **`🟢 Disponible`**):
-1. Puede escribir un **estado personalizado libre** con su propio emoji y texto (ej. `🏛️ Audiencia Caso X`) y pulsar **OK**.
-2. O elegir uno de los estados predeterminados:
+1. **Estado personalizado con selector de emoji**:
+   - Haga clic en el botón de emoji a la izquierda del campo de texto (por defecto `💬`) para abrir la paleta de 16 emojis institucionales (`💬`, `🏛️`, `📅`, `📝`, `⚖️`, `📚`, `🔎`, `📞`, `💻`, `✈️`, `🚗`, `🍽️`, `☕`, `🎧`, `🔕`, `🌴`).
+   - Escriba su estado personalizado en el cuadro de texto (ej. `Audiencia Caso X` o `Revisión de peritaje`) y pulse **`OK`** o la tecla **`Enter`**.
+2. O elegir con un clic uno de los estados predeterminados:
    - `🟢 Disponible`
    - `🏛️ En audiencia judicial`
    - `📅 En reunión`
@@ -272,15 +282,21 @@ En las pestañas superiores del caso encontrará:
 - **⏳ Plazos y Fechas Fatales**: Registro de vencimientos procesales con **alertas semafóricas automáticas** (Rojo para plazos vencidos o inminentes, Amarillo para próximos a vencer, Verde para plazos holgados o cumplidos).
 - **📂 Documentos y Pruebas del Caso**: Repositorio centralizado en la nube para resoluciones judiciales, escritos presentados, peritajes y anexos probatorios comunes a todo el expediente.
 
-### 5.4. Comunicados Masivos y Rastreo de Apertura (SendGrid)
-La pestaña **📧 Comunicados Oficiales** permite redactar y enviar notificaciones por correo electrónico a todos los representados de un caso (o a una selección específica de ellos):
-1. **Plantillas Reutilizables**: Puede redactar un comunicado desde cero o cargar/guardar una plantilla institucional.
-2. **Selección de Destinatarios**: Envíe a todo el padrón del caso o filtre/seleccione manualmente a los destinatarios.
-3. **Auditoría de Entrega y Apertura en Tiempo Real**:
-   - Gracias a la integración con el webhook de SendGrid (con filtros inteligentes que descartan aperturas falsas de bots de seguridad o *Apple Mail Privacy Protection*), en la ficha de cada representado y en el historial del comunicado verá el estado real:
-     - **`Entregado`**: El servidor de correo del cliente recibió el mensaje.
-     - **`Abierto`** (con fecha y hora exacta de Costa Rica): El representado abrió y leyó el comunicado.
-     - **`Rebotado`** (con causa técnica): El correo del representado tiene problemas o no existe, permitiendo al equipo contactarlo por teléfono o WhatsApp para actualizar su dirección.
+### 5.4. Comunicados Masivos y Trazabilidad de Entrega y Apertura
+La pestaña **📧 Comunicados Enviados** permite redactar y enviar circulares y notificaciones oficiales por correo electrónico a todos los representados de un caso (o a una selección específica de ellos) directamente desde la cuenta institucional **`contacto@iiresodh.org`** mediante **Google Workspace (Gmail API)** y **Cloud Functions (2nd Gen)**:
+1. **Redacción y Documento Adjunto (PDF)**:
+   - Haga clic en **`+ Redactar Comunicado`**, defina el asunto, el cuerpo del mensaje y adjunte opcionalmente el documento PDF oficial de la circular (que queda almacenado de forma segura en Firebase Storage y se adjunta en el correo).
+2. **Selección de Destinatarios**:
+   - Puede enviar el comunicado a **Todos los representados** del caso o elegir **Selección específica** para filtrar y marcar únicamente a determinados destinatarios.
+3. **Prueba de Entrega y Lectura en Tiempo Real (Dos Vistas)**:
+   - **A. En la pestaña *Comunicados Enviados* (Vista Global y Tabla por Destinatario)**:
+     - Cada comunicado muestra en la esquina superior derecha la insignia **`Despachado`** una vez procesado el envío.
+     - Al hacer clic en el botón **`Ver estado por destinatario (Entregados / Abiertos)`**, se despliega un panel con los contadores globales (`Recibidos: X/N`, `Abiertos: Y/N` y `Rebotes`), un botón **`Actualizar estado`** y una tabla detallada con cada representado, su correo, su estado actual y las marcas exactas de fecha y hora de **Recibido (Entrega)** y **Abierto (Lectura)**.
+   - **B. En la *Ficha Individual del Representado* (*Historial de Notificaciones*)**:
+     - En la columna derecha de la ficha de cada cliente se listan todos los comunicados que se le han enviado con sus estados en tiempo real (incluyendo filtros contra aperturas automáticas de escáneres corporativos):
+       - **`Enviado`** / **`Entregado`** (con fecha y hora exacta de recepción `Recibido: DD/MM/AAAA, HH:MM:SS`).
+       - **`Abierto`** (en verde, con fecha y hora exacta de Costa Rica en que el representado abrió y leyó el comunicado).
+       - **`Rebotado`** (en rojo, con el detalle técnico en caso de que la dirección de correo presente un fallo).
 
 ---
 
