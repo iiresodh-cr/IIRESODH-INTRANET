@@ -162,7 +162,7 @@ export default function Login({ institutionalError, setInstitutionalError }) {
             Plataforma centralizada para la gestión de litigios estratégicos, coordinación de proyectos institucionales, repositorio documental y comunicación interna del equipo de IIRESODH.
           </Typography>
 
-          {/* Pilares institucionales (oculto en móviles muy pequeños para priorizar el botón de acceso) */}
+          {/* Pilar de seguridad (oculto en móviles muy pequeños para priorizar el botón de acceso) */}
           <Box
             sx={{
               display: { xs: 'none', sm: 'grid' },
@@ -184,35 +184,11 @@ export default function Login({ institutionalError, setInstitutionalError }) {
                   display: 'flex'
                 }}
               >
-                <Scale size={17} />
-              </Box>
-              <Box>
-                <Typography sx={{ fontWeight: 700, fontSize: '0.88rem', color: '#FFFFFF' }}>
-                  Litigio Estratégico y Derechos Humanos
-                </Typography>
-                <Typography sx={{ fontSize: '0.8rem', color: 'rgba(241, 250, 238, 0.7)', lineHeight: 1.5 }}>
-                  Seguimiento riguroso de expedientes, plazos procesales, agenda híbrida y control de proyectos.
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.75 }}>
-              <Box
-                sx={{
-                  mt: 0.3,
-                  p: 1,
-                  borderRadius: 1.5,
-                  bgcolor: 'rgba(255, 255, 255, 0.07)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#A8DADC',
-                  display: 'flex'
-                }}
-              >
                 <Lock size={17} />
               </Box>
               <Box>
                 <Typography sx={{ fontWeight: 700, fontSize: '0.88rem', color: '#FFFFFF' }}>
-                  Seguridad Perimetral Google Workspace
+                  Seguridad Perimetral
                 </Typography>
                 <Typography sx={{ fontSize: '0.8rem', color: 'rgba(241, 250, 238, 0.7)', lineHeight: 1.5 }}>
                   Autenticación exclusiva para cuentas oficiales @iiresodh.org con bitácora de auditoría en tiempo real.
