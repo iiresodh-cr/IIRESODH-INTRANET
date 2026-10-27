@@ -740,12 +740,12 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
     if (!resumenEjecutivoIA?.resumen) return;
     try {
       await addDoc(collection(db, 'casos', casoId, 'clientes', clienteId, 'notas'), {
-        texto: `✨ [SÍNTESIS EJECUTIVA IA - ${resumenEjecutivoIA._metaIA?.modeloEjecutado || 'Gemini 3.8 Flash'}]:\n${resumenEjecutivoIA.resumen}`,
-        autor_email: currentUserEmail || 'ia@iiresodh.org',
-        autor_nombre: `${currentUserEmail || 'Equipo Legal'} (Copiloto IA)`,
+        texto: `✨ **SÍNTESIS EJECUTIVA PIDA:**\n${resumenEjecutivoIA.resumen}`,
+        autor_email: currentUserEmail || 'pida@iiresodh.org',
+        autor_nombre: `${currentUserEmail || 'Equipo Legal'} (Asistido por PIDA)`,
         fecha: serverTimestamp()
       });
-      setSuccess('Síntesis ejecutiva guardada en la bitácora jurídica.');
+      setSuccess('Síntesis ejecutiva de PIDA guardada en la bitácora jurídica.');
     } catch {
       setError('No se pudo guardar la síntesis en la bitácora.');
     }
@@ -1224,9 +1224,19 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                   <Card key={n.id} sx={{ mb: 1.5, boxShadow: 'none', bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                     <CardContent sx={{ p: '12px !important' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', flexGrow: 1 }}>
-                          {n.texto}
-                        </Typography>
+                        <Box
+                          sx={{
+                            flexGrow: 1,
+                            fontSize: '0.875rem',
+                            color: '#1e293b',
+                            lineHeight: 1.6,
+                            '& p': { margin: '0 0 6px 0' },
+                            '& p:last-child': { marginBottom: 0 }
+                          }}
+                          dangerouslySetInnerHTML={{
+                            __html: convertirMarkdownAHtmlJuridico(n.texto || '')
+                          }}
+                        />
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
                           <IconButton size="small" onClick={() => handleEditNota(n)} title="Editar nota">
                             <Edit size={14} />

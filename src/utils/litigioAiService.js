@@ -465,10 +465,11 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura exacta:
 
   const parsed = parsearJsonSeguro(respuesta.text);
   return {
-    asunto:
+    asunto: limpiarMarkdownATextoPlano(
       parsed?.asunto ||
-      `Actualización Oficial del Caso: ${caso.nombre || 'IIRESODH'} (${caso.expediente_oficial || 'Informe Procesal'})`,
-    cuerpo: parsed?.cuerpo || respuesta.text,
+        `Actualización Oficial del Caso: ${caso.nombre || 'IIRESODH'} (${caso.expediente_oficial || 'Informe Procesal'})`
+    ),
+    cuerpo: limpiarMarkdownATextoPlano(parsed?.cuerpo || respuesta.text),
     _metaIA: {
       modeloSolicitado: respuesta.modeloSolicitado,
       modeloEjecutado: respuesta.modeloEjecutado,
@@ -713,6 +714,17 @@ export function convertirMarkdownAHtmlJuridico(markdown = '') {
         enListaUl = true;
       }
       htmlParts.push(`<li style="margin-bottom:6px;">${aplicarFormatoInline(matchUl[1])}</li>`);
+      continue;
+    }
+
+    // Encabezado en negrita pura en una sola línea (ej. **DICTAMEN EJECUTIVO** o **1. Subtítulo:**)
+    const matchBoldHeading = trimmed.match(/^\*\*([^*]+)\*\*:?$/);
+    if (matchBoldHeading) {
+      cerrarListas();
+      const tituloLimpio = escaparHtmlBasico(matchBoldHeading[1].trim());
+      htmlParts.push(
+        `<h4 style="color:#1e3a8a;font-size:11pt;font-weight:bold;margin:14px 0 6px 0;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">${tituloLimpio}</h4>`
+      );
       continue;
     }
 

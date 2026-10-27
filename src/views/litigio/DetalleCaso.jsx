@@ -1991,9 +1991,21 @@ ${promptBase.trim()}`;
               <Chip size="small" color="secondary" label={`Vulnerables (Art. 29.2): ${resultadoAuditoriaPadron.estadisticas.vulnerablesCount}`} sx={{ fontWeight: 'bold' }} />
             </Box>
 
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', bgcolor: '#ffffff', p: 2, borderRadius: 2, border: '1px solid #e0e7ff' }}>
-              {resultadoAuditoriaPadron.dictamenIA}
-            </Typography>
+            <Box
+              sx={{
+                bgcolor: '#ffffff',
+                p: 2.5,
+                borderRadius: 2,
+                border: '1px solid #e0e7ff',
+                fontFamily: '"Georgia", "Times New Roman", serif',
+                fontSize: '0.94rem',
+                lineHeight: 1.7,
+                color: '#1e293b'
+              }}
+              dangerouslySetInnerHTML={{
+                __html: convertirMarkdownAHtmlJuridico(resultadoAuditoriaPadron.dictamenIA)
+              }}
+            />
           </Paper>
         )}
 
@@ -2263,20 +2275,41 @@ ${promptBase.trim()}`;
                 </Button>
               </Box>
 
-              <Typography variant="body2" sx={{ mb: 1.5, bgcolor: '#ffffff', p: 1.5, borderRadius: 2, border: '1px solid #e0e7ff' }}>
-                <strong>Resumen Ejecutivo:</strong> {resultadoAnalisisDocIA.resumen_ejecutivo}
-              </Typography>
+              <Box
+                sx={{
+                  mb: 1.5,
+                  bgcolor: '#ffffff',
+                  p: 2,
+                  borderRadius: 2,
+                  border: '1px solid #e0e7ff',
+                  fontFamily: '"Georgia", "Times New Roman", serif',
+                  fontSize: '0.93rem',
+                  lineHeight: 1.65
+                }}
+              >
+                <Typography variant="caption" fontWeight="bold" color="primary.main" sx={{ display: 'block', mb: 0.5, textTransform: 'uppercase' }}>
+                  Resumen Ejecutivo PIDA:
+                </Typography>
+                <Box
+                  dangerouslySetInnerHTML={{
+                    __html: convertirMarkdownAHtmlJuridico(resultadoAnalisisDocIA.resumen_ejecutivo)
+                  }}
+                />
+              </Box>
 
               {Array.isArray(resultadoAnalisisDocIA.puntos_clave) && resultadoAnalisisDocIA.puntos_clave.length > 0 && (
-                <Box sx={{ mb: 1.5 }}>
-                  <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                <Box sx={{ mb: 1.5, bgcolor: '#ffffff', p: 1.5, borderRadius: 2, border: '1px solid #e0e7ff' }}>
+                  <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Puntos Resolutivos / Argumentos Detectados:
                   </Typography>
-                  {resultadoAnalisisDocIA.puntos_clave.map((pt, idx) => (
-                    <Typography key={idx} variant="caption" display="block" sx={{ ml: 1 }}>
-                      • {pt}
-                    </Typography>
-                  ))}
+                  <Box
+                    sx={{ fontSize: '0.88rem' }}
+                    dangerouslySetInnerHTML={{
+                      __html: convertirMarkdownAHtmlJuridico(
+                        resultadoAnalisisDocIA.puntos_clave.map((pt) => `- ${pt}`).join('\n')
+                      )
+                    }}
+                  />
                 </Box>
               )}
 
