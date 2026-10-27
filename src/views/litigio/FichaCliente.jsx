@@ -801,10 +801,20 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               textTransform: 'none',
               fontWeight: 'bold',
               borderRadius: 2,
-              background: 'linear-gradient(90deg, #4338ca 0%, #7e22ce 100%)'
+              color: '#ffffff',
+              background: 'linear-gradient(90deg, #1e3a8a 0%, #4338ca 100%)',
+              '&:hover': {
+                background: 'linear-gradient(90deg, #172554 0%, #312e81 100%)'
+              },
+              '&.Mui-disabled': {
+                background: '#e2e8f0',
+                bgcolor: '#e2e8f0',
+                color: '#475569',
+                border: '1px solid #cbd5e1'
+              }
             }}
           >
-            {generandoResumenIA ? 'Analizando con Gemini 3.8 Flash...' : '✨ Síntesis Ejecutiva IA del Representado'}
+            {generandoResumenIA ? 'Generando Síntesis IA...' : '✨ Síntesis Ejecutiva IA del Representado'}
           </Button>
         </Box>
       </Box>

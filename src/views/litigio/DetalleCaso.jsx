@@ -1636,10 +1636,14 @@ ${promptBase.trim()}`;
               textTransform: 'none',
               fontWeight: 'bold',
               borderRadius: 2,
-              background: 'linear-gradient(90deg, #312e81 0%, #6d28d9 100%)'
+              color: '#ffffff',
+              background: 'linear-gradient(90deg, #1e3a8a 0%, #4338ca 100%)',
+              '&:hover': {
+                background: 'linear-gradient(90deg, #172554 0%, #312e81 100%)'
+              }
             }}
           >
-            Abrir Copiloto Jurídico (Gemini 4 Argon)
+            Abrir Copiloto Jurídico IA
           </Button>
         </Box>
 
@@ -2688,18 +2692,18 @@ ${promptBase.trim()}`;
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                 <Sparkles size={22} color="#4338ca" />
                 <Typography variant="h6" fontWeight="bold" color="#1e1b4b">
-                  Copiloto Jurídico Internacional IIRESODH (Vertex AI / Firebase AI Logic)
+                  Copiloto Jurídico Internacional IIRESODH
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                Asistente especializado en el Sistema Interamericano (CIDH / Corte IDH) y ONU, conectado al contexto real de este expediente sin exponer API keys.
+                Asistente especializado en el Sistema Interamericano (CIDH / Corte IDH) y ONU, conectado en tiempo real al contexto de este expediente.
               </Typography>
             </Box>
 
             <Chip
-              label="🧠 Enrutamiento Automático: Gemini 4 Argon (Pensamiento Avanzado)"
+              label="🧠 Enrutamiento Automático Activo"
               color="primary"
-              sx={{ fontWeight: 'bold', bgcolor: '#312e81', color: '#ffffff' }}
+              sx={{ fontWeight: 'bold', bgcolor: '#1e3a8a', color: '#ffffff' }}
             />
           </Box>
 
@@ -2782,7 +2786,19 @@ ${promptBase.trim()}`;
                   fontWeight: 'bold',
                   borderRadius: 2,
                   px: 3,
-                  background: 'linear-gradient(90deg, #312e81 0%, #6d28d9 100%)'
+                  py: 1,
+                  color: '#ffffff',
+                  bgcolor: '#1e3a8a',
+                  background: 'linear-gradient(90deg, #1e3a8a 0%, #4338ca 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(90deg, #172554 0%, #312e81 100%)'
+                  },
+                  '&.Mui-disabled': {
+                    background: '#e2e8f0',
+                    bgcolor: '#e2e8f0',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1'
+                  }
                 }}
               >
                 {ejecutandoCopilotoIA ? 'Razonando estrategia jurídica...' : 'Ejecutar Análisis con IA'}
@@ -2796,19 +2812,13 @@ ${promptBase.trim()}`;
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2, pb: 1.5, borderBottom: '1px solid #e2e8f0' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Chip
-                    label={respuestaCopilotoIA.badge || respuestaCopilotoIA.modeloEjecutado}
+                    label={respuestaCopilotoIA.badge || 'Dictamen Estratégico IA'}
                     color="primary"
                     size="small"
                     sx={{ fontWeight: 'bold' }}
                   />
-                  <Chip
-                    label={`Modelo: ${respuestaCopilotoIA.modeloEjecutado}`}
-                    size="small"
-                    variant="outlined"
-                    sx={{ fontWeight: 'bold', fontFamily: 'monospace' }}
-                  />
                   <Typography variant="caption" color="text.secondary">
-                    Vía {respuestaCopilotoIA.backendUtilizado} · {respuestaCopilotoIA.fecha}
+                    Generado el {respuestaCopilotoIA.fecha}
                   </Typography>
                 </Box>
                 <Button
