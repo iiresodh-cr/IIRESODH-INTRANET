@@ -92,11 +92,18 @@ Los canales organizan las conversaciones del equipo por tema, departamento o cas
 - **`#litigios-y-casos`**: Coordinación jurídica, estrategia procesal, plazos y audiencias.
 - **`#administracion`**: Logística, finanzas, soporte operativo y trámites internos.
 
-**¿Cómo crear un nuevo canal?**
+**¿Cómo crear un nuevo canal (Abierto a todos o Privado para un grupo de miembros)?**
 1. Haga clic en el botón **`+`** junto al título *CANALES INSTITUCIONALES* (o en `+ Añadir canal`).
-2. Escriba el nombre del canal (ej. `caso-corte-idh-2026`) y su propósito.
-3. Si el canal debe ser confidencial para un grupo específico, active la opción **Canal Privado 🔒** y seleccione a los colegas que tendrán acceso.
+2. Escriba el nombre del canal (ej. `caso-corte-idh-2026` o `comision-tres-miembros`) y su propósito.
+3. En **Tipo de Acceso al Canal**, elija una de las dos modalidades:
+   - **`🌐 Canal Abierto`**: Visible y accesible para todos los miembros autorizados del equipo IIRESODH.
+   - **`🔒 Privado (Por miembros)`**: Ideal para abrir un canal exclusivo para 3 miembros (o los que desee). Usted queda incluido automáticamente como creador y marca con casilla a los colegas que integrarán el grupo cerrado. Los canales privados muestran un candado dorado (`🔒`) junto con el número exacto de integrantes y solo son visibles para sus miembros y el `Superadmin`.
 4. Haga clic en **Crear Canal**.
+
+**¿Cómo ver o editar miembros y cómo eliminar un canal?**
+- En la cabecera de cada canal verá el distintivo **`🌐 Abierto a todos`** o **`🔒 Privado • X miembro(s)`**, además del botón de configuración **`⚙️`** (también disponible al pasar el cursor sobre el canal en la barra lateral izquierda).
+- Al hacer clic sobre ese distintivo o sobre **`⚙️`**, se abre la ventana de **Gestión del Canal**, donde el creador del canal, un `Admin` o el `Superadmin` pueden **añadir o quitar miembros en cualquier momento**, editar la descripción o cambiar la privacidad del canal.
+- **Eliminación de canales (`🗑️`)**: Los usuarios con rol **`Admin`** o **`Superadmin`** (así como el creador de un canal privado `🔒`) disponen del botón rojo **`🗑️ Eliminar canal`** tanto en la barra superior del canal como dentro de la ventana **`⚙️`**, el cual solicita confirmación antes de borrar permanentemente el canal y su historial (el canal base `#general` está protegido contra borrado).
 
 #### B. Mensajes Directos (1 a 1)
 Debajo de los canales encontrará la lista de sus colegas autorizados en la Intranet (excluyendo su propio usuario para evitar envíos accidentales a sí mismo):

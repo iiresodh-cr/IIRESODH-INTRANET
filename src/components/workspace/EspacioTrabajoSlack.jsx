@@ -72,7 +72,9 @@ import {
   Video,
   ExternalLink,
   Copy,
-  PhoneOff
+  PhoneOff,
+  Settings,
+  Globe
 } from 'lucide-react';
 import {
   collection,
@@ -81,6 +83,7 @@ import {
   where,
   orderBy,
   onSnapshot,
+  getDocs,
   addDoc,
   setDoc,
   updateDoc,
@@ -100,6 +103,7 @@ import {
 } from 'firebase/database';
 import { db, rtdb, storage } from '../../config/firebase';
 import { useAuth, crearEspacioGoogleMeet } from '../../context/AuthContext';
+import { registrarLogAuditoria } from '../../utils/auditLogger';
 import CalendarioHibridoPanel, { CATEGORIAS_EVENTO } from './CalendarioHibridoPanel';
 import ProyectosKanbanPanel from './ProyectosKanbanPanel';
 import GoogleDriveWorkspacePanel from './GoogleDriveWorkspacePanel';
@@ -292,6 +296,18 @@ export default function EspacioTrabajoSlack({
     esPrivado: false,
     miembros: []
   });
+
+  // Modal de gestión de canal existente (miembros, privacidad y eliminación)
+  const [modalGestionCanalOpen, setModalGestionCanalOpen] = useState(false);
+  const [canalEnGestion, setCanalEnGestion] = useState(null);
+  const [editCanalForm, setEditCanalForm] = useState({
+    descripcion: '',
+    esPrivado: false,
+    miembros: []
+  });
+  const [guardandoGestionCanal, setGuardandoGestionCanal] = useState(false);
+  const [confirmDeleteCanalOpen, setConfirmDeleteCanalOpen] = useState(false);
+  const [eliminandoCanal, setEliminandoCanal] = useState(false);
 
   // Señal para abrir modal de nuevo evento en el calendario pre-vinculado al canal
   const [signalNuevoEvento, setSignalNuevoEvento] = useState(0);
@@ -728,6 +744,135 @@ export default function EspacioTrabajoSlack({
     setMobileSidebarOpen(false);
   };
 
+  const esAdminOSuperadmin = userRole === 'Superadmin' || userRole === 'Admin';
+
+  const puedeGestionarCanal = (canal) => {
+    if (!canal || canal.tipo === 'dm') return false;
+    return esAdminOSuperadmin || (canal.creadoPor || '').toLowerCase() === currentUserEmail;
+  };
+
+  const puedeBorrarCanal = (canal) => {
+    if (!canal || canal.tipo === 'dm' || canal.id === 'general') return false;
+    return (
+      esAdminOSuperadmin ||
+      (canal.esPrivado && (canal.creadoPor || '').toLowerCase() === currentUserEmail)
+    );
+  };
+
+  const abrirModalGestionCanal = (canal) => {
+    if (!canal || canal.tipo === 'dm') return;
+    const miembrosBase = Array.from(
+      new Set([
+        ...(canal.miembros || []).map((m) => m.toLowerCase()),
+        (canal.creadoPor || currentUserEmail).toLowerCase()
+      ].filter(Boolean))
+    );
+    setCanalEnGestion(canal);
+    setEditCanalForm({
+      descripcion: canal.descripcion || '',
+      esPrivado: Boolean(canal.esPrivado),
+      miembros: miembrosBase
+    });
+    setModalGestionCanalOpen(true);
+  };
+
+  const handleGuardarGestionCanal = async () => {
+    if (!canalEnGestion || !puedeGestionarCanal(canalEnGestion)) return;
+    setGuardandoGestionCanal(true);
+    try {
+      const miembrosFinal = Array.from(
+        new Set([
+          ...(editCanalForm.miembros || []).map((m) => m.toLowerCase()),
+          (canalEnGestion.creadoPor || currentUserEmail).toLowerCase(),
+          currentUserEmail
+        ].filter(Boolean))
+      );
+
+      await setDoc(
+        doc(db, 'workspace_canales', canalEnGestion.id),
+        {
+          descripcion: editCanalForm.descripcion.trim() || `Canal temático #${canalEnGestion.nombre}`,
+          esPrivado: Boolean(editCanalForm.esPrivado),
+          miembros: editCanalForm.esPrivado ? miembrosFinal : []
+        },
+        { merge: true }
+      );
+
+      await registrarLogAuditoria({
+        accion: 'ACTUALIZAR_CANAL_WORKSPACE',
+        modulo: 'Workspace',
+        detalles: `Canal #${canalEnGestion.nombre} actualizado (${editCanalForm.esPrivado ? `Privado: ${miembrosFinal.length} miembros` : 'Abierto para todos'})`,
+        usuarioEmail: currentUserEmail,
+        usuarioNombre: currentUserName
+      });
+
+      setMeetToast({
+        open: true,
+        text: `Configuración del canal #${canalEnGestion.nombre} actualizada.`,
+        severity: 'success'
+      });
+      setModalGestionCanalOpen(false);
+    } catch (err) {
+      console.error('Error actualizando canal:', err);
+      setMeetToast({
+        open: true,
+        text: 'No se pudo actualizar el canal.',
+        severity: 'error'
+      });
+    } finally {
+      setGuardandoGestionCanal(false);
+    }
+  };
+
+  const handleConfirmarEliminarCanal = async () => {
+    if (!canalEnGestion || !puedeBorrarCanal(canalEnGestion)) return;
+    setEliminandoCanal(true);
+    try {
+      const canalIdBorrar = canalEnGestion.id;
+      const canalNombreBorrar = canalEnGestion.nombre;
+
+      // 1. Eliminar los mensajes de la subcolección del canal
+      const msgsSnap = await getDocs(collection(db, 'workspace_canales', canalIdBorrar, 'mensajes'));
+      if (!msgsSnap.empty) {
+        await Promise.all(msgsSnap.docs.map((d) => deleteDoc(d.ref)));
+      }
+
+      // 2. Eliminar el documento del canal
+      await deleteDoc(doc(db, 'workspace_canales', canalIdBorrar));
+
+      await registrarLogAuditoria({
+        accion: 'ELIMINAR_CANAL_WORKSPACE',
+        modulo: 'Workspace',
+        detalles: `Canal #${canalNombreBorrar} eliminado permanentemente por ${currentUserEmail}`,
+        usuarioEmail: currentUserEmail,
+        usuarioNombre: currentUserName
+      });
+
+      setConfirmDeleteCanalOpen(false);
+      setModalGestionCanalOpen(false);
+      setCanalEnGestion(null);
+
+      if (canalActivoId === canalIdBorrar) {
+        setCanalActivoId('general');
+      }
+
+      setMeetToast({
+        open: true,
+        text: `El canal #${canalNombreBorrar} ha sido eliminado permanentemente.`,
+        severity: 'info'
+      });
+    } catch (err) {
+      console.error('Error eliminando canal:', err);
+      setMeetToast({
+        open: true,
+        text: err?.message || 'No se pudo eliminar el canal.',
+        severity: 'error'
+      });
+    } finally {
+      setEliminandoCanal(false);
+    }
+  };
+
   const handleCrearCanal = async () => {
     const slug = nuevoCanalForm.nombre
       .trim()
@@ -738,7 +883,7 @@ export default function EspacioTrabajoSlack({
     if (!slug) return;
 
     const miembrosFinal = Array.from(
-      new Set([...(nuevoCanalForm.miembros || []), currentUserEmail])
+      new Set([...(nuevoCanalForm.miembros || []).map((m) => m.toLowerCase()), currentUserEmail])
     );
 
     await setDoc(doc(db, 'workspace_canales', slug), {
@@ -749,9 +894,18 @@ export default function EspacioTrabajoSlack({
       miembros: nuevoCanalForm.esPrivado ? miembrosFinal : [],
       orden: 50,
       creadoPor: currentUserEmail,
+      creadoPorNombre: currentUserName,
       creadoEn: serverTimestamp(),
       ultimoMensajeAt: serverTimestamp(),
       ultimoMensajeTexto: `Canal #${slug} creado por ${currentUserName}`
+    });
+
+    await registrarLogAuditoria({
+      accion: 'CREAR_CANAL_WORKSPACE',
+      modulo: 'Workspace',
+      detalles: `Canal #${slug} creado (${nuevoCanalForm.esPrivado ? `Privado para ${miembrosFinal.length} miembros` : 'Abierto'})`,
+      usuarioEmail: currentUserEmail,
+      usuarioNombre: currentUserName
     });
 
     setModalCanalOpen(false);
@@ -2127,6 +2281,9 @@ export default function EspacioTrabajoSlack({
             {canalesTematicos.map((canal) => {
               const activo = seccionActiva === 'chat' && canalActivo?.id === canal.id;
               const noLeido = tieneNoLeidos(canal);
+              const cantMiembros = Array.from(
+                new Set([...(canal.miembros || []), canal.creadoPor].filter(Boolean))
+              ).length;
               return (
                 <Box
                   key={canal.id}
@@ -2150,13 +2307,18 @@ export default function EspacioTrabajoSlack({
                     color: activo ? '#ffffff' : noLeido ? '#ffffff' : '#cbd5e1',
                     fontWeight: activo || noLeido ? 700 : 500,
                     '&:hover': {
-                      bgcolor: activo ? '#457B9D' : 'rgba(255,255,255,0.07)'
+                      bgcolor: activo ? '#457B9D' : 'rgba(255,255,255,0.07)',
+                      '& .canal-manage-icon': { opacity: 1 }
                     }
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
                     {canal.esPrivado ? (
-                      <Lock size={15} style={{ flexShrink: 0, opacity: 0.85 }} />
+                      <Tooltip title={`Canal privado (${cantMiembros} miembro${cantMiembros === 1 ? '' : 's'})`}>
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <Lock size={14} style={{ flexShrink: 0, color: '#fbbf24' }} />
+                        </Box>
+                      </Tooltip>
                     ) : (
                       <Hash size={15} style={{ flexShrink: 0, opacity: 0.85 }} />
                     )}
@@ -2169,7 +2331,23 @@ export default function EspacioTrabajoSlack({
                     </Typography>
                   </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                    {canal.esPrivado && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: '0.66rem',
+                          px: 0.5,
+                          py: 0.05,
+                          borderRadius: 1,
+                          bgcolor: 'rgba(251, 191, 36, 0.16)',
+                          color: '#fde68a',
+                          fontWeight: 700
+                        }}
+                      >
+                        {cantMiembros}
+                      </Typography>
+                    )}
                     {canal.meetActivo?.meetingUri && (
                       <Tooltip title={`Sala de Google Meet activa: ${canal.meetActivo.titulo || canal.meetActivo.meetingCode}`}>
                         <Box
@@ -2185,6 +2363,27 @@ export default function EspacioTrabajoSlack({
                         >
                           <Video size={11} />
                         </Box>
+                      </Tooltip>
+                    )}
+                    {(puedeGestionarCanal(canal) || puedeBorrarCanal(canal)) && (
+                      <Tooltip title="Gestionar miembros o eliminar canal">
+                        <IconButton
+                          size="small"
+                          className="canal-manage-icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            abrirModalGestionCanal(canal);
+                          }}
+                          sx={{
+                            p: 0.25,
+                            color: '#e2e8f0',
+                            opacity: { xs: 0.8, md: 0 },
+                            transition: 'opacity 0.15s',
+                            '&:hover': { color: '#ffffff', bgcolor: 'rgba(255,255,255,0.16)' }
+                          }}
+                        >
+                          <Settings size={13} />
+                        </IconButton>
                       </Tooltip>
                     )}
                     {noLeido && (
@@ -2423,23 +2622,63 @@ export default function EspacioTrabajoSlack({
               }}
             >
               <Box sx={{ overflow: 'hidden' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   {canalActivo?.tipo === 'dm' ? (
                     <Users size={18} color="#1D3557" />
                   ) : canalActivo?.esPrivado ? (
-                    <Lock size={18} color="#1D3557" />
+                    <Lock size={18} color="#b45309" />
                   ) : (
                     <Hash size={19} color="#1D3557" />
                   )}
                   <Typography variant="subtitle1" fontWeight="800" color="#1D3557" noWrap>
                     {obtenerTituloCanal(canalActivo)}
                   </Typography>
-                  {canalActivo?.tipo === 'dm' && (
+                  {canalActivo?.tipo === 'dm' ? (
                     <Chip
                       label="Mensaje Directo"
                       size="small"
                       sx={{ height: 20, fontSize: '0.68rem', bgcolor: '#f1f5f9', fontWeight: 600 }}
                     />
+                  ) : canalActivo?.esPrivado ? (
+                    <Tooltip title="Ver o editar los miembros autorizados en este canal privado">
+                      <Chip
+                        icon={<Lock size={11} />}
+                        label={`Privado • ${
+                          Array.from(
+                            new Set([...(canalActivo.miembros || []), canalActivo.creadoPor].filter(Boolean))
+                          ).length
+                        } miembro(s)`}
+                        size="small"
+                        onClick={() => abrirModalGestionCanal(canalActivo)}
+                        sx={{
+                          height: 21,
+                          fontSize: '0.68rem',
+                          bgcolor: '#fef3c7',
+                          color: '#92400e',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          '&:hover': { bgcolor: '#fde68a' }
+                        }}
+                      />
+                    </Tooltip>
+                  ) : (
+                    <Tooltip title="Canal abierto para todo el equipo. Haz clic para ver miembros o gestionar el canal.">
+                      <Chip
+                        icon={<Globe size={11} />}
+                        label="Abierto a todos"
+                        size="small"
+                        onClick={() => abrirModalGestionCanal(canalActivo)}
+                        sx={{
+                          height: 21,
+                          fontSize: '0.68rem',
+                          bgcolor: '#f1f5f9',
+                          color: '#475569',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          '&:hover': { bgcolor: '#e2e8f0' }
+                        }}
+                      />
+                    </Tooltip>
                   )}
                 </Box>
                 {canalActivo?.descripcion && (
@@ -2525,6 +2764,33 @@ export default function EspacioTrabajoSlack({
                     </Badge>
                   </IconButton>
                 </Tooltip>
+
+                {canalActivo?.tipo !== 'dm' && (
+                  <Tooltip title="Miembros, privacidad y opciones del canal">
+                    <IconButton
+                      size="small"
+                      onClick={() => abrirModalGestionCanal(canalActivo)}
+                      sx={{ color: '#475569' }}
+                    >
+                      <Settings size={17} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+
+                {puedeBorrarCanal(canalActivo) && (
+                  <Tooltip title={`Eliminar canal #${canalActivo?.nombre}`}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => {
+                        setCanalEnGestion(canalActivo);
+                        setConfirmDeleteCanalOpen(true);
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </IconButton>
+                  </Tooltip>
+                )}
 
                 {/* BOTÓN NATIVO GOOGLE MEET POR CANAL O MENSAJE DIRECTO */}
                 {canalActivo?.meetActivo?.meetingUri ? (
@@ -4215,14 +4481,49 @@ export default function EspacioTrabajoSlack({
       </Dialog>
 
       {/* ===================================================================== */}
-      {/* MODAL CREAR NUEVO CANAL                                               */}
+      {/* MODAL CREAR NUEVO CANAL (ABIERTO O PRIVADO POR MIEMBROS)              */}
       {/* ===================================================================== */}
-      <Dialog open={modalCanalOpen} onClose={() => setModalCanalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold', color: '#1D3557' }}>Crear Nuevo Canal</DialogTitle>
+      <Dialog
+        open={modalCanalOpen}
+        onClose={() => setModalCanalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 2,
+                bgcolor: 'rgba(29, 53, 87, 0.08)',
+                color: '#1D3557',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {nuevoCanalForm.esPrivado ? <Lock size={19} color="#b45309" /> : <Hash size={19} />}
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" fontWeight="800" color="#1D3557">
+                Crear Nuevo Canal
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Elige si será abierto a todo el equipo o cerrado solo para miembros específicos
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton size="small" onClick={() => setModalCanalOpen(false)}>
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             label="Nombre del canal"
-            placeholder="ej: caso-corte-idh"
+            placeholder="ej: caso-corte-idh, comision-tres-miembros"
             size="small"
             fullWidth
             value={nuevoCanalForm.nombre}
@@ -4238,44 +4539,133 @@ export default function EspacioTrabajoSlack({
             value={nuevoCanalForm.descripcion}
             onChange={(e) => setNuevoCanalForm((p) => ({ ...p, descripcion: e.target.value }))}
           />
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="body2" fontWeight="bold">
-                Canal Privado 🔒
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Solo visible para los miembros seleccionados
-              </Typography>
+
+          {/* SELECTOR VISUAL DE VISIBILIDAD: ABIERTO VS PRIVADO */}
+          <Box>
+            <Typography variant="caption" fontWeight="800" color="#1D3557" sx={{ display: 'block', mb: 0.75 }}>
+              TIPO DE ACCESO AL CANAL
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.25 }}>
+              <Paper
+                elevation={0}
+                onClick={() => setNuevoCanalForm((p) => ({ ...p, esPrivado: false }))}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  border: !nuevoCanalForm.esPrivado ? '2px solid #1D3557' : '1px solid #cbd5e1',
+                  bgcolor: !nuevoCanalForm.esPrivado ? 'rgba(29, 53, 87, 0.05)' : '#ffffff',
+                  transition: 'all 0.15s'
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  <Globe size={16} color="#1D3557" />
+                  <Typography variant="body2" fontWeight="800" color="#1D3557">
+                    Canal Abierto
+                  </Typography>
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.35 }}>
+                  Visible y accesible para todos los miembros autorizados del equipo IIRESODH.
+                </Typography>
+              </Paper>
+
+              <Paper
+                elevation={0}
+                onClick={() => setNuevoCanalForm((p) => ({ ...p, esPrivado: true }))}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  border: nuevoCanalForm.esPrivado ? '2px solid #b45309' : '1px solid #cbd5e1',
+                  bgcolor: nuevoCanalForm.esPrivado ? '#fffbeb' : '#ffffff',
+                  transition: 'all 0.15s'
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  <Lock size={16} color="#b45309" />
+                  <Typography variant="body2" fontWeight="800" color="#92400e">
+                    Privado (Por miembros)
+                  </Typography>
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.35 }}>
+                  Solo para las personas que elijas (ej. 3 miembros). Nadie más lo verá en sus canales.
+                </Typography>
+              </Paper>
             </Box>
-            <Switch
-              checked={nuevoCanalForm.esPrivado}
-              onChange={(e) => setNuevoCanalForm((p) => ({ ...p, esPrivado: e.target.checked }))}
-            />
           </Box>
 
           {nuevoCanalForm.esPrivado && (
-            <FormControl size="small" fullWidth>
-              <InputLabel>Miembros con acceso</InputLabel>
-              <Select
-                multiple
-                value={nuevoCanalForm.miembros}
-                onChange={(e) =>
-                  setNuevoCanalForm((p) => ({
-                    ...p,
-                    miembros: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
-                  }))
-                }
-                input={<OutlinedInput label="Miembros con acceso" />}
-                renderValue={(sel) => `${sel.length} seleccionado(s)`}
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" fontWeight="800" color="#1D3557">
+                  SELECCIONA A LOS INTEGRANTES DEL CANAL PRIVADO
+                </Typography>
+                <Chip
+                  label={`Total en el canal: ${
+                    Array.from(new Set([...nuevoCanalForm.miembros, currentUserEmail])).length
+                  } miembro(s)`}
+                  size="small"
+                  sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700, bgcolor: '#fef3c7', color: '#92400e' }}
+                />
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                Tú (<strong>{currentUserName}</strong>) quedas incluido automáticamente como creador. Marca a los demás colegas que formarán parte del canal:
+              </Typography>
+
+              <Box
+                sx={{
+                  maxHeight: 200,
+                  overflowY: 'auto',
+                  bgcolor: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 1.5,
+                  divideY: '1px solid #f1f5f9'
+                }}
               >
-                {usuariosEquipo.map((u) => (
-                  <MenuItem key={u.email} value={u.email}>
-                    <Checkbox checked={nuevoCanalForm.miembros.includes(u.email)} size="small" />
-                    <ListItemText primary={u.nombre} secondary={u.email} />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                {usuariosEquipo
+                  .filter((u) => u.email.toLowerCase() !== currentUserEmail)
+                  .map((u) => {
+                    const emailLow = u.email.toLowerCase();
+                    const checked = nuevoCanalForm.miembros.includes(emailLow);
+                    return (
+                      <MenuItem
+                        key={emailLow}
+                        dense
+                        onClick={() => {
+                          setNuevoCanalForm((p) => {
+                            const existe = p.miembros.includes(emailLow);
+                            return {
+                              ...p,
+                              miembros: existe
+                                ? p.miembros.filter((m) => m !== emailLow)
+                                : [...p.miembros, emailLow]
+                            };
+                          });
+                        }}
+                        sx={{ py: 0.5 }}
+                      >
+                        <Checkbox checked={checked} size="small" sx={{ py: 0.25 }} />
+                        <ListItemText
+                          primary={u.nombre}
+                          secondary={`${u.email} • ${u.rol}`}
+                          primaryTypographyProps={{ fontSize: '0.82rem', fontWeight: checked ? 700 : 500 }}
+                          secondaryTypographyProps={{ fontSize: '0.7rem' }}
+                        />
+                      </MenuItem>
+                    );
+                  })}
+              </Box>
+            </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
@@ -4286,9 +4676,295 @@ export default function EspacioTrabajoSlack({
             variant="contained"
             onClick={handleCrearCanal}
             disabled={!nuevoCanalForm.nombre.trim()}
-            sx={{ textTransform: 'none', bgcolor: '#1D3557', fontWeight: 'bold' }}
+            sx={{ textTransform: 'none', bgcolor: '#1D3557', fontWeight: 'bold', borderRadius: 2 }}
           >
-            Crear Canal
+            {nuevoCanalForm.esPrivado ? 'Crear Canal Privado 🔒' : 'Crear Canal Abierto'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ===================================================================== */}
+      {/* MODAL GESTIONAR CANAL, MIEMBROS Y PRIVACIDAD                          */}
+      {/* ===================================================================== */}
+      <Dialog
+        open={modalGestionCanalOpen && Boolean(canalEnGestion)}
+        onClose={() => setModalGestionCanalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        {canalEnGestion && (() => {
+          const puedeEditar = puedeGestionarCanal(canalEnGestion);
+          const puedeEliminar = puedeBorrarCanal(canalEnGestion);
+          const totalMiembrosPrivados = Array.from(
+            new Set([
+              ...(editCanalForm.miembros || []),
+              (canalEnGestion.creadoPor || currentUserEmail).toLowerCase()
+            ].filter(Boolean))
+          );
+
+          return (
+            <>
+              <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 2,
+                      bgcolor: editCanalForm.esPrivado ? '#fef3c7' : 'rgba(29, 53, 87, 0.08)',
+                      color: editCanalForm.esPrivado ? '#b45309' : '#1D3557',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {editCanalForm.esPrivado ? <Lock size={18} /> : <Hash size={18} />}
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="800" color="#1D3557">
+                      Canal #{canalEnGestion.nombre}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {puedeEditar
+                        ? 'Configuración de acceso, miembros autorizados y administración del canal'
+                        : 'Información y miembros con acceso a este canal'}
+                    </Typography>
+                  </Box>
+                </Box>
+                <IconButton size="small" onClick={() => setModalGestionCanalOpen(false)}>
+                  <X size={18} />
+                </IconButton>
+              </DialogTitle>
+
+              <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  label="Descripción o propósito del canal"
+                  size="small"
+                  fullWidth
+                  multiline
+                  rows={2}
+                  disabled={!puedeEditar}
+                  value={editCanalForm.descripcion}
+                  onChange={(e) => setEditCanalForm((p) => ({ ...p, descripcion: e.target.value }))}
+                />
+
+                {/* VISIBILIDAD DEL CANAL */}
+                {puedeEditar && canalEnGestion.id !== 'general' ? (
+                  <Box>
+                    <Typography variant="caption" fontWeight="800" color="#1D3557" sx={{ display: 'block', mb: 0.75 }}>
+                      PRIVACIDAD DEL CANAL
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.25 }}>
+                      <Paper
+                        elevation={0}
+                        onClick={() => setEditCanalForm((p) => ({ ...p, esPrivado: false }))}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 2,
+                          cursor: 'pointer',
+                          border: !editCanalForm.esPrivado ? '2px solid #1D3557' : '1px solid #cbd5e1',
+                          bgcolor: !editCanalForm.esPrivado ? 'rgba(29, 53, 87, 0.05)' : '#ffffff'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Globe size={15} color="#1D3557" />
+                          <Typography variant="body2" fontWeight="800" color="#1D3557">
+                            Abierto a todos
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Todo el equipo puede verlo y participar.
+                        </Typography>
+                      </Paper>
+
+                      <Paper
+                        elevation={0}
+                        onClick={() => setEditCanalForm((p) => ({ ...p, esPrivado: true }))}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 2,
+                          cursor: 'pointer',
+                          border: editCanalForm.esPrivado ? '2px solid #b45309' : '1px solid #cbd5e1',
+                          bgcolor: editCanalForm.esPrivado ? '#fffbeb' : '#ffffff'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Lock size={15} color="#b45309" />
+                          <Typography variant="body2" fontWeight="800" color="#92400e">
+                            Privado (Solo miembros)
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Solo accesible para los miembros seleccionados.
+                        </Typography>
+                      </Paper>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Alert severity={editCanalForm.esPrivado ? 'warning' : 'info'} sx={{ py: 0.5 }}>
+                    {editCanalForm.esPrivado
+                      ? `Este es un canal privado cerrado para ${totalMiembrosPrivados.length} miembro(s).`
+                      : 'Este canal está abierto para todos los miembros autorizados del Instituto.'}
+                  </Alert>
+                )}
+
+                {/* LISTA DE MIEMBROS SI ES PRIVADO */}
+                {editCanalForm.esPrivado && (
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="caption" fontWeight="800" color="#1D3557">
+                        MIEMBROS CON ACCESO A ESTE CANAL ({totalMiembrosPrivados.length})
+                      </Typography>
+                      <Chip
+                        label={`${totalMiembrosPrivados.length} integrante(s)`}
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700, bgcolor: '#fef3c7', color: '#92400e' }}
+                      />
+                    </Box>
+
+                    <Box
+                      sx={{
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                        bgcolor: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: 1.5
+                      }}
+                    >
+                      {usuariosEquipo.map((u) => {
+                        const emailLow = u.email.toLowerCase();
+                        const esCreador = emailLow === (canalEnGestion.creadoPor || '').toLowerCase();
+                        const checked = totalMiembrosPrivados.includes(emailLow);
+                        if (!puedeEditar && !checked) return null;
+
+                        return (
+                          <MenuItem
+                            key={emailLow}
+                            dense
+                            disabled={!puedeEditar || esCreador}
+                            onClick={() => {
+                              if (!puedeEditar || esCreador) return;
+                              setEditCanalForm((p) => {
+                                const existe = p.miembros.includes(emailLow);
+                                return {
+                                  ...p,
+                                  miembros: existe
+                                    ? p.miembros.filter((m) => m !== emailLow)
+                                    : [...p.miembros, emailLow]
+                                };
+                              });
+                            }}
+                            sx={{ py: 0.5 }}
+                          >
+                            {puedeEditar && <Checkbox checked={checked} disabled={esCreador} size="small" sx={{ py: 0.25 }} />}
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                  <span>{u.nombre}</span>
+                                  {esCreador && (
+                                    <Chip
+                                      label="Creador"
+                                      size="small"
+                                      sx={{ height: 17, fontSize: '0.62rem', fontWeight: 700 }}
+                                    />
+                                  )}
+                                </Box>
+                              }
+                              secondary={`${u.email} • ${u.rol}`}
+                              primaryTypographyProps={{ fontSize: '0.82rem', fontWeight: checked ? 700 : 500 }}
+                              secondaryTypographyProps={{ fontSize: '0.7rem' }}
+                            />
+                          </MenuItem>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                )}
+              </DialogContent>
+
+              <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+                <Box>
+                  {puedeEliminar && (
+                    <Button
+                      color="error"
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Trash2 size={15} />}
+                      onClick={() => setConfirmDeleteCanalOpen(true)}
+                      sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                    >
+                      Eliminar canal
+                    </Button>
+                  )}
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button onClick={() => setModalGestionCanalOpen(false)} sx={{ textTransform: 'none' }}>
+                    Cerrar
+                  </Button>
+                  {puedeEditar && (
+                    <Button
+                      variant="contained"
+                      disabled={guardandoGestionCanal}
+                      onClick={handleGuardarGestionCanal}
+                      sx={{ textTransform: 'none', bgcolor: '#1D3557', fontWeight: 700, borderRadius: 2 }}
+                    >
+                      {guardandoGestionCanal ? 'Guardando...' : 'Guardar Cambios'}
+                    </Button>
+                  )}
+                </Box>
+              </DialogActions>
+            </>
+          );
+        })()}
+      </Dialog>
+
+      {/* ===================================================================== */}
+      {/* MODAL CONFIRMAR ELIMINACIÓN PERMANENTE DE CANAL                       */}
+      {/* ===================================================================== */}
+      <Dialog
+        open={confirmDeleteCanalOpen && Boolean(canalEnGestion)}
+        onClose={() => !eliminandoCanal && setConfirmDeleteCanalOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#B92F32', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Trash2 size={20} /> ¿Eliminar canal #{canalEnGestion?.nombre}?
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.55 }}>
+            Estás a punto de eliminar permanentemente el canal{' '}
+            <strong>#{canalEnGestion?.nombre}</strong> y todo su historial de mensajes. Esta acción no se puede deshacer.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setConfirmDeleteCanalOpen(false)}
+            disabled={eliminandoCanal}
+            sx={{ textTransform: 'none' }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={eliminandoCanal}
+            startIcon={eliminandoCanal ? <CircularProgress size={15} color="inherit" /> : <Trash2 size={15} />}
+            onClick={handleConfirmarEliminarCanal}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            {eliminandoCanal ? 'Eliminando...' : 'Sí, eliminar canal'}
           </Button>
         </DialogActions>
       </Dialog>

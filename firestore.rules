@@ -119,7 +119,7 @@ service cloud.firestore {
     // =================================================================
     match /workspace_canales/{canalId} {
       allow read, create, update: if isAuthorized();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (isAuthorized() && resource.data.esPrivado == true && resource.data.creadoPor == request.auth.token.email);
 
       match /mensajes/{mensajeId} {
         allow read, create, update, delete: if isAuthorized();
