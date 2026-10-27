@@ -103,6 +103,39 @@ export const CATEGORIAS_DOCUMENTOS_PROCESALES = [
   'Anexo Probatorio'
 ];
 
+const GUIA_ETAPAS_PROCESALES = {
+  '1. Preparación y Recolección': {
+    objetivo: 'Consolidación del padrón de víctimas (Art. 35 Corte IDH), recolección de poderes e identificaciones, sistematización probatoria y agotamiento de recursos internos.',
+    entregables: ['Poderes de representación firmados', 'Copias de documentos de identidad', 'Prueba documental de agotamiento de vía interna', 'Borrador de Petición Inicial / Demanda'],
+    promptIA: 'Evalúa si el expediente cuenta con los elementos necesarios en la Etapa 1 (Preparación y Recolección) y sugiere una lista de verificación de pruebas, poderes (Art. 35) y requisitos de admisibilidad antes de presentar la petición.'
+  },
+  '2. Presentación / Admisibilidad': {
+    objetivo: 'Examen de admisibilidad (Arts. 46 y 47 CADH / Protocolos Facultativos ONU): competencia, agotamiento de recursos internos o excepciones (Art. 46.2), plazo de 6 meses y caracterización preliminar.',
+    entregables: ['Cargo de presentación oficial', 'Observaciones sobre admisibilidad', 'Solicitud de trámite prioritario (Art. 29.2 Reglamento CIDH si aplica)'],
+    promptIA: 'Formula la estrategia jurídica para superar la Etapa 2 (Admisibilidad) de este caso, blindando el cumplimiento de los artículos 46 y 47 de la CADH y rebatiendo posibles excepciones preliminares del Estado.'
+  },
+  '3. Observaciones y Fondo': {
+    objetivo: 'Sustanciación del fondo de la controversia: presentación del Escrito de Solicitudes, Argumentos y Pruebas (ESAP) o alegatos de fondo sobre responsabilidad internacional del Estado.',
+    entregables: ['Escrito de Observaciones de Fondo / ESAP', 'Ofrecimiento de prueba pericial y declarantes', 'Anexos probatorios numerados correlativamente'],
+    promptIA: 'Desarrolla la estructura argumentativa de Fondo (Etapa 3) y del Escrito de Solicitudes, Argumentos y Pruebas (ESAP), detallando las violaciones convencionales y los estándares aplicables.'
+  },
+  '4. Audiencia / Alegatos Finales': {
+    objetivo: 'Comparecencia en audiencia pública o privada ante el órgano internacional, interrogatorio de declarantes/peritos y presentación de alegatos finales escritos.',
+    entregables: ['Guion de interrogatorio a víctimas y peritos', 'Alegatos orales de apertura y cierre', 'Escrito de Alegatos Finales y Costas'],
+    promptIA: 'Prepara el guion estratégico para Audiencia Pública y el esquema de Alegatos Finales Escritos (Etapa 4), incluyendo preguntas clave para víctimas/peritos y réplica al Estado.'
+  },
+  '5. Sentencia / Informe de Fondo': {
+    objetivo: 'Notificación, análisis e interpretación del Informe de Fondo (Art. 50 CADH) o Sentencia definitiva de la Corte / Comité Internacional.',
+    entregables: ['Análisis ejecutivo de puntos resolutivos', 'Circular explicativa en lenguaje claro para víctimas', 'Cálculo de plazos de cumplimiento ordenados al Estado'],
+    promptIA: 'Analiza las implicaciones procesales de la Etapa 5 (Sentencia / Informe de Fondo) para este caso y redacta los puntos clave que deben verificarse respecto de las obligaciones declaradas al Estado.'
+  },
+  '6. Supervisión y Reparaciones': {
+    objetivo: 'Seguimiento del cumplimiento efectivo de las medidas de reparación integral (Art. 63.1 CADH): indemnizaciones, restitución, rehabilitación, satisfacción y garantías de no repetición.',
+    entregables: ['Observaciones a los informes estatales de cumplimiento', 'Comprobantes de pago de indemnizaciones y costas', 'Solicitud de audiencia de supervisión'],
+    promptIA: 'Diseña una matriz de Supervisión de Cumplimiento de Sentencia y Reparaciones (Etapa 6) según el Art. 63.1 CADH para exigir al Estado el cumplimiento efectivo de cada medida.'
+  }
+};
+
 const DOC_TYPES = [
   'Cédula de Identidad', 
   'DNI', 
@@ -443,10 +476,19 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [tieneIdInput, setTieneIdInput] = useState(false);
   const [autocompletandoOcrCliente, setAutocompletandoOcrCliente] = useState(false);
 
-  // Etapa procesal interactiva (Pilar 1)
+  // Etapa procesal interactiva + Historial de Hitos por Etapa (Pilar 1)
   const [etapaActualCaso, setEtapaActualCaso] = useState(
     caso.etapa_procesal || '1. Preparación y Recolección'
   );
+  const [historialEtapas, setHistorialEtapas] = useState(caso.historial_etapas || {});
+  const [etapaInspeccionada, setEtapaInspeccionada] = useState(
+    caso.etapa_procesal || '1. Preparación y Recolección'
+  );
+  const [mostrarDetalleEtapa, setMostrarDetalleEtapa] = useState(true);
+  const [hitoFechaInput, setHitoFechaInput] = useState('');
+  const [hitoResolucionInput, setHitoResolucionInput] = useState('');
+  const [hitoResumenInput, setHitoResumenInput] = useState('');
+  const [guardandoHitoEtapa, setGuardandoHitoEtapa] = useState(false);
 
   // Estados para padrón Art. 35 y Auditoría IA (Pilar 2 & 6)
   const [filtroAcreditacion, setFiltroAcreditacion] = useState('Todos');
@@ -569,17 +611,52 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
   useEffect(() => {
     setLocalPlazos(caso.plazos || []);
-    setEtapaActualCaso(caso.etapa_procesal || '1. Preparación y Recolección');
+    const etapaInit = caso.etapa_procesal || '1. Preparación y Recolección';
+    const histInit = caso.historial_etapas || {};
+    setEtapaActualCaso(etapaInit);
+    setHistorialEtapas(histInit);
+    setEtapaInspeccionada(etapaInit);
+    const infoEtapa = histInit[etapaInit] || {};
+    setHitoFechaInput(infoEtapa.fecha_hito || new Date().toISOString().split('T')[0]);
+    setHitoResolucionInput(infoEtapa.resolucion_referencia || '');
+    setHitoResumenInput(infoEtapa.observaciones || '');
     fetchClientes();
     fetchDocsComunes();
     fetchComunicados();
-  }, [caso.id, caso.plazos, caso.etapa_procesal]);
+  }, [caso.id, caso.plazos, caso.etapa_procesal, caso.historial_etapas]);
 
-  const handleCambiarEtapaProcesal = async (nuevaEtapa) => {
+  const handleSeleccionarEtapaInspeccion = (etapa) => {
+    setEtapaInspeccionada(etapa);
+    setMostrarDetalleEtapa(true);
+    const info = historialEtapas[etapa] || {};
+    setHitoFechaInput(info.fecha_hito || new Date().toISOString().split('T')[0]);
+    setHitoResolucionInput(info.resolucion_referencia || '');
+    setHitoResumenInput(info.observaciones || '');
+  };
+
+  const handleCambiarEtapaProcesal = async (nuevaEtapa, guardarHitoTambien = false) => {
+    setGuardandoHitoEtapa(true);
     try {
+      const nuevoHistorial = {
+        ...historialEtapas,
+        [nuevaEtapa]: {
+          fecha_hito: hitoFechaInput || historialEtapas[nuevaEtapa]?.fecha_hito || new Date().toISOString().split('T')[0],
+          resolucion_referencia: guardarHitoTambien
+            ? hitoResolucionInput.trim()
+            : (historialEtapas[nuevaEtapa]?.resolucion_referencia || ''),
+          observaciones: guardarHitoTambien
+            ? hitoResumenInput.trim()
+            : (historialEtapas[nuevaEtapa]?.observaciones || `Etapa activada por ${currentUserEmail}`),
+          actualizado_por: currentUserEmail,
+          actualizado_at: new Date().toISOString()
+        }
+      };
       setEtapaActualCaso(nuevaEtapa);
+      setEtapaInspeccionada(nuevaEtapa);
+      setHistorialEtapas(nuevoHistorial);
       await updateDoc(doc(db, 'casos', caso.id), {
-        etapa_procesal: nuevaEtapa
+        etapa_procesal: nuevaEtapa,
+        historial_etapas: nuevoHistorial
       });
       await registrarLogAuditoria(
         currentUserEmail,
@@ -588,6 +665,32 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       );
     } catch (err) {
       setError('No se pudo actualizar la etapa procesal.');
+    } finally {
+      setGuardandoHitoEtapa(false);
+    }
+  };
+
+  const handleGuardarHitoEtapa = async (etapaObjetivo) => {
+    setGuardandoHitoEtapa(true);
+    try {
+      const nuevoHistorial = {
+        ...historialEtapas,
+        [etapaObjetivo]: {
+          fecha_hito: hitoFechaInput || new Date().toISOString().split('T')[0],
+          resolucion_referencia: hitoResolucionInput.trim(),
+          observaciones: hitoResumenInput.trim(),
+          actualizado_por: currentUserEmail,
+          actualizado_at: new Date().toISOString()
+        }
+      };
+      setHistorialEtapas(nuevoHistorial);
+      await updateDoc(doc(db, 'casos', caso.id), {
+        historial_etapas: nuevoHistorial
+      });
+    } catch (err) {
+      setError('No se pudo guardar el hito de la etapa procesal.');
+    } finally {
+      setGuardandoHitoEtapa(false);
     }
   };
 
@@ -1565,30 +1668,197 @@ ${promptBase.trim()}`;
 
         <Divider sx={{ my: 1.5 }} />
 
-        {/* Pipeline Procesal Interactivo */}
+        {/* Pipeline Procesal Interactivo con Historial de Hitos y Guía Internacional */}
         <Box>
-          <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}>
-            Línea de Tiempo / Etapa Procesal Actual (Haz clic para actualizar etapa):
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+            <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+              Línea de Tiempo Procesal (Haz clic en cualquier etapa para ver su hito, guía o activarla):
+            </Typography>
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => setMostrarDetalleEtapa((prev) => !prev)}
+              sx={{ textTransform: 'none', fontWeight: 'bold', fontSize: '0.75rem', p: 0 }}
+            >
+              {mostrarDetalleEtapa ? 'Ocultar detalle de etapa ▲' : 'Mostrar detalle de etapa ▼'}
+            </Button>
+          </Box>
+
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {ETAPAS_PROCESALES_LITIGIO.map((etapa) => {
+            {ETAPAS_PROCESALES_LITIGIO.map((etapa, idx) => {
+              const idxActual = ETAPAS_PROCESALES_LITIGIO.indexOf(etapaActualCaso);
               const activa = etapaActualCaso === etapa;
+              const completada = idx < idxActual;
+              const inspeccionada = etapaInspeccionada === etapa;
+              const infoHito = historialEtapas[etapa];
+              const etiquetaChip = infoHito?.fecha_hito
+                ? `${completada ? '✓ ' : activa ? '● ' : ''}${etapa} (${infoHito.fecha_hito})`
+                : `${completada ? '✓ ' : activa ? '● ' : ''}${etapa}`;
+
               return (
                 <Chip
                   key={etapa}
-                  label={etapa}
+                  label={etiquetaChip}
                   size="small"
-                  color={activa ? 'primary' : 'default'}
-                  variant={activa ? 'filled' : 'outlined'}
-                  onClick={() => handleCambiarEtapaProcesal(etapa)}
+                  color={activa ? 'primary' : completada ? 'success' : 'default'}
+                  variant={activa || completada ? 'filled' : 'outlined'}
+                  onClick={() => handleSeleccionarEtapaInspeccion(etapa)}
                   sx={{
-                    fontWeight: activa ? 'bold' : 'medium',
-                    cursor: 'pointer'
+                    fontWeight: activa || inspeccionada ? 'bold' : 'medium',
+                    cursor: 'pointer',
+                    border: inspeccionada ? '2px solid #4f46e5' : undefined,
+                    boxShadow: inspeccionada ? '0 0 0 2px rgba(79,70,229,0.2)' : 'none'
                   }}
                 />
               );
             })}
           </Box>
+
+          <Collapse in={mostrarDetalleEtapa}>
+            {(() => {
+              const guia = GUIA_ETAPAS_PROCESALES[etapaInspeccionada] || GUIA_ETAPAS_PROCESALES['1. Preparación y Recolección'];
+              const idxInsp = ETAPAS_PROCESALES_LITIGIO.indexOf(etapaInspeccionada);
+              const idxAct = ETAPAS_PROCESALES_LITIGIO.indexOf(etapaActualCaso);
+              const esEtapaActual = etapaInspeccionada === etapaActualCaso;
+              const esEtapaCompletada = idxInsp < idxAct;
+              const infoGuardada = historialEtapas[etapaInspeccionada];
+
+              return (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    mt: 2,
+                    p: 2,
+                    borderRadius: 2.5,
+                    bgcolor: esEtapaActual ? '#f8fafc' : esEtapaCompletada ? '#f0fdf4' : '#fafafa',
+                    borderColor: esEtapaActual ? '#93c5fd' : esEtapaCompletada ? '#86efac' : '#e2e8f0'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      <Typography variant="subtitle2" fontWeight="bold" color="primary.main">
+                        {etapaInspeccionada}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label={
+                          esEtapaActual
+                            ? '● Etapa Actual en Curso'
+                            : esEtapaCompletada
+                            ? '✓ Etapa Superada / Completada'
+                            : '○ Etapa Futura / Proyectada'
+                        }
+                        color={esEtapaActual ? 'primary' : esEtapaCompletada ? 'success' : 'default'}
+                        sx={{ fontWeight: 'bold', height: 22, fontSize: '0.7rem' }}
+                      />
+                      {infoGuardada?.resolucion_referencia && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`Ref: ${infoGuardada.resolucion_referencia}`}
+                          sx={{ fontWeight: 'bold', height: 22, fontSize: '0.7rem', bgcolor: '#ffffff' }}
+                        />
+                      )}
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {!esEtapaActual && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          disabled={guardandoHitoEtapa}
+                          onClick={() => handleCambiarEtapaProcesal(etapaInspeccionada, true)}
+                          sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                        >
+                          Establecer como Etapa Actual del Caso
+                        </Button>
+                      )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={<Sparkles size={14} />}
+                        onClick={() => {
+                          setActiveTab(5);
+                          setConsultaCopilotoIA(guia.promptIA);
+                          handleEjecutarCopilotoIA(guia.promptIA);
+                        }}
+                        sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                      >
+                        Generar Estrategia IA de esta Etapa
+                      </Button>
+                    </Box>
+                  </Box>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                    <strong>Objetivo procesal internacional:</strong> {guia.objetivo}
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
+                    {guia.entregables.map((ent) => (
+                      <Chip
+                        key={ent}
+                        size="small"
+                        label={`• ${ent}`}
+                        sx={{ bgcolor: '#ffffff', border: '1px solid #cbd5e1', fontSize: '0.72rem' }}
+                      />
+                    ))}
+                  </Box>
+
+                  <Grid container spacing={1.5} alignItems="center">
+                    <Grid item xs={12} sm={3}>
+                      <TextField
+                        label="Fecha de Inicio / Hito"
+                        type="date"
+                        size="small"
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        value={hitoFechaInput}
+                        onChange={(e) => setHitoFechaInput(e.target.value)}
+                        sx={{ bgcolor: '#ffffff' }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        label="Resolución / Escrito de Referencia"
+                        size="small"
+                        fullWidth
+                        placeholder="Ej: Informe Admisibilidad No. 48/26 o ESAP"
+                        value={hitoResolucionInput}
+                        onChange={(e) => setHitoResolucionInput(e.target.value)}
+                        sx={{ bgcolor: '#ffffff' }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                      <TextField
+                        label="Resumen / Observación de la Etapa"
+                        size="small"
+                        fullWidth
+                        placeholder="Nota ejecutiva del avance..."
+                        value={hitoResumenInput}
+                        onChange={(e) => setHitoResumenInput(e.target.value)}
+                        sx={{ bgcolor: '#ffffff' }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={2}>
+                      <Button
+                        fullWidth
+                        size="small"
+                        variant="contained"
+                        color="success"
+                        disabled={guardandoHitoEtapa}
+                        onClick={() => handleGuardarHitoEtapa(etapaInspeccionada)}
+                        sx={{ textTransform: 'none', fontWeight: 'bold', py: 1 }}
+                      >
+                        {guardandoHitoEtapa ? 'Guardando...' : 'Guardar Hito'}
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              );
+            })()}
+          </Collapse>
         </Box>
       </Paper>
 
