@@ -76,7 +76,9 @@ const DOC_TYPES = [
 
 export const CALIDADES_PROCESALES = [
   'Víctima Directa / Representado Principal',
+  'Víctima Directa',
   'Familiar / Derechohabiente',
+  'Peticionario / Denunciante',
   'Sucesor Procesal',
   'Testigo / Perito'
 ];
@@ -84,9 +86,13 @@ export const CALIDADES_PROCESALES = [
 export const CONDICIONES_VULNERABILIDAD = [
   'Ninguna',
   'Adulto Mayor',
+  'Persona Adulta Mayor',
   'Discapacidad',
+  'Persona con Discapacidad',
   'Pueblo Indígena / Afrodescendiente',
   'Jefa de Hogar',
+  'Mujer Jefa de Hogar',
+  'Defensor/a de DDHH',
   'Salud Crítica',
   'NNA (Niñez y Adolescencia)'
 ];
@@ -511,24 +517,88 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
         setUploading(false);
       },
       async () => {
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        const refDocs = collection(db, 'casos', casoId, 'clientes', clienteId, 'documentos');
-        await addDoc(refDocs, {
-          nombre: file.name,
-          url: downloadURL,
-          storage_path: storagePath,
-          tipo: file.type || '',
-          fecha_subida: new Date().toISOString()
-        });
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-        await registrarLogAuditoria(
-          currentUserEmail,
-          'Carga de Poder/Doc',
-          `Se cargó el archivo individual "${file.name}" en el expediente de: ${apellidos}, ${nombres}`
-        );
+          // Verificación automática con IA (Gemini 3.8 Flash) al subir el archivo
+          let analisisIA = null;
+          let categoriaDetectada = '';
+          let observacionesIA = '';
+          try {
+            analisisIA = await extraerDatosIdentificacionIA({
+              file,
+              nombreArchivo: file.name
+            });
+            categoriaDetectada = analisisIA?.tipo_documento_detectado || '';
+            observacionesIA = analisisIA?.observaciones_verificacion || '';
+          } catch (iaErr) {
+            console.warn('No se pudo ejecutar la verificación automática IA al subir:', iaErr);
+          }
 
-        setUploading(false);
-        setSuccess('Archivo enlazado con éxito.');
+          const refDocs = collection(db, 'casos', casoId, 'clientes', clienteId, 'documentos');
+          await addDoc(refDocs, {
+            nombre: file.name,
+            url: downloadURL,
+            storage_path: storagePath,
+            tipo: file.type || '',
+            categoria_ia: categoriaDetectada,
+            observaciones_ia: observacionesIA,
+            verificado_ia: Boolean(analisisIA),
+            fecha_subida: new Date().toISOString()
+          });
+
+          // Actualizar automáticamente el Semáforo Art. 35 según lo que la IA haya verificado
+          if (analisisIA) {
+            const updates = {};
+            const tipoLower = (categoriaDetectada || '').toLowerCase();
+            const nombreLower = file.name.toLowerCase();
+
+            if (analisisIA.es_poder_firmado || tipoLower.includes('poder') || nombreLower.includes('poder')) {
+              updates.tiene_poder = true;
+            }
+            if (
+              (analisisIA.es_identificacion_legible && tipoLower.includes('identifica')) ||
+              nombreLower.includes('cedula') ||
+              nombreLower.includes('cédula') ||
+              nombreLower.includes('pasaporte')
+            ) {
+              updates.tiene_documento_id = true;
+            }
+            if (
+              analisisIA.es_prueba_dano ||
+              tipoLower.includes('prueba') ||
+              nombreLower.includes('dano') ||
+              nombreLower.includes('daño') ||
+              nombreLower.includes('declaracion')
+            ) {
+              updates.tiene_prueba_dano = true;
+            }
+            if (analisisIA.identificacion && !identificacion) {
+              updates.identificacion = analisisIA.identificacion;
+            }
+
+            if (Object.keys(updates).length > 0) {
+              await updateDoc(clienteRef, updates);
+            }
+            setResultadoDocIA({ ...analisisIA, docNombre: file.name, aplicadoAutomaticamente: true });
+          }
+
+          await registrarLogAuditoria(
+            currentUserEmail,
+            'Carga de Poder/Doc',
+            `Se cargó y verificó con IA el archivo "${file.name}" (${categoriaDetectada || 'Documento'}) en el expediente de: ${apellidos}, ${nombres}`
+          );
+
+          setUploading(false);
+          setSuccess(
+            analisisIA
+              ? `Archivo subido y verificado automáticamente por IA (${categoriaDetectada}): se actualizó el Semáforo Art. 35.`
+              : 'Archivo enlazado con éxito.'
+          );
+        } catch (err) {
+          setError('Error al registrar el archivo subido.');
+          setUploading(false);
+        }
       }
     );
   };
@@ -1227,43 +1297,83 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             <Divider sx={{ my: 1.5 }} />
 
             <List>
-              {documentos.map((d) => (
-                <ListItem key={d.id} disablePadding sx={{ mb: 1, display: 'flex', gap: 0.75, alignItems: 'center' }}>
-                  <Button
-                    component="a"
-                    href={d.url}
-                    target="_blank"
-                    variant="text"
-                    color="inherit"
-                    startIcon={<File size={16} />}
-                    sx={{ flexGrow: 1, justifyContent: 'flex-start', p: 1, bgcolor: '#f8fafc', borderRadius: 1.5, overflow: 'hidden' }}
+              {documentos.length === 0 ? (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', py: 1 }}>
+                  Al subir un Poder, Cédula o Prueba de Daño aquí, <strong>Gemini 3.8 Flash</strong> lo verifica automáticamente y activa en verde el requisito correspondiente del Semáforo Art. 35.
+                </Typography>
+              ) : (
+                documentos.map((d) => (
+                  <ListItem
+                    key={d.id}
+                    disablePadding
+                    sx={{
+                      mb: 1,
+                      p: 1,
+                      bgcolor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      gap: 0.5
+                    }}
                   >
-                    <ListItemText
-                      primary={d.nombre}
-                      secondary={d.fecha_subida ? new Date(d.fecha_subida).toLocaleDateString() : ''}
-                      primaryTypographyProps={{ noWrap: true, fontSize: '0.82rem', fontWeight: 'medium' }}
-                    />
-                  </Button>
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    disabled={verificandoDocIAId === d.id}
-                    onClick={() => handleVerificarDocIA(d)}
-                    title="Verificar Poder / Cédula con IA (OCR Gemini 3.8 Flash)"
-                    sx={{ border: '1px solid #e0e7ff', bgcolor: '#eef2ff' }}
-                  >
-                    {verificandoDocIAId === d.id ? <CircularProgress size={14} /> : <Sparkles size={15} />}
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDeleteFile(d.id, d.storage_path)}
-                    sx={{ border: '1px solid #fee2e2', bgcolor: '#fef2f2' }}
-                  >
-                    <Trash2 size={15} />
-                  </IconButton>
-                </ListItem>
-              ))}
+                    <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', width: '100%' }}>
+                      <Button
+                        component="a"
+                        href={d.url}
+                        target="_blank"
+                        variant="text"
+                        color="inherit"
+                        startIcon={<File size={16} />}
+                        sx={{ flexGrow: 1, justifyContent: 'flex-start', p: 0.5, overflow: 'hidden', textTransform: 'none' }}
+                      >
+                        <ListItemText
+                          primary={d.nombre}
+                          secondary={d.fecha_subida ? new Date(d.fecha_subida).toLocaleDateString() : ''}
+                          primaryTypographyProps={{ noWrap: true, fontSize: '0.82rem', fontWeight: 'bold' }}
+                        />
+                      </Button>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        disabled={verificandoDocIAId === d.id}
+                        onClick={() => handleVerificarDocIA(d)}
+                        title="Re-verificar documento con IA (OCR Gemini 3.8 Flash)"
+                        sx={{ border: '1px solid #e0e7ff', bgcolor: '#eef2ff' }}
+                      >
+                        {verificandoDocIAId === d.id ? <CircularProgress size={14} /> : <Sparkles size={15} />}
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleteFile(d.id, d.storage_path)}
+                        sx={{ border: '1px solid #fee2e2', bgcolor: '#fef2f2' }}
+                      >
+                        <Trash2 size={15} />
+                      </IconButton>
+                    </Box>
+
+                    {(d.categoria_ia || d.observaciones_ia) && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', pl: 1 }}>
+                        {d.categoria_ia && (
+                          <Chip
+                            size="small"
+                            color="success"
+                            label={`✓ IA: ${d.categoria_ia}`}
+                            sx={{ height: 20, fontSize: '0.68rem', fontWeight: 'bold' }}
+                          />
+                        )}
+                        {d.observaciones_ia && (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
+                            {d.observaciones_ia}
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </ListItem>
+                ))
+              )}
             </List>
           </Paper>
 

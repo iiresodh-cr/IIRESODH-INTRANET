@@ -324,8 +324,9 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura exacta:
   "pais": "País emisor o de residencia detectado (ej. Costa Rica, Colombia, etc.)",
   "es_identificacion_legible": true,
   "es_poder_firmado": false,
+  "es_prueba_dano": false,
   "condicion_vulnerabilidad_sugerida": "Una de: Ninguna | Adulto Mayor | Discapacidad | Pueblo Indígena / Afrodescendiente | Jefa de Hogar | Salud Crítica | NNA (según fecha de nacimiento o datos del documento)",
-  "observaciones_verificacion": "Breve dictamen de verificación (ej. Cédula vigente y legible, o Poder cuenta con firma visible de la víctima)."
+  "observaciones_verificacion": "Breve dictamen de verificación (ej. Cédula vigente y legible, Poder cuenta con firma visible de la víctima, o Prueba documental de daño/afectación)."
 }`;
 
   const respuesta = await ejecutarConsultaJuridicaIA({
