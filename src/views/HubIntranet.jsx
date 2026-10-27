@@ -1,5 +1,5 @@
 // src/views/HubIntranet.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, Button, Divider, Avatar, Chip } from '@mui/material';
 import { 
   Scale, Users, ShieldCheck, FileSpreadsheet, Activity, 
@@ -12,6 +12,11 @@ import AcordeonHerramientas from '../components/AcordeonHerramientas';
 export default function HubIntranet({ setView, userRole, userPermisos, user: propUser, userName }) {
   const { user: authUser } = useAuth();
   const currentUser = propUser || authUser;
+
+  // Asegurar que la página del Hub siempre inicie en la parte superior al entrar
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, []);
 
   // Estado del panel activo en AcordeonHerramientas ('chat' | 'calendario' | false)
   const [activePanel, setActivePanel] = useState('chat');

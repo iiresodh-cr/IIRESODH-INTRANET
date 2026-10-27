@@ -601,7 +601,7 @@ export default function EspacioTrabajoSlack({
 
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
     }
   }, [mensajes.length, canalActivoId]);
 
@@ -2175,6 +2175,7 @@ export default function EspacioTrabajoSlack({
 
             {/* FEED DE MENSAJES */}
             <Box
+              ref={messagesEndRef}
               sx={{
                 flexGrow: 1,
                 overflowY: 'auto',
@@ -2843,7 +2844,6 @@ export default function EspacioTrabajoSlack({
                   );
                 })
               )}
-              <div ref={messagesEndRef} />
             </Box>
 
             {/* COMPOSITOR DE MENSAJES ENRIQUECIDO (ESTILO SLACK) */}
