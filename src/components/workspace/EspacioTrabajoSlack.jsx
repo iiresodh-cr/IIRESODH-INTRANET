@@ -798,6 +798,33 @@ export default function EspacioTrabajoSlack({
         { merge: true }
       );
 
+      // Sincronizar perímetro de privacidad en recursos de Drive vinculados a este canal
+      try {
+        const driveQ = query(
+          collection(db, 'workspace_drive'),
+          where('canalId', '==', canalEnGestion.id)
+        );
+        const driveSnap = await getDocs(driveQ);
+        const miembrosCanalActualizados = editCanalForm.esPrivado
+          ? miembrosFinal
+          : Array.from(
+              new Set([
+                ...usuariosEquipo.map((u) => (u.email || '').toLowerCase()).filter(Boolean),
+                currentUserEmail
+              ])
+            );
+        await Promise.all(
+          driveSnap.docs.map((d) =>
+            updateDoc(doc(db, 'workspace_drive', d.id), {
+              esCanalPrivado: Boolean(editCanalForm.esPrivado),
+              miembrosAutorizados: miembrosCanalActualizados
+            })
+          )
+        );
+      } catch (e) {
+        console.warn('No se pudieron sincronizar metadatos de Drive del canal:', e);
+      }
+
       await registrarLogAuditoria({
         accion: 'ACTUALIZAR_CANAL_WORKSPACE',
         modulo: 'Workspace',
@@ -2596,7 +2623,9 @@ export default function EspacioTrabajoSlack({
               currentUser={user}
               userName={currentUserName}
               userRole={userRole}
+              usuariosEquipo={usuariosEquipo}
               canalesDisponibles={canales}
+              canalActivoInicialId={canalActivo?.id || 'general'}
               initialPreviewItem={drivePreviewItem}
               onClearInitialPreview={() => setDrivePreviewItem(null)}
               onIrACanal={(chId) => {

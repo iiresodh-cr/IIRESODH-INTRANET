@@ -17,8 +17,9 @@ const ALLOWED_DOMAINS = ['iiresodh.org', 'sipdh.com'];
 const GDRIVE_TOKEN_KEY = 'iiresodh_gdrive_token';
 const GDRIVE_TOKEN_EXP_KEY = 'iiresodh_gdrive_token_exp';
 const GMEET_SCOPE_GRANTED_KEY = 'iiresodh_gmeet_scope_granted';
+const GDRIVE_ACL_SCOPE_GRANTED_KEY = 'iiresodh_gdrive_acl_scope_granted';
 
-export function guardarTokenGoogleDrive(accessToken, hasMeetScope = false) {
+export function guardarTokenGoogleDrive(accessToken, hasMeetScope = false, hasDriveAclScope = false) {
   if (!accessToken) return;
   try {
     sessionStorage.setItem(GDRIVE_TOKEN_KEY, accessToken);
@@ -26,6 +27,9 @@ export function guardarTokenGoogleDrive(accessToken, hasMeetScope = false) {
     sessionStorage.setItem(GDRIVE_TOKEN_EXP_KEY, String(Date.now() + 55 * 60 * 1000));
     if (hasMeetScope) {
       sessionStorage.setItem(GMEET_SCOPE_GRANTED_KEY, '1');
+    }
+    if (hasDriveAclScope) {
+      sessionStorage.setItem(GDRIVE_ACL_SCOPE_GRANTED_KEY, '1');
     }
   } catch (e) {
     console.warn('No se pudo almacenar el token de Google en sessionStorage:', e);
@@ -37,6 +41,7 @@ export function limpiarTokenGoogleDrive() {
     sessionStorage.removeItem(GDRIVE_TOKEN_KEY);
     sessionStorage.removeItem(GDRIVE_TOKEN_EXP_KEY);
     sessionStorage.removeItem(GMEET_SCOPE_GRANTED_KEY);
+    sessionStorage.removeItem(GDRIVE_ACL_SCOPE_GRANTED_KEY);
   } catch {
     // ignore
   }
@@ -57,6 +62,7 @@ export function obtenerTokenGoogleDriveActivo() {
 
 export async function solicitarTokenGoogleDrive(emailHint = '', incluirMeet = true) {
   const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/drive');
   provider.addScope('https://www.googleapis.com/auth/drive.readonly');
   provider.addScope('https://www.googleapis.com/auth/drive.file');
   if (incluirMeet) {
@@ -76,9 +82,175 @@ export async function solicitarTokenGoogleDrive(emailHint = '', incluirMeet = tr
   const credential = GoogleAuthProvider.credentialFromResult(result);
   const accessToken = credential?.accessToken || null;
   if (accessToken) {
-    guardarTokenGoogleDrive(accessToken, incluirMeet);
+    guardarTokenGoogleDrive(accessToken, incluirMeet, true);
   }
   return accessToken;
+}
+
+/**
+ * Extrae el ID de archivo o carpeta de Google Drive a partir de una URL o ID directo.
+ */
+export function extraerIdRecursoDrive(urlOrId = '') {
+  const raw = String(urlOrId || '').trim();
+  if (!raw) return '';
+  if (/^[a-zA-Z0-9_-]{15,}$/.test(raw)) return raw;
+
+  const folderMatch = raw.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (folderMatch?.[1]) return folderMatch[1];
+
+  const docsMatch = raw.match(/\/(?:document|spreadsheets|presentation|file)\/d\/([a-zA-Z0-9_-]+)/);
+  if (docsMatch?.[1]) return docsMatch[1];
+
+  const idParamMatch = raw.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idParamMatch?.[1]) return idParamMatch[1];
+
+  return '';
+}
+
+/**
+ * Blinda un archivo o carpeta de Google Drive para que NUNCA esté en modo
+ * "Cualquiera que tenga el vínculo" (type: 'anyone') ni abierto a personas ajenas,
+ * otorgando acceso exclusivamente a los correos miembros del canal indicado.
+ */
+export async function sincronizarPermisosDriveConCanal({
+  fileIdOrUrl = '',
+  miembrosEmails = [],
+  rolPermiso = 'reader', // 'reader' | 'writer' | 'commenter'
+  revocarUsuariosAjenos = true,
+  emailHint = ''
+}) {
+  const fileId = extraerIdRecursoDrive(fileIdOrUrl);
+  if (!fileId) {
+    throw new Error('No se pudo identificar el ID del archivo o carpeta de Google Drive.');
+  }
+
+  let token = obtenerTokenGoogleDriveActivo();
+  const tieneScopeAcl = sessionStorage.getItem(GDRIVE_ACL_SCOPE_GRANTED_KEY) === '1';
+
+  if (!token || !tieneScopeAcl) {
+    token = await solicitarTokenGoogleDrive(emailHint, true);
+  }
+  if (!token) {
+    throw new Error('Se requiere autorización de Google Drive para configurar la privacidad del recurso.');
+  }
+
+  const listarPermisos = async (tk) =>
+    fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+        fileId
+      )}/permissions?supportsAllDrives=true&fields=permissions(id,type,role,emailAddress,domain,displayName,deleted)`,
+      {
+        headers: { Authorization: `Bearer ${tk}` }
+      }
+    );
+
+  let resList = await listarPermisos(token);
+  if (resList.status === 401 || resList.status === 403) {
+    token = await solicitarTokenGoogleDrive(emailHint, true);
+    if (!token) {
+      throw new Error('No se pudo autorizar el ajuste de permisos en Google Drive.');
+    }
+    resList = await listarPermisos(token);
+  }
+
+  if (!resList.ok) {
+    const errData = await resList.json().catch(() => ({}));
+    throw new Error(
+      errData?.error?.message ||
+        'No tienes permisos de propietario/editor en Google Drive para modificar el acceso de esta carpeta o archivo.'
+    );
+  }
+
+  const dataList = await resList.json();
+  const permisosActuales = dataList.permissions || [];
+
+  const miembrosNormalizados = Array.from(
+    new Set(
+      (miembrosEmails || [])
+        .map((e) => String(e || '').trim().toLowerCase())
+        .filter((e) => e && e.includes('@'))
+    )
+  );
+
+  let publicoRevocado = false;
+  let dominioRevocado = false;
+  let usuariosAjenosRevocados = 0;
+
+  // 1. Revocar de inmediato cualquier acceso "anyone" ("Cualquiera que tenga el vínculo")
+  // y cualquier vínculo general de dominio, así como usuarios que no pertenezcan al canal
+  for (const perm of permisosActuales) {
+    if (perm.role === 'owner' || perm.role === 'organizer') continue;
+
+    const esPublicoAnyone = perm.type === 'anyone' || perm.id === 'anyoneWithLink' || perm.id === 'anyone';
+    const esDominioGeneral = perm.type === 'domain';
+    const emailPerm = (perm.emailAddress || '').toLowerCase();
+    const esUsuarioAjeno =
+      revocarUsuariosAjenos &&
+      perm.type === 'user' &&
+      emailPerm &&
+      !miembrosNormalizados.includes(emailPerm);
+
+    if (esPublicoAnyone || esDominioGeneral || esUsuarioAjeno) {
+      const delRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+          fileId
+        )}/permissions/${encodeURIComponent(perm.id)}?supportsAllDrives=true`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (delRes.ok || delRes.status === 204) {
+        if (esPublicoAnyone) publicoRevocado = true;
+        if (esDominioGeneral) dominioRevocado = true;
+        if (esUsuarioAjeno) usuariosAjenosRevocados += 1;
+      }
+    }
+  }
+
+  // 2. Otorgar permiso nominal (type: 'user') únicamente a los miembros del canal
+  const emailsYaConAcceso = new Set(
+    permisosActuales
+      .filter((p) => p.type === 'user' && p.emailAddress)
+      .map((p) => p.emailAddress.toLowerCase())
+  );
+
+  let miembrosAgregados = 0;
+  const rolSeguro = ['reader', 'writer', 'commenter'].includes(rolPermiso) ? rolPermiso : 'reader';
+
+  for (const emailMiembro of miembrosNormalizados) {
+    if (emailsYaConAcceso.has(emailMiembro)) continue;
+
+    const addRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+        fileId
+      )}/permissions?supportsAllDrives=true&sendNotificationEmail=false`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          role: rolSeguro,
+          type: 'user',
+          emailAddress: emailMiembro
+        })
+      }
+    );
+    if (addRes.ok) {
+      miembrosAgregados += 1;
+    }
+  }
+
+  return {
+    fileId,
+    publicoRevocado,
+    dominioRevocado,
+    usuariosAjenosRevocados,
+    miembrosAutorizadosCount: miembrosNormalizados.length,
+    miembrosAgregados
+  };
 }
 
 /**
@@ -152,7 +324,9 @@ export function AuthProvider({ children }) {
   // 2. Iniciar sesión con Google Workspace + Filtro de Dominio + Permisos de Drive y Google Meet
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive');
     provider.addScope('https://www.googleapis.com/auth/drive.readonly');
+    provider.addScope('https://www.googleapis.com/auth/drive.file');
     provider.addScope('https://www.googleapis.com/auth/meetings.space.created');
     // Fuerza a Google a mostrar el selector de cuentas siempre
     provider.setCustomParameters({ prompt: 'select_account' });
@@ -170,7 +344,7 @@ export function AuthProvider({ children }) {
 
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (credential?.accessToken) {
-      guardarTokenGoogleDrive(credential.accessToken, true);
+      guardarTokenGoogleDrive(credential.accessToken, true, true);
     }
 
     return result;

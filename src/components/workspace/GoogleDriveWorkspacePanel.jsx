@@ -1,5 +1,5 @@
 // src/components/workspace/GoogleDriveWorkspacePanel.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -22,7 +22,10 @@ import {
   Alert,
   InputAdornment,
   ToggleButtonGroup,
-  ToggleButton
+  ToggleButton,
+  CircularProgress,
+  Breadcrumbs,
+  Link
 } from '@mui/material';
 import {
   Folder,
@@ -40,11 +43,17 @@ import {
   Send,
   X,
   HardDrive,
-  Sparkles,
   Check,
   LayoutGrid,
   List as ListIcon,
-  FolderOpen
+  FolderOpen,
+  Lock,
+  ShieldCheck,
+  ShieldAlert,
+  Users,
+  Hash,
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import {
   collection,
@@ -58,7 +67,17 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import GoogleDriveSelectorBrowser from './GoogleDriveSelectorBrowser';
+import {
+  obtenerTokenGoogleDriveActivo,
+  solicitarTokenGoogleDrive,
+  limpiarTokenGoogleDrive,
+  extraerIdRecursoDrive,
+  sincronizarPermisosDriveConCanal
+} from '../../context/AuthContext';
+import GoogleDriveSelectorBrowser, {
+  detectarTipoPorMimeType,
+  construirUrlDrive
+} from './GoogleDriveSelectorBrowser';
 
 export const TIPOS_DRIVE = {
   carpeta: {
@@ -113,33 +132,27 @@ export function detectarTipoDrivePorUrl(url = '') {
   return 'pdf';
 }
 
-// Transforma cualquier enlace de compartir de Google Drive/Docs en una URL embebible en iframe
+// Transforma enlaces de documentos individuales de Google Drive/Docs en URL embebible
 export function convertirUrlDriveAEmbed(url = '', modo = 'preview') {
   if (!url) return '';
   try {
-    // 1. Carpetas de Google Drive: https://drive.google.com/drive/folders/FOLDER_ID
-    const folderMatch = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-    if (folderMatch && folderMatch[1]) {
-      return `https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#list`;
-    }
-
-    // 2. Google Docs / Sheets / Slides: https://docs.google.com/(document|spreadsheets|presentation)/d/FILE_ID/...
+    // 1. Google Docs / Sheets / Slides: https://docs.google.com/(document|spreadsheets|presentation)/d/FILE_ID/...
     const docsMatch = url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/);
     if (docsMatch && docsMatch[2]) {
       const tipoDoc = docsMatch[1];
       const fileId = docsMatch[2];
       return modo === 'edit'
-        ? `https://docs.google.com/${tipoDoc}/d/${fileId}/edit?usp= embedded`
+        ? `https://docs.google.com/${tipoDoc}/d/${fileId}/edit?usp=embedded`
         : `https://docs.google.com/${tipoDoc}/d/${fileId}/preview`;
     }
 
-    // 3. Archivo genérico de Drive: https://drive.google.com/file/d/FILE_ID/view
+    // 2. Archivo individual de Drive: https://drive.google.com/file/d/FILE_ID/view
     const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
     if (fileMatch && fileMatch[1]) {
       return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
     }
 
-    // 4. Parámetro ?id=FILE_ID
+    // 3. Parámetro ?id=FILE_ID
     const idParamMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     if (idParamMatch && idParamMatch[1]) {
       return `https://drive.google.com/file/d/${idParamMatch[1]}/preview`;
@@ -151,11 +164,313 @@ export function convertirUrlDriveAEmbed(url = '', modo = 'preview') {
   }
 }
 
+/**
+ * Visor autenticado para carpetas privadas de Google Drive.
+ * A diferencia de embeddedfolderview (que exigía "Cualquiera con el vínculo"),
+ * este visor usa el token OAuth institucional del miembro del canal para explorar
+ * carpetas 100% privadas sin abrirlas nunca al público.
+ */
+function VisorCarpetaPrivadaDrive({
+  carpetaItem,
+  userEmail,
+  getGoogleWorkspaceUrl,
+  onAbrirArchivoInterno
+}) {
+  const rootFolderId = extraerIdRecursoDrive(carpetaItem?.url || '');
+  const [token, setToken] = useState(() => obtenerTokenGoogleDriveActivo());
+  const [cargando, setCargando] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [archivosHijos, setArchivosHijos] = useState([]);
+  const [rutaSubcarpetas, setRutaSubcarpetas] = useState([
+    { id: rootFolderId, name: carpetaItem?.titulo || 'Carpeta Privada' }
+  ]);
+
+  useEffect(() => {
+    const nuevoId = extraerIdRecursoDrive(carpetaItem?.url || '');
+    setRutaSubcarpetas([{ id: nuevoId, name: carpetaItem?.titulo || 'Carpeta Privada' }]);
+  }, [carpetaItem?.id, carpetaItem?.url, carpetaItem?.titulo]);
+
+  const nodoActual = rutaSubcarpetas[rutaSubcarpetas.length - 1] || {
+    id: rootFolderId,
+    name: carpetaItem?.titulo || 'Carpeta'
+  };
+
+  const cargarContenidoCarpeta = useCallback(async () => {
+    if (!token || !nodoActual.id) return;
+    setCargando(true);
+    setErrorMsg('');
+    try {
+      const q = `'${nodoActual.id}' in parents and trashed = false`;
+      const params = new URLSearchParams({
+        q,
+        pageSize: '100',
+        orderBy: 'folder,name',
+        supportsAllDrives: 'true',
+        includeItemsFromAllDrives: 'true',
+        fields: 'files(id,name,mimeType,webViewLink,modifiedTime,size)'
+      });
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.status === 401) {
+        limpiarTokenGoogleDrive();
+        setToken(null);
+        setErrorMsg('Tu sesión de lectura de Google Drive expiró. Conecta tu cuenta para ver la carpeta privada.');
+        setCargando(false);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error('No tienes acceso a esta carpeta en Google Drive o requiere autorización.');
+      }
+
+      const data = await res.json();
+      setArchivosHijos(data.files || []);
+    } catch (e) {
+      setErrorMsg(e?.message || 'No se pudo listar el contenido de la carpeta privada.');
+    } finally {
+      setCargando(false);
+    }
+  }, [token, nodoActual.id]);
+
+  useEffect(() => {
+    if (token && nodoActual.id) {
+      cargarContenidoCarpeta();
+    }
+  }, [token, nodoActual.id, cargarContenidoCarpeta]);
+
+  const handleAutorizar = async () => {
+    try {
+      const tk = await solicitarTokenGoogleDrive(userEmail, true);
+      if (tk) setToken(tk);
+    } catch {
+      setErrorMsg('No se completó la autorización con Google Drive.');
+    }
+  };
+
+  if (!token) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Lock size={34} color="#1D3557" style={{ margin: '0 auto 10px' }} />
+        <Typography variant="subtitle1" fontWeight="800" color="#1D3557">
+          Carpeta Privada Protegida por Canal
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 440, mx: 'auto', mt: 0.5, mb: 2 }}>
+          Esta carpeta no es pública (&ldquo;Cualquiera con el vínculo&rdquo; está desactivado). Autoriza tu sesión institucional para explorar sus archivos como miembro del canal.
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={handleAutorizar}
+          startIcon={<ShieldCheck size={16} />}
+          sx={{ bgcolor: '#1D3557', textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+        >
+          Ver Contenido con mi Cuenta @iiresodh.org
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#ffffff' }}>
+      {/* Barra de ruta dentro de la carpeta privada */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          bgcolor: '#f8fafc',
+          borderBottom: '1px solid #e2e8f0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+          flexWrap: 'wrap'
+        }}
+      >
+        <Breadcrumbs separator={<ChevronRight size={13} color="#94a3b8" />}>
+          {rutaSubcarpetas.map((nodo, idx) => {
+            const esUltimo = idx === rutaSubcarpetas.length - 1;
+            return (
+              <Link
+                key={`${nodo.id}_${idx}`}
+                component="button"
+                underline="hover"
+                onClick={() => setRutaSubcarpetas((prev) => prev.slice(0, idx + 1))}
+                sx={{
+                  fontSize: '0.76rem',
+                  fontWeight: esUltimo ? 800 : 600,
+                  color: esUltimo ? '#1D3557' : '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5
+                }}
+              >
+                <Folder size={13} color="#b45309" />
+                {nodo.name}
+              </Link>
+            );
+          })}
+        </Breadcrumbs>
+
+        <IconButton size="small" onClick={cargarContenidoCarpeta} title="Actualizar carpeta">
+          <RefreshCw size={14} />
+        </IconButton>
+      </Box>
+
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
+        {cargando ? (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <CircularProgress size={26} sx={{ color: '#1D3557' }} />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              Cargando archivos de la carpeta privada...
+            </Typography>
+          </Box>
+        ) : errorMsg ? (
+          <Alert
+            severity="warning"
+            action={
+              <Button color="inherit" size="small" onClick={handleAutorizar}>
+                Reautorizar
+              </Button>
+            }
+          >
+            {errorMsg}
+          </Alert>
+        ) : archivosHijos.length === 0 ? (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <FolderOpen size={36} color="#94a3b8" style={{ margin: '0 auto 8px' }} />
+            <Typography variant="body2" fontWeight="700" color="text.secondary">
+              Esta carpeta está vacía actualmente.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {archivosHijos.map((file) => {
+              const esSubcarpeta = file.mimeType === 'application/vnd.google-apps.folder';
+              const urlArchivo = construirUrlDrive(file);
+              const tipoDetectado = detectarTipoPorMimeType(file.mimeType, urlArchivo);
+              const cfg = TIPOS_DRIVE[tipoDetectado] || TIPOS_DRIVE.pdf;
+              const Icono = cfg.icon;
+
+              return (
+                <Paper
+                  key={file.id}
+                  elevation={0}
+                  sx={{
+                    p: 1.25,
+                    borderRadius: 2,
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1.5,
+                    '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' }
+                  }}
+                >
+                  <Box
+                    onClick={() => {
+                      if (esSubcarpeta) {
+                        setRutaSubcarpetas((prev) => [...prev, { id: file.id, name: file.name }]);
+                      } else if (onAbrirArchivoInterno) {
+                        onAbrirArchivoInterno({
+                          id: file.id,
+                          titulo: file.name,
+                          url: urlArchivo,
+                          tipo: tipoDetectado
+                        });
+                      }
+                    }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.25,
+                      minWidth: 0,
+                      flex: 1,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        p: 0.75,
+                        borderRadius: 1.5,
+                        bgcolor: cfg.bg,
+                        color: cfg.color,
+                        border: `1px solid ${cfg.border}`,
+                        display: 'flex'
+                      }}
+                    >
+                      <Icono size={16} />
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight="700" color="#0f233c" noWrap>
+                        {file.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {cfg.label}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    {esSubcarpeta ? (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() =>
+                          setRutaSubcarpetas((prev) => [...prev, { id: file.id, name: file.name }])
+                        }
+                        sx={{ textTransform: 'none', fontSize: '0.72rem', borderRadius: 1.5 }}
+                      >
+                        Abrir carpeta
+                      </Button>
+                    ) : (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<Eye size={13} />}
+                        onClick={() =>
+                          onAbrirArchivoInterno &&
+                          onAbrirArchivoInterno({
+                            id: file.id,
+                            titulo: file.name,
+                            url: urlArchivo,
+                            tipo: tipoDetectado
+                          })
+                        }
+                        sx={{ textTransform: 'none', fontSize: '0.72rem', borderRadius: 1.5 }}
+                      >
+                        Ver aquí
+                      </Button>
+                    )}
+                    <Tooltip title="Abrir en Google Drive">
+                      <IconButton
+                        size="small"
+                        component="a"
+                        href={getGoogleWorkspaceUrl(urlArchivo)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink size={14} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Paper>
+              );
+            })}
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
 export default function GoogleDriveWorkspacePanel({
   currentUser,
   userName,
   userRole,
+  usuariosEquipo = [],
   canalesDisponibles = [],
+  canalActivoInicialId = 'general',
   initialPreviewItem = null,
   onClearInitialPreview,
   onIrACanal
@@ -163,6 +478,7 @@ export default function GoogleDriveWorkspacePanel({
   const [itemsDrive, setItemsDrive] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('todos');
+  const [filtroCanalId, setFiltroCanalId] = useState('todos');
   const [modoVista, setModoVista] = useState('grid'); // 'grid' | 'lista'
 
   // Visor embebido activo
@@ -172,15 +488,24 @@ export default function GoogleDriveWorkspacePanel({
   // Modal de agregar/editar vínculo de Google Drive
   const [modalOpen, setModalOpen] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
+  const [sincronizandoPermisos, setSincronizandoPermisos] = useState(false);
   const [form, setForm] = useState({
     titulo: '',
     url: '',
     tipo: 'doc',
-    categoria: 'General',
+    categoria: 'Litigios y Expedientes',
     descripcion: '',
     destacado: false,
-    notificarCanalId: ''
+    canalId: canalActivoInicialId || 'general',
+    rolDriveMiembros: 'reader', // 'reader' | 'writer'
+    publicarEnChat: true
   });
+
+  // Modal para compartir/restringir un item existente a un canal específico
+  const [modalCompartirItem, setModalCompartirItem] = useState(null);
+  const [canalDestinoCompartir, setCanalDestinoCompartir] = useState('general');
+  const [rolDestinoCompartir, setRolDestinoCompartir] = useState('reader');
+  const [compartiendoEnCanal, setCompartiendoEnCanal] = useState(false);
 
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -189,6 +514,91 @@ export default function GoogleDriveWorkspacePanel({
   });
 
   const userEmail = (currentUser?.email || '').toLowerCase();
+
+  // Canales disponibles (excluyendo o incluyendo según corresponda)
+  const canalesSeleccionables = useMemo(() => {
+    return canalesDisponibles.filter((c) => c.tipo !== 'dm');
+  }, [canalesDisponibles]);
+
+  // Calcula la lista exacta de correos autorizados para un canal determinado
+  const obtenerMiembrosDelCanal = useCallback(
+    (canalIdTarget) => {
+      const canal = canalesDisponibles.find((c) => c.id === canalIdTarget);
+      if (!canal) {
+        return userEmail ? [userEmail] : [];
+      }
+
+      if (canal.tipo === 'dm') {
+        return Array.from(
+          new Set(
+            [...(canal.participantes || []), userEmail]
+              .map((e) => (e || '').toLowerCase())
+              .filter(Boolean)
+          )
+        );
+      }
+
+      if (canal.esPrivado) {
+        return Array.from(
+          new Set(
+            [...(canal.miembros || []), canal.creadoPor, userEmail]
+              .map((e) => (e || '').toLowerCase())
+              .filter(Boolean)
+          )
+        );
+      }
+
+      // Canal abierto institucional: solo los miembros autorizados del equipo IIRESODH (nunca personas ajenas)
+      const baseMiembros =
+        Array.isArray(canal.miembros) && canal.miembros.length > 0
+          ? canal.miembros
+          : usuariosEquipo.map((u) => u.email);
+
+      return Array.from(
+        new Set(
+          [...baseMiembros, canal.creadoPor, userEmail]
+            .map((e) => (e || '').toLowerCase())
+            .filter(Boolean)
+        )
+      );
+    },
+    [canalesDisponibles, usuariosEquipo, userEmail]
+  );
+
+  // Verifica si el usuario actual es miembro autorizado del canal al que pertenece el documento/carpeta
+  const usuarioTieneAccesoAItemDrive = useCallback(
+    (item) => {
+      if (!item) return false;
+      const creador = (item.creadoPorEmail || '').toLowerCase();
+      if (creador && creador === userEmail) return true;
+
+      // Si el item está vinculado a un canal específico, el usuario DEBE ser miembro de ese canal
+      if (item.canalId) {
+        const canal = canalesDisponibles.find((c) => c.id === item.canalId);
+        if (!canal) return false;
+
+        if (canal.esPrivado) {
+          const miembrosCanal = obtenerMiembrosDelCanal(canal.id);
+          return miembrosCanal.includes(userEmail);
+        }
+
+        if (Array.isArray(item.miembrosAutorizados) && item.miembrosAutorizados.length > 0) {
+          return item.miembrosAutorizados.map((e) => e.toLowerCase()).includes(userEmail);
+        }
+
+        return true;
+      }
+
+      // Si tiene lista explícita de miembrosAutorizados
+      if (Array.isArray(item.miembrosAutorizados) && item.miembrosAutorizados.length > 0) {
+        return item.miembrosAutorizados.map((e) => e.toLowerCase()).includes(userEmail);
+      }
+
+      // Recursos antiguos sin canal asignado: visibles para quien los creó o administradores para que los asignen a un canal
+      return userRole === 'Superadmin' || userRole === 'Admin';
+    },
+    [canalesDisponibles, obtenerMiembrosDelCanal, userEmail, userRole]
+  );
 
   // Escuchar elementos de la biblioteca de Google Drive en Firestore
   useEffect(() => {
@@ -220,6 +630,10 @@ export default function GoogleDriveWorkspacePanel({
   };
 
   const abrirModalNuevo = (tipoPredefinido = 'doc') => {
+    const canalDefault =
+      canalesSeleccionables.find((c) => c.id === canalActivoInicialId)?.id ||
+      canalesSeleccionables[0]?.id ||
+      'general';
     setEditandoId(null);
     setForm({
       titulo: '',
@@ -228,12 +642,19 @@ export default function GoogleDriveWorkspacePanel({
       categoria: 'Litigios y Expedientes',
       descripcion: '',
       destacado: false,
-      notificarCanalId: ''
+      canalId: canalDefault,
+      rolDriveMiembros: 'reader',
+      publicarEnChat: true
     });
     setModalOpen(true);
   };
 
   const abrirModalEditar = (item) => {
+    const canalDefault =
+      item.canalId ||
+      canalesSeleccionables.find((c) => c.id === canalActivoInicialId)?.id ||
+      canalesSeleccionables[0]?.id ||
+      'general';
     setEditandoId(item.id);
     setForm({
       titulo: item.titulo || '',
@@ -242,15 +663,39 @@ export default function GoogleDriveWorkspacePanel({
       categoria: item.categoria || 'General',
       descripcion: item.descripcion || '',
       destacado: Boolean(item.destacado),
-      notificarCanalId: ''
+      canalId: canalDefault,
+      rolDriveMiembros: item.rolDriveMiembros || 'reader',
+      publicarEnChat: false
     });
     setModalOpen(true);
   };
 
   const handleGuardarItem = async () => {
-    if (!form.titulo.trim() || !form.url.trim()) return;
+    if (!form.titulo.trim() || !form.url.trim() || !form.canalId) return;
 
+    setSincronizandoPermisos(true);
     const tipoDetectado = form.tipo || detectarTipoDrivePorUrl(form.url);
+    const canalObj = canalesDisponibles.find((c) => c.id === form.canalId);
+    const miembrosDelCanal = obtenerMiembrosDelCanal(form.canalId);
+
+    let resultadoPermisos = null;
+    let errorPermisosDrive = null;
+
+    // 1. Blindar permisos reales en Google Drive:
+    // Elimina "Cualquiera que tenga el vínculo" (anyoneWithLink) y autoriza SOLO a los miembros del canal
+    try {
+      resultadoPermisos = await sincronizarPermisosDriveConCanal({
+        fileIdOrUrl: form.url.trim(),
+        miembrosEmails: miembrosDelCanal,
+        rolPermiso: form.rolDriveMiembros || 'reader',
+        revocarUsuariosAjenos: true,
+        emailHint: userEmail
+      });
+    } catch (errPerm) {
+      console.warn('Aviso al sincronizar ACL en Google Drive:', errPerm);
+      errorPermisosDrive = errPerm?.message || 'No se pudo modificar el ACL en Google Drive.';
+    }
+
     const payload = {
       titulo: form.titulo.trim(),
       url: form.url.trim(),
@@ -258,6 +703,13 @@ export default function GoogleDriveWorkspacePanel({
       categoria: form.categoria.trim() || 'General',
       descripcion: form.descripcion.trim(),
       destacado: Boolean(form.destacado),
+      canalId: form.canalId,
+      canalNombre: canalObj?.nombre || form.canalId,
+      esCanalPrivado: Boolean(canalObj?.esPrivado || canalObj?.tipo === 'dm'),
+      miembrosAutorizados: miembrosDelCanal,
+      rolDriveMiembros: form.rolDriveMiembros || 'reader',
+      blindadoDrive: Boolean(resultadoPermisos),
+      publicoRevocadoDrive: Boolean(resultadoPermisos?.publicoRevocado),
       actualizadoEn: serverTimestamp()
     };
 
@@ -275,11 +727,15 @@ export default function GoogleDriveWorkspacePanel({
         itemIdFinal = ref.id;
       }
 
-      // Publicar tarjeta en canal de Slack si se eligió notificar
-      if (!editandoId && form.notificarCanalId) {
+      // Publicar tarjeta en el canal seleccionado
+      if ((!editandoId || form.publicarEnChat) && form.canalId) {
         const tipoInfo = TIPOS_DRIVE[tipoDetectado] || TIPOS_DRIVE.doc;
-        await addDoc(collection(db, 'workspace_canales', form.notificarCanalId, 'mensajes'), {
-          texto: `📁 *Recurso de Google Drive vinculado:* *${form.titulo.trim()}*\n• *Tipo:* ${tipoInfo.label}\n• *Categoría:* ${form.categoria}${form.descripcion ? `\n• *Nota:* ${form.descripcion.trim()}` : ''}`,
+        const etiquetaPrivacidad = canalObj?.esPrivado
+          ? `🔒 Solo miembros de #${canalObj.nombre} (${miembrosDelCanal.length})`
+          : `🛡️ Miembros de #${canalObj?.nombre || form.canalId}`;
+
+        await addDoc(collection(db, 'workspace_canales', form.canalId, 'mensajes'), {
+          texto: `📁 *Recurso de Google Drive compartido en el canal:* *${form.titulo.trim()}*\n• *Tipo:* ${tipoInfo.label}\n• *Acceso:* ${etiquetaPrivacidad}${form.descripcion ? `\n• *Nota:* ${form.descripcion.trim()}` : ''}`,
           autorEmail: userEmail,
           autorNombre: userName || 'Equipo IIRESODH',
           autorAvatar: currentUser?.photoURL || '',
@@ -294,11 +750,13 @@ export default function GoogleDriveWorkspacePanel({
             titulo: form.titulo.trim(),
             url: form.url.trim(),
             tipo: tipoDetectado,
-            categoria: form.categoria
+            categoria: form.categoria,
+            canalId: form.canalId,
+            canalNombre: canalObj?.nombre || form.canalId
           }
         });
 
-        await updateDoc(doc(db, 'workspace_canales', form.notificarCanalId), {
+        await updateDoc(doc(db, 'workspace_canales', form.canalId), {
           ultimoMensajeAt: serverTimestamp(),
           ultimoMensajeMs: Date.now(),
           ultimoMensajeTexto: `📁 Drive: ${form.titulo.trim()}`,
@@ -307,15 +765,28 @@ export default function GoogleDriveWorkspacePanel({
       }
 
       setModalOpen(false);
-      setSnackbar({
-        open: true,
-        message: editandoId
-          ? 'Recurso de Drive actualizado.'
-          : 'Archivo/Carpeta de Google Drive vinculado al Workspace.',
-        severity: 'success'
-      });
+      if (resultadoPermisos) {
+        const avisoPublico = resultadoPermisos.publicoRevocado
+          ? ' Se eliminó el acceso público "Cualquiera con el vínculo".'
+          : '';
+        setSnackbar({
+          open: true,
+          message: `🔒 Recurso restringido exclusivamente a los ${miembrosDelCanal.length} miembro(s) de #${
+            canalObj?.nombre || form.canalId
+          }.${avisoPublico}`,
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: `Vinculado al canal #${canalObj?.nombre || form.canalId} en la Intranet. (${errorPermisosDrive})`,
+          severity: 'warning'
+        });
+      }
     } catch (err) {
       console.error('Error guardando recurso de Drive:', err);
+    } finally {
+      setSincronizandoPermisos(false);
     }
   };
 
@@ -343,12 +814,51 @@ export default function GoogleDriveWorkspacePanel({
     }
   };
 
-  const handleCompartirEnCanal = async (item, canalId) => {
-    if (!item || !canalId) return;
+  const abrirDialogoCompartirItem = (item) => {
+    setModalCompartirItem(item);
+    setCanalDestinoCompartir(
+      item.canalId ||
+        canalesSeleccionables.find((c) => c.id === canalActivoInicialId)?.id ||
+        canalesSeleccionables[0]?.id ||
+        'general'
+    );
+    setRolDestinoCompartir(item.rolDriveMiembros || 'reader');
+  };
+
+  const handleConfirmarCompartirYBlindar = async () => {
+    if (!modalCompartirItem || !canalDestinoCompartir) return;
+    setCompartiendoEnCanal(true);
     try {
-      const tipoInfo = TIPOS_DRIVE[item.tipo] || TIPOS_DRIVE.doc;
-      await addDoc(collection(db, 'workspace_canales', canalId, 'mensajes'), {
-        texto: `📁 *Documento compartido desde Google Drive:* *${item.titulo}*\n• *Tipo:* ${tipoInfo.label}`,
+      const canalObj = canalesDisponibles.find((c) => c.id === canalDestinoCompartir);
+      const miembrosDelCanal = obtenerMiembrosDelCanal(canalDestinoCompartir);
+
+      let resultadoPermisos = null;
+      try {
+        resultadoPermisos = await sincronizarPermisosDriveConCanal({
+          fileIdOrUrl: modalCompartirItem.url,
+          miembrosEmails: miembrosDelCanal,
+          rolPermiso: rolDestinoCompartir,
+          revocarUsuariosAjenos: true,
+          emailHint: userEmail
+        });
+      } catch (e) {
+        console.warn('Aviso al sincronizar permisos en Google Drive:', e);
+      }
+
+      await updateDoc(doc(db, 'workspace_drive', modalCompartirItem.id), {
+        canalId: canalDestinoCompartir,
+        canalNombre: canalObj?.nombre || canalDestinoCompartir,
+        esCanalPrivado: Boolean(canalObj?.esPrivado || canalObj?.tipo === 'dm'),
+        miembrosAutorizados: miembrosDelCanal,
+        rolDriveMiembros: rolDestinoCompartir,
+        blindadoDrive: Boolean(resultadoPermisos),
+        publicoRevocadoDrive: Boolean(resultadoPermisos?.publicoRevocado),
+        actualizadoEn: serverTimestamp()
+      });
+
+      const tipoInfo = TIPOS_DRIVE[modalCompartirItem.tipo] || TIPOS_DRIVE.doc;
+      await addDoc(collection(db, 'workspace_canales', canalDestinoCompartir, 'mensajes'), {
+        texto: `📁 *Recurso de Google Drive compartido (Acceso exclusivo miembros del canal):* *${modalCompartirItem.titulo}*\n• *Tipo:* ${tipoInfo.label}\n• *Miembros autorizados:* ${miembrosDelCanal.length}`,
         autorEmail: userEmail,
         autorNombre: userName || 'Equipo IIRESODH',
         autorAvatar: currentUser?.photoURL || '',
@@ -359,36 +869,50 @@ export default function GoogleDriveWorkspacePanel({
         fijado: false,
         respuestasCount: 0,
         driveAdjunto: {
-          id: item.id,
-          titulo: item.titulo,
-          url: item.url,
-          tipo: item.tipo,
-          categoria: item.categoria || 'General'
+          id: modalCompartirItem.id,
+          titulo: modalCompartirItem.titulo,
+          url: modalCompartirItem.url,
+          tipo: modalCompartirItem.tipo,
+          categoria: modalCompartirItem.categoria || 'General',
+          canalId: canalDestinoCompartir,
+          canalNombre: canalObj?.nombre || canalDestinoCompartir
         }
       });
 
-      await updateDoc(doc(db, 'workspace_canales', canalId), {
+      await updateDoc(doc(db, 'workspace_canales', canalDestinoCompartir), {
         ultimoMensajeAt: serverTimestamp(),
         ultimoMensajeMs: Date.now(),
-        ultimoMensajeTexto: `📁 Drive: ${item.titulo}`,
+        ultimoMensajeTexto: `📁 Drive: ${modalCompartirItem.titulo}`,
         ultimoMensajeAutor: userName || 'Equipo'
       });
 
+      setModalCompartirItem(null);
       setSnackbar({
         open: true,
-        message: 'Recurso de Google Drive compartido en el canal.',
+        message: resultadoPermisos?.publicoRevocado
+          ? `🔒 Vínculo público eliminado. Ahora "${modalCompartirItem.titulo}" solo es accesible para los ${miembrosDelCanal.length} miembros de #${canalObj?.nombre || canalDestinoCompartir}.`
+          : `🔒 Acceso sincronizado exclusivamente para los ${miembrosDelCanal.length} miembros de #${canalObj?.nombre || canalDestinoCompartir}.`,
         severity: 'success'
       });
-      if (onIrACanal) onIrACanal(canalId);
+      if (onIrACanal) onIrACanal(canalDestinoCompartir);
     } catch (err) {
-      console.error('Error compartiendo item de Drive:', err);
+      console.error('Error compartiendo y blindando item de Drive:', err);
+    } finally {
+      setCompartiendoEnCanal(false);
     }
   };
 
-  // Filtrado y ordenamiento (destacados primero)
+  // Filtrado estricto por pertenencia al canal + tipo + búsqueda
   const itemsFiltrados = useMemo(() => {
     return itemsDrive
       .filter((item) => {
+        // 1. Perímetro de seguridad: solo miembros del canal donde se compartió
+        if (!usuarioTieneAccesoAItemDrive(item)) return false;
+
+        // 2. Filtro por canal seleccionado
+        if (filtroCanalId !== 'todos' && item.canalId !== filtroCanalId) return false;
+
+        // 3. Filtro por tipo de recurso
         if (filtroTipo === 'destacados' && !item.destacado) return false;
         if (filtroTipo !== 'todos' && filtroTipo !== 'destacados' && item.tipo !== filtroTipo) {
           return false;
@@ -398,11 +922,22 @@ export default function GoogleDriveWorkspacePanel({
         return (
           (item.titulo || '').toLowerCase().includes(term) ||
           (item.categoria || '').toLowerCase().includes(term) ||
+          (item.canalNombre || '').toLowerCase().includes(term) ||
           (item.descripcion || '').toLowerCase().includes(term)
         );
       })
       .sort((a, b) => Number(Boolean(b.destacado)) - Number(Boolean(a.destacado)));
-  }, [itemsDrive, filtroTipo, busqueda]);
+  }, [itemsDrive, usuarioTieneAccesoAItemDrive, filtroCanalId, filtroTipo, busqueda]);
+
+  const canalSeleccionadoModal = useMemo(
+    () => canalesDisponibles.find((c) => c.id === form.canalId) || null,
+    [canalesDisponibles, form.canalId]
+  );
+
+  const miembrosCanalSeleccionadoModal = useMemo(
+    () => (form.canalId ? obtenerMiembrosDelCanal(form.canalId) : []),
+    [form.canalId, obtenerMiembrosDelCanal]
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#f8fafc', overflow: 'hidden' }}>
@@ -434,11 +969,25 @@ export default function GoogleDriveWorkspacePanel({
             <HardDrive size={20} />
           </Box>
           <Box>
-            <Typography variant="subtitle1" fontWeight="800" color="#0f233c" sx={{ lineHeight: 1.2 }}>
-              Google Drive & Documentos Colaborativos
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Typography variant="subtitle1" fontWeight="800" color="#0f233c" sx={{ lineHeight: 1.2 }}>
+                Google Drive & Documentos Colaborativos
+              </Typography>
+              <Chip
+                icon={<ShieldCheck size={13} color="#166534" />}
+                label="Acceso restringido por canal (Sin enlaces públicos)"
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  bgcolor: '#dcfce7',
+                  color: '#166534'
+                }}
+              />
+            </Box>
             <Typography variant="caption" color="text.secondary">
-              Biblioteca institucional sincronizada y visor integrado para cuentas @iiresodh.org
+              Cada carpeta o archivo compartido en un canal es accesible únicamente para los miembros de ese canal
             </Typography>
           </Box>
         </Box>
@@ -522,12 +1071,12 @@ export default function GoogleDriveWorkspacePanel({
               '&:hover': { bgcolor: '#0f233c' }
             }}
           >
-            Vincular Archivo / Carpeta de Drive
+            Vincular Archivo / Carpeta a un Canal
           </Button>
         </Box>
       </Box>
 
-      {/* SUB-BARRA DE FILTROS Y BUSCADOR */}
+      {/* SUB-BARRA DE FILTROS (TIPO + CANAL) Y BUSCADOR */}
       <Box
         sx={{
           px: { xs: 2, sm: 3 },
@@ -569,13 +1118,28 @@ export default function GoogleDriveWorkspacePanel({
           ))}
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 175 }}>
+            <Select
+              value={filtroCanalId}
+              onChange={(e) => setFiltroCanalId(e.target.value)}
+              sx={{ height: 32, fontSize: '0.78rem', borderRadius: 2, bgcolor: '#f8fafc', fontWeight: 700 }}
+            >
+              <MenuItem value="todos">Todos mis canales autorizados</MenuItem>
+              {canalesSeleccionables.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.esPrivado ? `🔒 #${c.nombre}` : `#${c.nombre}`}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <TextField
             size="small"
             placeholder="Buscar documento o carpeta..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            sx={{ width: { xs: 180, sm: 250 } }}
+            sx={{ width: { xs: 170, sm: 230 } }}
             slotProps={{
               input: {
                 startAdornment: (
@@ -634,10 +1198,10 @@ export default function GoogleDriveWorkspacePanel({
             >
               <FolderOpen size={44} color="#94a3b8" style={{ margin: '0 auto 12px' }} />
               <Typography variant="subtitle1" fontWeight="800" color="#0f233c">
-                Tu biblioteca de Google Drive en el Workspace está lista
+                No hay carpetas ni documentos compartidos en esta vista
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2.5 }}>
-                Vincula carpetas compartidas de Drive, escritos en Google Docs, hojas de control en Sheets o PDFs para que todo el equipo pueda consultarlos y editarlos sin salir de la Intranet.
+                Cuando compartas una carpeta o documento en un canal, el sistema eliminará cualquier vínculo público (&ldquo;Cualquiera que tenga el vínculo&rdquo;) y dará acceso únicamente a los miembros de ese canal.
               </Typography>
               <Button
                 variant="contained"
@@ -645,7 +1209,7 @@ export default function GoogleDriveWorkspacePanel({
                 onClick={() => abrirModalNuevo('carpeta')}
                 sx={{ bgcolor: '#1a365d', textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
               >
-                Vincular primer archivo o carpeta de Drive
+                Compartir carpeta o archivo en un canal
               </Button>
             </Paper>
           ) : (
@@ -663,6 +1227,13 @@ export default function GoogleDriveWorkspacePanel({
                 const tipoCfg = TIPOS_DRIVE[item.tipo] || TIPOS_DRIVE.doc;
                 const IconoTipo = tipoCfg.icon;
                 const seleccionado = itemEnVisor?.id === item.id;
+                const canalDelItem = canalesDisponibles.find((c) => c.id === item.canalId);
+                const miembrosCount = Array.isArray(item.miembrosAutorizados)
+                  ? item.miembrosAutorizados.length
+                  : item.canalId
+                  ? obtenerMiembrosDelCanal(item.canalId).length
+                  : 0;
+                const tieneCanalYBlindaje = Boolean(item.canalId && item.blindadoDrive);
 
                 return (
                   <Paper
@@ -709,7 +1280,7 @@ export default function GoogleDriveWorkspacePanel({
                             >
                               {item.titulo}
                             </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.2, flexWrap: 'wrap' }}>
                               <Chip
                                 label={tipoCfg.label}
                                 size="small"
@@ -739,6 +1310,71 @@ export default function GoogleDriveWorkspacePanel({
                         </IconButton>
                       </Box>
 
+                      {/* BADGE DE PRIVACIDAD Y CANAL AUTORIZADO */}
+                      <Box sx={{ mt: 1.25, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                        {item.canalId ? (
+                          <Chip
+                            icon={
+                              canalDelItem?.esPrivado || item.esCanalPrivado ? (
+                                <Lock size={11} color="#92400e" />
+                              ) : (
+                                <Hash size={11} color="#1D3557" />
+                              )
+                            }
+                            label={`Solo miembros de #${canalDelItem?.nombre || item.canalNombre || item.canalId} (${miembrosCount})`}
+                            size="small"
+                            onClick={() => abrirDialogoCompartirItem(item)}
+                            sx={{
+                              height: 21,
+                              fontSize: '0.67rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              bgcolor:
+                                canalDelItem?.esPrivado || item.esCanalPrivado
+                                  ? '#fef3c7'
+                                  : 'rgba(29, 53, 87, 0.08)',
+                              color:
+                                canalDelItem?.esPrivado || item.esCanalPrivado
+                                  ? '#92400e'
+                                  : '#1D3557'
+                            }}
+                          />
+                        ) : (
+                          <Chip
+                            icon={<ShieldAlert size={12} color="#b91c1c" />}
+                            label="Sin canal asignado • Haz clic para restringir a un canal"
+                            size="small"
+                            onClick={() => abrirDialogoCompartirItem(item)}
+                            sx={{
+                              height: 22,
+                              fontSize: '0.67rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              bgcolor: '#fef2f2',
+                              color: '#b91c1c',
+                              border: '1px solid #fecaca'
+                            }}
+                          />
+                        )}
+
+                        {tieneCanalYBlindaje && (
+                          <Tooltip title="Enlace público desactivado en Google Drive. Solo los miembros del canal tienen permiso.">
+                            <Chip
+                              icon={<ShieldCheck size={11} color="#166534" />}
+                              label="Blindado en Drive"
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                bgcolor: '#dcfce7',
+                                color: '#166534'
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                      </Box>
+
                       {item.descripcion && (
                         <Typography
                           variant="caption"
@@ -760,7 +1396,7 @@ export default function GoogleDriveWorkspacePanel({
 
                     {/* BOTONES DE ACCIÓN DEL DOCUMENTO */}
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                      <Box sx={{ display: 'flex', gap: 0.75 }}>
+                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                         <Button
                           size="small"
                           variant={seleccionado ? 'contained' : 'outlined'}
@@ -777,8 +1413,31 @@ export default function GoogleDriveWorkspacePanel({
                               : { borderColor: '#cbd5e1', color: '#0f233c' })
                           }}
                         >
-                          {seleccionado ? 'Cerrando visor' : 'Vista Previa'}
+                          {seleccionado ? 'Cerrar visor' : 'Vista Previa'}
                         </Button>
+
+                        {!tieneCanalYBlindaje && (
+                          <Tooltip title="Elimina 'Cualquiera que tenga el vínculo' en Google Drive y restringe el acceso únicamente a los miembros del canal">
+                            <Button
+                              size="small"
+                              variant="contained"
+                              startIcon={<Lock size={13} />}
+                              onClick={() => abrirDialogoCompartirItem(item)}
+                              sx={{
+                                textTransform: 'none',
+                                borderRadius: 1.5,
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                py: 0.3,
+                                bgcolor: '#b45309',
+                                color: '#ffffff',
+                                '&:hover': { bgcolor: '#92400e' }
+                              }}
+                            >
+                              Restringir a Canal
+                            </Button>
+                          </Tooltip>
+                        )}
 
                         <Tooltip title="Abrir en Google Drive (@iiresodh.org)">
                           <IconButton
@@ -795,18 +1454,16 @@ export default function GoogleDriveWorkspacePanel({
                       </Box>
 
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                        {canalesDisponibles.filter((c) => c.tipo !== 'dm').length > 0 && (
-                          <Tooltip title="Compartir en #general">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleCompartirEnCanal(item, 'general')}
-                              sx={{ color: '#2563eb' }}
-                            >
-                              <Send size={14} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Tooltip title="Editar vínculo">
+                        <Tooltip title="Elegir canal y sincronizar permisos exclusivos de sus miembros">
+                          <IconButton
+                            size="small"
+                            onClick={() => abrirDialogoCompartirItem(item)}
+                            sx={{ color: '#2563eb' }}
+                          >
+                            <Send size={14} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Editar vínculo y canal">
                           <IconButton size="small" onClick={() => abrirModalEditar(item)}>
                             <Edit3 size={14} />
                           </IconButton>
@@ -829,7 +1486,7 @@ export default function GoogleDriveWorkspacePanel({
           )}
         </Box>
 
-        {/* VISOR INTEGRADO DE GOOGLE DRIVE / DOCS / SHEETS */}
+        {/* VISOR INTEGRADO DE GOOGLE DRIVE / DOCS / SHEETS / CARPETAS PRIVADAS */}
         {itemEnVisor && (
           <Box
             sx={{
@@ -863,6 +1520,20 @@ export default function GoogleDriveWorkspacePanel({
                   size="small"
                   sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700 }}
                 />
+                {itemEnVisor.canalNombre && (
+                  <Chip
+                    icon={<Lock size={11} />}
+                    label={`#${itemEnVisor.canalNombre}`}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      bgcolor: '#dcfce7',
+                      color: '#166534'
+                    }}
+                  />
+                )}
               </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -903,27 +1574,36 @@ export default function GoogleDriveWorkspacePanel({
               </Box>
             </Box>
 
-            {/* IFRAME EMBEBIDO DE GOOGLE WORKSPACE */}
-            <Box sx={{ flexGrow: 1, position: 'relative', bgcolor: '#f1f5f9' }}>
-              <iframe
-                title={itemEnVisor.titulo}
-                src={convertirUrlDriveAEmbed(itemEnVisor.url, modoVisor)}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none'
-                }}
-                allow="autoplay; clipboard-write; encrypted-media"
-              />
+            {/* VISOR: SI ES CARPETA USA EL EXPLORADOR PRIVADO OAUTH; SI ES ARCHIVO USA EL PREVIEW */}
+            <Box sx={{ flexGrow: 1, position: 'relative', bgcolor: '#f1f5f9', overflow: 'hidden' }}>
+              {itemEnVisor.tipo === 'carpeta' ? (
+                <VisorCarpetaPrivadaDrive
+                  carpetaItem={itemEnVisor}
+                  userEmail={userEmail}
+                  getGoogleWorkspaceUrl={getGoogleWorkspaceUrl}
+                  onAbrirArchivoInterno={(subItem) => setItemEnVisor(subItem)}
+                />
+              ) : (
+                <iframe
+                  title={itemEnVisor.titulo}
+                  src={convertirUrlDriveAEmbed(itemEnVisor.url, modoVisor)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none'
+                  }}
+                  allow="autoplay; clipboard-write; encrypted-media"
+                />
+              )}
             </Box>
           </Box>
         )}
       </Box>
 
-      {/* MODAL PARA VINCULAR NUEVO ARCHIVO O CARPETA DE GOOGLE DRIVE */}
+      {/* MODAL PARA VINCULAR Y RESTRINGIR ARCHIVO O CARPETA A UN CANAL */}
       <Dialog
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => !sincronizandoPermisos && setModalOpen(false)}
         maxWidth="md"
         fullWidth
         PaperProps={{
@@ -934,10 +1614,94 @@ export default function GoogleDriveWorkspacePanel({
         }}
       >
         <DialogTitle sx={{ fontWeight: '800', color: '#1D3557', pb: 1.25 }}>
-          {editandoId ? 'Editar Recurso de Google Drive' : 'Vincular Archivo o Carpeta de Google Drive'}
+          {editandoId
+            ? 'Editar Recurso y Permisos de Canal en Google Drive'
+            : 'Vincular Archivo o Carpeta de Google Drive a un Canal'}
         </DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-          {/* EXPLORADOR DIRECTO DE GOOGLE DRIVE */}
+          {/* 1. SELECCIÓN OBLIGATORIA DEL CANAL Y PERÍMETRO DE MIEMBROS */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              bgcolor: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              borderLeft: '4px solid #1D3557',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.5
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Lock size={16} color="#1D3557" />
+                <Typography variant="subtitle2" fontWeight="800" color="#1D3557">
+                  1. Canal Destino y Control de Acceso Exclusivo
+                </Typography>
+              </Box>
+              <Chip
+                icon={<ShieldCheck size={13} color="#166534" />}
+                label='Bloquea "Cualquiera que tenga el vínculo"'
+                size="small"
+                sx={{ bgcolor: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '0.7rem' }}
+              />
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.3fr 1fr' }, gap: 1.5 }}>
+              <FormControl size="small" fullWidth required>
+                <InputLabel>Compartir exclusivamente con los miembros del canal</InputLabel>
+                <Select
+                  label="Compartir exclusivamente con los miembros del canal"
+                  value={form.canalId}
+                  onChange={(e) => setForm((prev) => ({ ...prev, canalId: e.target.value }))}
+                >
+                  {canalesSeleccionables.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.esPrivado ? `🔒 #${c.nombre} (Canal Privado)` : `#${c.nombre}`}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel>Permiso en Drive para miembros del canal</InputLabel>
+                <Select
+                  label="Permiso en Drive para miembros del canal"
+                  value={form.rolDriveMiembros}
+                  onChange={(e) => setForm((prev) => ({ ...prev, rolDriveMiembros: e.target.value }))}
+                >
+                  <MenuItem value="reader">👁️ Solo lectura (Lector)</MenuItem>
+                  <MenuItem value="commenter">💬 Comentador</MenuItem>
+                  <MenuItem value="writer">✏️ Editor colaborativo</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Users size={14} color="#475569" />
+              <Typography variant="caption" color="#334155" fontWeight="700">
+                Personas que tendrán acceso en #{canalSeleccionadoModal?.nombre || form.canalId} ({miembrosCanalSeleccionadoModal.length}):
+              </Typography>
+              {miembrosCanalSeleccionadoModal.slice(0, 8).map((emailM) => (
+                <Chip
+                  key={emailM}
+                  label={emailM}
+                  size="small"
+                  sx={{ height: 19, fontSize: '0.66rem', bgcolor: '#e2e8f0', color: '#1e293b', fontWeight: 600 }}
+                />
+              ))}
+              {miembrosCanalSeleccionadoModal.length > 8 && (
+                <Chip
+                  label={`+${miembrosCanalSeleccionadoModal.length - 8} más`}
+                  size="small"
+                  sx={{ height: 19, fontSize: '0.66rem', fontWeight: 700 }}
+                />
+              )}
+            </Box>
+          </Paper>
+
+          {/* 2. EXPLORADOR DIRECTO DE GOOGLE DRIVE */}
           <GoogleDriveSelectorBrowser
             userEmail={userEmail}
             tipoFiltroInicial={form.tipo === 'carpeta' ? 'carpeta' : 'todos'}
@@ -968,7 +1732,7 @@ export default function GoogleDriveWorkspacePanel({
           />
 
           <TextField
-            label="Enlace de Google Drive / Docs / Sheets / Carpeta (Autocompletado o manual)"
+            label="Enlace de Google Drive / Docs / Sheets / Carpeta"
             placeholder="Selecciona arriba desde tu Drive o pega el enlace aquí..."
             size="small"
             fullWidth
@@ -1020,47 +1784,118 @@ export default function GoogleDriveWorkspacePanel({
             value={form.descripcion}
             onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))}
           />
-
-          {!editandoId && (
-            <FormControl size="small" fullWidth>
-              <InputLabel>Notificar y compartir tarjeta en canal de Slack (Opcional)</InputLabel>
-              <Select
-                label="Notificar y compartir tarjeta en canal de Slack (Opcional)"
-                value={form.notificarCanalId}
-                onChange={(e) => setForm((prev) => ({ ...prev, notificarCanalId: e.target.value }))}
-              >
-                <MenuItem value="">
-                  <em>No publicar en canal ahora</em>
-                </MenuItem>
-                {canalesDisponibles
-                  .filter((c) => c.tipo !== 'dm')
-                  .map((c) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      #{c.nombre}
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-          )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setModalOpen(false)} sx={{ textTransform: 'none' }}>
+          <Button
+            onClick={() => setModalOpen(false)}
+            disabled={sincronizandoPermisos}
+            sx={{ textTransform: 'none' }}
+          >
             Cancelar
           </Button>
           <Button
             variant="contained"
             onClick={handleGuardarItem}
-            disabled={!form.titulo.trim() || !form.url.trim()}
+            disabled={!form.titulo.trim() || !form.url.trim() || !form.canalId || sincronizandoPermisos}
+            startIcon={
+              sincronizandoPermisos ? <CircularProgress size={15} color="inherit" /> : <Lock size={15} />
+            }
             sx={{ bgcolor: '#1a365d', textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
           >
-            {editandoId ? 'Guardar Cambios' : 'Vincular a Workspace'}
+            {sincronizandoPermisos
+              ? 'Blindando permisos en Drive...'
+              : editandoId
+              ? 'Guardar y Blindar Acceso al Canal'
+              : `Compartir Solo con #${canalSeleccionadoModal?.nombre || form.canalId}`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MODAL PARA COMPARTIR / RESTRINGIR UN RECURSO EXISTENTE A UN CANAL */}
+      <Dialog
+        open={Boolean(modalCompartirItem)}
+        onClose={() => !compartiendoEnCanal && setModalCompartirItem(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#1D3557' }}>
+          🔒 Restringir y Compartir en Canal
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Alert severity="info" sx={{ borderRadius: 2 }}>
+            Al confirmar, se eliminará cualquier acceso público (&ldquo;Cualquiera que tenga el vínculo&rdquo;) en Google Drive para <strong>{modalCompartirItem?.titulo}</strong> y solo tendrán permiso los miembros del canal que elijas.
+          </Alert>
+
+          <FormControl size="small" fullWidth>
+            <InputLabel>Canal autorizado</InputLabel>
+            <Select
+              label="Canal autorizado"
+              value={canalDestinoCompartir}
+              onChange={(e) => setCanalDestinoCompartir(e.target.value)}
+            >
+              {canalesSeleccionables.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.esPrivado ? `🔒 #${c.nombre} (Privado)` : `#${c.nombre}`}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" fullWidth>
+            <InputLabel>Nivel de acceso en Google Drive</InputLabel>
+            <Select
+              label="Nivel de acceso en Google Drive"
+              value={rolDestinoCompartir}
+              onChange={(e) => setRolDestinoCompartir(e.target.value)}
+            >
+              <MenuItem value="reader">👁️ Solo lectura (Lector)</MenuItem>
+              <MenuItem value="commenter">💬 Comentador</MenuItem>
+              <MenuItem value="writer">✏️ Editor colaborativo</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Box>
+            <Typography variant="caption" fontWeight="800" color="#1D3557" sx={{ display: 'block', mb: 0.75 }}>
+              MIEMBROS QUE TENDRÁN ACCESO EXCLUSIVO ({obtenerMiembrosDelCanal(canalDestinoCompartir).length}):
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+              {obtenerMiembrosDelCanal(canalDestinoCompartir).map((em) => (
+                <Chip
+                  key={em}
+                  label={em}
+                  size="small"
+                  sx={{ height: 20, fontSize: '0.68rem', bgcolor: '#f1f5f9', fontWeight: 600 }}
+                />
+              ))}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setModalCompartirItem(null)}
+            disabled={compartiendoEnCanal}
+            sx={{ textTransform: 'none' }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmarCompartirYBlindar}
+            disabled={compartiendoEnCanal || !canalDestinoCompartir}
+            startIcon={
+              compartiendoEnCanal ? <CircularProgress size={14} color="inherit" /> : <ShieldCheck size={15} />
+            }
+            sx={{ bgcolor: '#1D3557', textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            {compartiendoEnCanal ? 'Blindando en Google Drive...' : 'Blindar Permisos y Compartir en Canal'}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3500}
+        autoHideDuration={4500}
         onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
