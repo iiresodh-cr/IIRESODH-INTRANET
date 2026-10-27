@@ -1447,7 +1447,7 @@ export default function EspacioTrabajoSlack({
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <img
-              src="/iiresodh-isotipo-round.png"
+              src="/Isotipo-w.png"
               alt="IIRESODH"
               style={{ width: 28, height: 28, objectFit: 'contain', display: 'block' }}
             />

@@ -174,9 +174,9 @@ export default function Layout({ children, currentView, setView, userRole, userP
                 '&:hover': { opacity: 0.92 }
               }}
             >
-              {/* Isotipo circular oficial sin rebordes */}
+              {/* Isotipo blanco oficial sobre fondo transparente */}
               <img 
-                src="/iiresodh-isotipo-round.png" 
+                src="/Isotipo-w.png" 
                 alt="Isotipo IIRESODH" 
                 style={{ 
                   width: '36px', 

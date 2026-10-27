@@ -78,7 +78,7 @@ export default function Login({ institutionalError, setInstitutionalError }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, mb: { xs: 3, md: 5 } }}>
             <Box
               component="img"
-              src="/iiresodh-isotipo-round.png"
+              src="/Isotipo-w.png"
               alt="Isotipo IIRESODH"
               sx={{ width: 44, height: 44, objectFit: 'contain', display: 'block' }}
             />
