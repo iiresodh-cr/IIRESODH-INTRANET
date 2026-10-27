@@ -282,46 +282,69 @@ Accesible desde la primera tarjeta de módulos del Hub Central o desde el menú 
 
 ---
 
-## 5. Módulo: Gestión de Litigios y Expedientes Jurídicos
+## 5. Módulo: Gestión de Litigios Internacionales y Copiloto Jurídico IA
 
-Es el núcleo procesal de la Intranet para la administración de casos colectivos e individuales llevados por IIRESODH.
+Es el núcleo procesal de la Intranet para la administración de litigios estratégicos ante el **Sistema Interamericano de Derechos Humanos (CIDH y Corte IDH)**, **Órganos de Tratados y Relatorías de la ONU**, y **Tribunales Nacionales**, potenciado con una arquitectura jerárquica de Inteligencia Artificial en **Vertex AI / Firebase AI Logic** sin exponer llaves de API.
 
-### 5.1. Creación y Administración de Casos
-Al ingresar a **Gestión de Litigios**, verá las tarjetas de todos los expedientes registrados con su estado (*Activo*, *Suspendido*, *Cerrado*, *Archivado*) y el contador en tiempo real de representados inscritos.
-- Para registrar un nuevo litigio, haga clic en **`+ Nuevo Caso / Litigio`**, ingrese el nombre oficial del expediente y una descripción procesal.
-- Para entrar a trabajar en un expediente, haga clic en **`Ver Expediente / Representados`**.
+### 5.1. Ficha Técnica Internacional, KPIs y Línea de Tiempo Procesal
+Al ingresar a **Casos y Litigios Estratégicos**, verá:
+- **Tarjetas de KPIs Ejecutivos**: Total de expedientes activos, litigios ante foros internacionales (CIDH, Corte IDH, ONU), padrón acumulado de víctimas representadas y alertas de plazos fatales críticos.
+- **Buscador y Filtros Multicriterio**: Búsqueda instantánea por nombre del caso, número oficial de expediente (`P-1452-24`), Estado demandado o abogado responsable, además de filtros por **Jurisdicción / Instancia** y **Estado del Proceso**.
+- **Metadatos Procesales Internacionales**: Cada caso registra su **Órgano/Jurisdicción** (`CIDH (Comisión)`, `Corte IDH (Tribunal)`, `ONU (Comités / Relatorías)`, `Sala Constitucional / Supremo`, `Contencioso Administrativo / Laboral`, `Solución Amistosa`), **N° de Expediente Oficial**, **Estado Demandado**, **Derechos Invocados (CADH / Protocolo de San Salvador / PIDCP)** y **Abogado(a) Líder**.
+- **Pipeline Procesal Interactivo de 6 Etapas**: Dentro del expediente del caso, la cabecera muestra las 6 etapas del litigio (`1. Preparación y Recolección` → `2. Presentación / Admisibilidad` → `3. Observaciones y Fondo` → `4. Audiencia / Alegatos Finales` → `5. Sentencia / Informe de Fondo` → `6. Supervisión y Reparaciones`), permitiendo actualizar la etapa con un solo clic.
 
-### 5.2. Gestión de Representados y Ficha Individual
-Dentro del detalle de un caso, la primera pestaña muestra el padrón completo de **Representados (Clientes)**:
-- **Buscador instantáneo**: Localice a cualquier representado por nombre, apellidos, número de identificación o correo electrónico.
-- **Agregar Representado (`+ Nuevo Representado`)**: Permite registrar nombre completo, tipo y número de documento de identidad, país de residencia, teléfono con prefijo internacional, correo electrónico principal y estado de pago.
-- **Ficha Individual del Representado (`👁️ Ver Ficha`)**: Al abrir el expediente individual de una persona representada, podrá gestionar:
-  1. **Datos Personales y de Contacto** (editables en cualquier momento).
-  2. **Estado Financiero / Conciliación Stripe**: Control de estado de pago y notas de facturación.
-  3. **Poderes y Documentos Individuales**: Subida de poderes especiales firmados, documentos de identidad y pruebas específicas de ese representado.
-  4. **Notas Internas del Expediente**: Bitácora cronológica de seguimiento jurídico de ese cliente.
-  5. **Historial de Comunicados Recibidos**: Trazabilidad exacta de todos los correos oficiales enviados al representado y su estado de lectura.
+### 5.2. Padrón Oficial de Víctimas (Art. 35 Corte IDH), Vulnerabilidad (Art. 29.2 CIDH) y Ficha Individual
+En la pestaña **`Padrón de Víctimas`**:
+- **Semáforo de Acreditación Art. 35 Reglamento Corte IDH**: Cada representado cuenta con insignias interactivas de un clic para verificar **`✓ Poder`** (Poder de representación legal), **`✓ ID`** (Cédula o pasaporte legible) y **`✓ Daño`** (Prueba de afectación), además de su **Calidad Procesal** (*Víctima Directa*, *Familiar / Derechohabiente*, *Sucesor Procesal*, *Testigo / Perito*) y **Condición de Vulnerabilidad** (*Adulto Mayor*, *Discapacidad*, *Pueblo Indígena / Afrodescendiente*, *Jefa de Hogar*, *Salud Crítica*, *NNA*) para fundamentar solicitudes de tramitación prioritaria (**Art. 29.2 Reglamento CIDH**).
+- **Exportación e Importación Masiva (`CSV / Excel`)**:
+  - **`📥 Exportar Anexo CSV/Excel`**: Descarga el padrón completo estructurado conforme a los requisitos del Anexo Único de Víctimas (Art. 35 Corte IDH).
+  - **`📤 Importar CSV`**: Permite cargar masivamente listas de representados desde un archivo `.csv`.
+- **🛡️ Auditor IA del Padrón (Art. 35 Corte IDH)**: Analiza con **`Gemini 3.5 Flash-Lite`** la completitud del padrón, detecta identificaciones duplicadas o faltantes de poder/ID y emite un dictamen ejecutivo de preparación procesal.
+- **✨ Autocompletado OCR con IA al Crear o Revisar un Representado**:
+  - En el modal **`Nueva Ficha de Representado`**, el botón **`✨ Autocompletar desde Cédula/Pasaporte`** utiliza **`Gemini 3.8 Flash`** para leer multimodalmente el PDF o fotografía del documento de identidad y rellenar nombres, apellidos, número de identificación y país automáticamente.
+  - Dentro de la **Ficha Individual del Representado (`👁️`)**, dispone de:
+    1. **Botón directo de WhatsApp** hacia el teléfono móvil del representado.
+    2. **Semáforo interactivo Art. 35** y edición de calidad procesal y vulnerabilidad.
+    3. **✨ Verificador OCR de Poderes y Cédulas (`Sparkles`)** junto a cada documento subido.
+    4. **✨ Síntesis Ejecutiva IA del Representado**, que resume todas sus notas jurídicas, documentos y notificaciones en un dictamen estándar SIDH que puede guardarse con un clic en la **Bitácora Jurídica** (la cual registra el autor de cada nota y permite editar o borrar anotaciones).
 
-### 5.3. Plazos Fatales y Documentos del Expediente
-En las pestañas superiores del caso encontrará:
-- **⏳ Plazos y Fechas Fatales**: Registro de vencimientos procesales con **alertas semafóricas automáticas** (Rojo para plazos vencidos o inminentes, Amarillo para próximos a vencer, Verde para plazos holgados o cumplidos).
-- **📂 Documentos y Pruebas del Caso**: Repositorio centralizado en la nube para resoluciones judiciales, escritos presentados, peritajes y anexos probatorios comunes a todo el expediente.
+### 5.3. Piezas Procesales, Anexos Numerados, Google Drive y Detector IA de Plazos Fatales
+En la pestaña **`Piezas y Anexos`**:
+- **Clasificación Procesal y Numeración de Anexos**: Cada archivo se categoriza como `Escrito IIRESODH`, `Resolución / Notificación Tribunal`, `Contestación del Estado`, `Peritaje / Amicus Curiae` o `Anexo Probatorio`, con soporte para número de anexo (`Anexo 1`, `A-1`) y filtro rápido por categoría.
+- **📁 Vincular desde Google Drive**: Permite enlazar directamente documentos alojados en el Google Drive institucional sin necesidad de duplicar archivos pesados.
+- **✨ Analizador Multimodal IA de Piezas y Detector de Plazos Fatales**:
+  - Al pulsar **`Analizar IA`** sobre cualquier resolución o escrito (utilizando **`Gemini 3.8 Flash`** por defecto o activando la casilla **`🧠 Usar Gemini 4 Argon`** para fallos complejos), la IA genera el resumen ejecutivo, extrae los puntos resolutivos y detecta si el documento impone una **Fecha Fatal / Plazo de Vencimiento**.
+  - Si detecta un plazo fatal, muestra el botón rojo **`Agendar Plazo Fatal y Sincronizar Calendario`**, que registra el vencimiento en el expediente y lo publica automáticamente en el **Calendario Institucional** del Workspace.
 
-### 5.4. Comunicados Masivos y Trazabilidad de Entrega y Apertura
-La pestaña **📧 Comunicados Enviados** permite redactar y enviar circulares y notificaciones oficiales por correo electrónico a todos los representados de un caso (o a una selección específica de ellos) directamente desde la cuenta institucional **`contacto@iiresodh.org`** mediante **Google Workspace (Gmail API)** y **Cloud Functions (2nd Gen)**:
-1. **Redacción y Documento Adjunto (PDF)**:
-   - Haga clic en **`+ Redactar Comunicado`**, defina el asunto, el cuerpo del mensaje y adjunte opcionalmente el documento PDF oficial de la circular (que queda almacenado de forma segura en Firebase Storage y se adjunta en el correo).
-2. **Selección de Destinatarios**:
-   - Puede enviar el comunicado a **Todos los representados** del caso o elegir **Selección específica** para filtrar y marcar únicamente a determinados destinatarios.
-3. **Prueba de Entrega y Lectura en Tiempo Real (Dos Vistas)**:
-   - **A. En la pestaña *Comunicados Enviados* (Vista Global y Tabla por Destinatario)**:
-     - Cada comunicado muestra en la esquina superior derecha la insignia **`Despachado`** una vez procesado el envío.
-     - Al hacer clic en el botón **`Ver estado por destinatario (Entregados / Abiertos)`**, se despliega un panel con los contadores globales (`Recibidos: X/N`, `Abiertos: Y/N` y `Rebotes`), un botón **`Actualizar estado`** y una tabla detallada con cada representado, su correo, su estado actual y las marcas exactas de fecha y hora de **Recibido (Entrega)** y **Abierto (Lectura)**.
-   - **B. En la *Ficha Individual del Representado* (*Historial de Notificaciones*)**:
-     - En la columna derecha de la ficha de cada cliente se listan todos los comunicados que se le han enviado con sus estados en tiempo real (incluyendo filtros contra aperturas automáticas de escáneres corporativos):
-       - **`Enviado`** / **`Entregado`** (con fecha y hora exacta de recepción `Recibido: DD/MM/AAAA, HH:MM:SS`).
-       - **`Abierto`** (en verde, con fecha y hora exacta de Costa Rica en que el representado abrió y leyó el comunicado).
-       - **`Rebotado`** (en rojo, con el detalle técnico en caso de que la dirección de correo presente un fallo).
+### 5.4. Control Financiero, Aportes y Conciliación Stripe / SINPE
+En la pestaña **`Control Financiero y Aportes`**:
+- **Panel de KPIs Financieros**: Muestra en tiempo real el **Total Recaudado en USD (`$`) y CRC (`₡`)**, el número de representados **Pagados / Al Día**, **Pendientes / Abono Parcial** y **Exonerados / Pro Bono**.
+- **Tabla Financiera Interactiva**: Permite actualizar en línea el estado de pago (`Pendiente`, `Abono Parcial`, `Pagado`, `Exonerado / Pro Bono`), el monto aportado, la moneda (`USD` / `CRC`), la vía de pago (`Transferencia / SINPE`, `Stripe`, `Depósito Bancario`, `Exoneración Pro Bono`) y el número de comprobante o referencia, además de sincronizar pagos automáticos desde **Stripe**.
+
+### 5.5. Plazos Fatales Sincronizados con el Calendario Institucional
+En la pestaña **`Plazos Fatales`**:
+- Cada término procesal incluye descripción, fecha límite judicial, **Abogado(a) Responsable**, **Nota de Prórroga** y la opción activada por defecto **`📅 Sincronizar automáticamente con Calendario Institucional`**, creando el evento de alerta en la agenda compartida de todo el equipo.
+- Para dar por cumplido un plazo, el sistema exige adjuntar el **Documento Probatorio de Presentación (Cargo/Acuse PDF)**, que queda archivado automáticamente en el expediente.
+
+### 5.6. Comunicados Oficiales con Redactor IA en Lenguaje Claro y Telemetría
+En la pestaña **`Comunicados Oficiales`**:
+- **✨ Redactor IA de Circulares en Lenguaje Claro**: Dentro de la ventana **`Redactar Comunicado`**, puede elegir entre *Actualización de Etapa Procesal*, *Solicitud Urgente de Poder / Cédula (Art. 35)*, *Convocatoria a Asamblea / Google Meet* o *Recordatorio de Aporte*, y pulsar **`Generar Borrador con IA`** (`Gemini 3.8 Flash` / `Gemini 3.5 Flash-Lite`) para obtener un texto claro, empático y riguroso.
+- **Filtro rápido de destinatarios pendientes**: El botón **`⚠️ Seleccionar pendientes de Poder/ID`** marca automáticamente solo a las personas representadas que aún no tienen su poder o documento de identidad verificado.
+- **Trazabilidad Probatoria de Entrega y Apertura**: Se mantiene la telemetría completa de correos enviados desde `contacto@iiresodh.org` con marcas exactas de **Recibido (Entrega)**, **Abierto (Lectura)** y **Rebotes**.
+
+### 5.7. Pestaña `✨ Copiloto Jurídico IA` (Jerarquía Gemini 4 Argon / 3.8 Flash / 3.5 Flash-Lite)
+La sexta pestaña del expediente abre el **Copiloto Jurídico Internacional IIRESODH**, conectado de forma segura a **Vertex AI (`aiplatform.googleapis.com`)** y **Firebase AI Logic**:
+- **Selector de Motor de Razonamiento IA**:
+  1. **`🧠 Gemini 4 Argon (Pensamiento Avanzado)`**: Modelo insignia para estrategia jurídica interamericana/ONU, test de admisibilidad, análisis de fondo y piezas complejas.
+  2. **`⚡ Gemini 3.8 Flash (Multimodal Secundario)`**: Modelo ágil para análisis multimodal, síntesis fáctica y borradores procesales.
+  3. **`🚀 Gemini 3.5 Flash-Lite (Tareas Simples)`**: Modelo ultrarrápido para verificaciones puntuales, resúmenes breves y ajustes de estilo.
+- **6 Generadores Estratégicos de 1 Clic** (contextualizados automáticamente con los hechos, derechos invocados, número de víctimas y etapa del caso):
+  - *🌎 Test de Admisibilidad y Excepciones al Agotamiento (Arts. 46-47 CADH)*
+  - *🏛️ Estándares y Jurisprudencia de la Corte IDH Aplicable*
+  - *🚨 Solicitud de Medidas Cautelares (Art. 25 CIDH) / Provisionales (Art. 63.2 CADH)*
+  - *⚡ Solicitud de Tramitación Prioritaria (Art. 29.2 CIDH) por Vulnerabilidad*
+  - *💰 Pretensiones y Reparaciones Integrales (Art. 63.1 CADH)*
+  - *🤝 Ruta de Solución Amistosa (Art. 40 CIDH)*
 
 ---
 

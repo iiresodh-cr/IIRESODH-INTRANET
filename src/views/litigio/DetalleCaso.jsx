@@ -72,10 +72,36 @@ import {
   Clock,
   Calendar,
   Search,
-  Mail
+  Mail,
+  Sparkles,
+  Download,
+  ShieldCheck,
+  Globe,
+  FolderOpen
 } from 'lucide-react';
-import FichaCliente from './FichaCliente';
+import FichaCliente, {
+  CALIDADES_PROCESALES,
+  CONDICIONES_VULNERABILIDAD,
+  ESTADOS_PAGO_CLIENTE
+} from './FichaCliente';
+import { ETAPAS_PROCESALES_LITIGIO } from './Casos';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
+import {
+  MODELOS_LITIGIO_IA,
+  ejecutarConsultaJuridicaIA,
+  analizarPiezaProcesalIA,
+  extraerDatosIdentificacionIA,
+  auditarPadronArt35IA,
+  redactarComunicadoClaroIA
+} from '../../utils/litigioAiService';
+
+export const CATEGORIAS_DOCUMENTOS_PROCESALES = [
+  'Escrito IIRESODH',
+  'Resolución / Notificación Tribunal',
+  'Contestación del Estado',
+  'Peritaje / Amicus Curiae',
+  'Anexo Probatorio'
+];
 
 const DOC_TYPES = [
   'Cédula de Identidad', 
@@ -411,12 +437,31 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [pais, setPais] = useState('Costa Rica');
   const [direccion, setDireccion] = useState('');
   const [notas, setNotas] = useState('');
+  const [calidadProcesalInput, setCalidadProcesalInput] = useState(CALIDADES_PROCESALES[0]);
+  const [vulnerabilidadInput, setVulnerabilidadInput] = useState('Ninguna');
+  const [tienePoderInput, setTienePoderInput] = useState(false);
+  const [tieneIdInput, setTieneIdInput] = useState(false);
+  const [autocompletandoOcrCliente, setAutocompletandoOcrCliente] = useState(false);
+
+  // Etapa procesal interactiva (Pilar 1)
+  const [etapaActualCaso, setEtapaActualCaso] = useState(
+    caso.etapa_procesal || '1. Preparación y Recolección'
+  );
+
+  // Estados para padrón Art. 35 y Auditoría IA (Pilar 2 & 6)
+  const [filtroAcreditacion, setFiltroAcreditacion] = useState('Todos');
+  const [auditandoPadronIA, setAuditandoPadronIA] = useState(false);
+  const [resultadoAuditoriaPadron, setResultadoAuditoriaPadron] = useState(null);
+  const [importandoCSV, setImportandoCSV] = useState(false);
 
   // Estados para control de plazos procesales fatales
   const [localPlazos, setLocalPlazos] = useState(caso.plazos || []);
   const [openPlazoModal, setOpenPlazoModal] = useState(false);
   const [descripcionPlazo, setDescripcionPlazo] = useState('');
   const [fechaFatalInput, setFechaFatalInput] = useState('');
+  const [responsablePlazoInput, setResponsablePlazoInput] = useState(currentUserEmail || '');
+  const [prorrogaPlazoInput, setProrrogaPlazoInput] = useState('');
+  const [sincronizarCalendarioInput, setSincronizarCalendarioInput] = useState(true);
   const [openCerrarModal, setOpenCerrarModal] = useState(false);
   const [plazoAActivar, setPlazoAActivar] = useState(null);
   
@@ -429,19 +474,32 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [descripcionProbatorio, setDescripcionProbatorio] = useState('');
   const [fechaDocumentoProbatorio, setFechaDocumentoProbatorio] = useState('');
 
-  // Estado para el área de arrastre (Drag and Drop) e inputs de documentos comunes
+  // Estado para el área de arrastre (Drag and Drop) e inputs de documentos comunes (Pilar 3)
   const [isDragging, setIsDragging] = useState(false);
   const [openUploadModal, setOpenUploadModal] = useState(false);
   const [fileComunSeleccionado, setFileComunSeleccionado] = useState(null);
   const [descripcionComun, setDescripcionComun] = useState('');
   const [fechaDocumentoComun, setFechaDocumentoComun] = useState('');
+  const [categoriaComun, setCategoriaComun] = useState('Escrito IIRESODH');
+  const [anexoNumeroComun, setAnexoNumeroComun] = useState('');
+  const [filtroCategoriaDoc, setFiltroCategoriaDoc] = useState('Todas');
+
+  // Vinculación de Google Drive y Analizador Multimodal IA de Piezas (Pilar 3 & 6)
+  const [openDriveLinkModal, setOpenDriveLinkModal] = useState(false);
+  const [driveDocNombre, setDriveDocNombre] = useState('');
+  const [driveDocUrl, setDriveDocUrl] = useState('');
+  const [driveDocCategoria, setDriveDocCategoria] = useState('Anexo Probatorio');
+  const [driveDocAnexo, setDriveDocAnexo] = useState('');
+  const [analizandoDocIAId, setAnalizandoDocIAId] = useState(null);
+  const [resultadoAnalisisDocIA, setResultadoAnalisisDocIA] = useState(null);
+  const [usarArgonEnDoc, setUsarArgonEnDoc] = useState(false);
 
   // Estados locales para la caja de búsqueda y la paginación masiva de representados
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // Estados locales para la sección de comunicados masivos enviados
+  // Estados locales para la sección de comunicados masivos enviados + Redactor IA (Pilar 6)
   const [comunicados, setComunicados] = useState([]);
   const [loadingComunicados, setLoadingComunicados] = useState(false);
   const [openComunicadoModal, setOpenComunicadoModal] = useState(false);
@@ -450,11 +508,20 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [fileComunicado, setFileComunicado] = useState(null);
   const [uploadingComunicado, setUploadingComunicado] = useState(false);
   const [uploadProgressComunicado, setUploadProgressComunicado] = useState(0);
+  const [redactandoComunicadoIA, setRedactandoComunicadoIA] = useState(false);
+  const [plantillaComunicadoIA, setPlantillaComunicadoIA] = useState('actualizacion_procesal');
+  const [instruccionComunicadoIA, setInstruccionComunicadoIA] = useState('');
 
   // Segmentación selectiva de destinatarios
   const [tipoDestinatario, setTipoDestinatario] = useState('todos'); 
   const [clientesSeleccionadosIds, setClientesSeleccionadosIds] = useState([]);
   const [filtroDestinatarios, setFiltroDestinatarios] = useState('');
+
+  // Estados para Pestaña 6: Copiloto Jurídico Internacional IA (Gemini 4 Argon)
+  const [modeloCopilotoIA, setModeloCopilotoIA] = useState('gemini-4-argon');
+  const [consultaCopilotoIA, setConsultaCopilotoIA] = useState('');
+  const [ejecutandoCopilotoIA, setEjecutandoCopilotoIA] = useState(false);
+  const [respuestaCopilotoIA, setRespuestaCopilotoIA] = useState(null);
 
   const fetchClientes = async () => {
     setLoading(true);
@@ -502,10 +569,59 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
   useEffect(() => {
     setLocalPlazos(caso.plazos || []);
+    setEtapaActualCaso(caso.etapa_procesal || '1. Preparación y Recolección');
     fetchClientes();
     fetchDocsComunes();
     fetchComunicados();
-  }, [caso.id, caso.plazos]);
+  }, [caso.id, caso.plazos, caso.etapa_procesal]);
+
+  const handleCambiarEtapaProcesal = async (nuevaEtapa) => {
+    try {
+      setEtapaActualCaso(nuevaEtapa);
+      await updateDoc(doc(db, 'casos', caso.id), {
+        etapa_procesal: nuevaEtapa
+      });
+      await registrarLogAuditoria(
+        currentUserEmail,
+        'Cambio de Etapa Procesal',
+        `Se actualizó la etapa procesal del caso "${caso.nombre}" a [${nuevaEtapa}]`
+      );
+    } catch (err) {
+      setError('No se pudo actualizar la etapa procesal.');
+    }
+  };
+
+  const handleAutocompletarClienteConOcrIA = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAutocompletandoOcrCliente(true);
+    setError('');
+    try {
+      const datos = await extraerDatosIdentificacionIA({
+        file,
+        nombreArchivo: file.name
+      });
+      if (datos.nombres) setNombres(datos.nombres);
+      if (datos.apellidos) setApellidos(datos.apellidos);
+      if (datos.identificacion) setIdentificacion(datos.identificacion);
+      if (datos.tipo_identificacion && DOC_TYPES.includes(datos.tipo_identificacion)) {
+        setTipoIdentificacion(datos.tipo_identificacion);
+      }
+      if (datos.pais && COUNTRIES.some((c) => c.name === datos.pais)) {
+        setPais(datos.pais);
+      }
+      if (datos.condicion_vulnerabilidad_sugerida) {
+        setVulnerabilidadInput(datos.condicion_vulnerabilidad_sugerida);
+      }
+      if (datos.es_identificacion_legible) setTieneIdInput(true);
+      if (datos.es_poder_firmado) setTienePoderInput(true);
+    } catch (err) {
+      setError(`Error en autocompletado OCR IA: ${err.message}`);
+    } finally {
+      setAutocompletandoOcrCliente(false);
+      e.target.value = null;
+    }
+  };
 
   const handleCreateCliente = async (e) => {
     e.preventDefault();
@@ -527,7 +643,16 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         pais: pais,
         direccion: direccion.trim(),
         notas: notas.trim(),
+        calidad_procesal: calidadProcesalInput,
+        condicion_vulnerabilidad: vulnerabilidadInput,
+        tiene_poder: tienePoderInput,
+        tiene_documento_id: tieneIdInput,
+        tiene_prueba_dano: false,
         estado_pago: 'Pendiente',
+        monto_pagado: 0,
+        moneda_pago: 'USD',
+        metodo_pago: 'Transferencia / SINPE',
+        referencia_pago: '',
         stripe_customer_id: '',
         fecha_registro: serverTimestamp()
       });
@@ -547,6 +672,10 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       setPais('Costa Rica');
       setDireccion('');
       setNotas('');
+      setCalidadProcesalInput(CALIDADES_PROCESALES[0]);
+      setVulnerabilidadInput('Ninguna');
+      setTienePoderInput(false);
+      setTieneIdInput(false);
       setOpenModal(false);
       
       fetchClientes();
@@ -555,7 +684,154 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
     }
   };
 
-  const ejecutarCargaArchivoComun = async (file, desc, fechaDoc) => {
+  const handleToggleAcreditacionRapida = async (clienteItem, campo) => {
+    try {
+      const nuevoValor = !clienteItem[campo];
+      await updateDoc(doc(db, 'casos', caso.id, 'clientes', clienteItem.id), {
+        [campo]: nuevoValor
+      });
+      setClientes((prev) =>
+        prev.map((c) => (c.id === clienteItem.id ? { ...c, [campo]: nuevoValor } : c))
+      );
+    } catch (err) {
+      setError('No se pudo actualizar el estado de acreditación.');
+    }
+  };
+
+  const handleExportarPadronCSV = () => {
+    if (clientes.length === 0) return;
+    const encabezados = [
+      'N°',
+      'Apellidos',
+      'Nombres',
+      'Tipo ID',
+      'Número Identificación',
+      'País Residencia',
+      'Calidad Procesal (SIDH)',
+      'Vulnerabilidad (Art. 29.2 CIDH)',
+      'Poder Verificado',
+      'ID Legible',
+      'Prueba Daño',
+      'Correo Principal',
+      'Teléfono',
+      'Estado Pago',
+      'Monto Aportado',
+      'Moneda'
+    ];
+    const escapar = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const filas = clientes.map((c, idx) =>
+      [
+        idx + 1,
+        c.apellidos || '',
+        c.nombres || '',
+        c.tipo_identificacion || 'Cédula',
+        c.identificacion || '',
+        c.pais || '',
+        c.calidad_procesal || 'Víctima Directa / Representado Principal',
+        c.condicion_vulnerabilidad || 'Ninguna',
+        c.tiene_poder ? 'SÍ' : 'PENDIENTE',
+        c.tiene_documento_id ? 'SÍ' : 'PENDIENTE',
+        c.tiene_prueba_dano ? 'SÍ' : 'PENDIENTE',
+        c.correo_principal || '',
+        `${c.codigo_telefono_principal || ''} ${c.telefono_principal || ''}`.trim(),
+        c.estado_pago || 'Pendiente',
+        c.monto_pagado || 0,
+        c.moneda_pago || 'USD'
+      ]
+        .map(escapar)
+        .join(',')
+    );
+
+    const contenido = '\uFEFF' + [encabezados.map(escapar).join(','), ...filas].join('\r\n');
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Padron_Art35_${(caso.nombre || 'Caso').replace(/\s+/g, '_')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportarPadronCSV = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportandoCSV(true);
+    setError('');
+    try {
+      const texto = await file.text();
+      const lineas = texto
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lineas.length < 2) {
+        throw new Error('El archivo CSV debe incluir una fila de encabezados y al menos un representado.');
+      }
+
+      const clientesRef = collection(db, 'casos', caso.id, 'clientes');
+      let importados = 0;
+      for (let i = 1; i < lineas.length; i++) {
+        const cols = lineas[i].split(',').map((col) => col.replace(/^"|"$/g, '').trim());
+        const apellidosRow = cols[0] || '';
+        const nombresRow = cols[1] || '';
+        const idRow = cols[2] || '';
+        const correoRow = cols[3] || '';
+        const telRow = cols[4] || '';
+        const vulnRow = cols[5] || 'Ninguna';
+
+        if (!nombresRow && !apellidosRow) continue;
+        await addDoc(clientesRef, {
+          apellidos: apellidosRow,
+          nombres: nombresRow,
+          tipo_identificacion: 'Cédula de Identidad',
+          identificacion: idRow || 'S/N',
+          correo_principal: correoRow,
+          correo_secundario: '',
+          codigo_telefono_principal: '+506',
+          telefono_principal: telRow,
+          codigo_telefono_secundario: '+506',
+          telefono_secundario: '',
+          pais: 'Costa Rica',
+          direccion: '',
+          notas: 'Importado mediante carga masiva CSV',
+          calidad_procesal: CALIDADES_PROCESALES[0],
+          condicion_vulnerabilidad: vulnRow,
+          tiene_poder: false,
+          tiene_documento_id: false,
+          tiene_prueba_dano: false,
+          estado_pago: 'Pendiente',
+          monto_pagado: 0,
+          moneda_pago: 'USD',
+          fecha_registro: serverTimestamp()
+        });
+        importados++;
+      }
+
+      alert(`✅ Importación masiva completada: ${importados} representados agregados al padrón.`);
+      fetchClientes();
+    } catch (err) {
+      setError(`Error al importar CSV: ${err.message}`);
+    } finally {
+      setImportandoCSV(false);
+      e.target.value = null;
+    }
+  };
+
+  const handleAuditarPadronIA = async () => {
+    setAuditandoPadronIA(true);
+    setError('');
+    try {
+      const res = await auditarPadronArt35IA({ clientes, caso });
+      setResultadoAuditoriaPadron(res);
+    } catch (err) {
+      setError(`Error en Auditoría IA del Padrón: ${err.message}`);
+    } finally {
+      setAuditandoPadronIA(false);
+    }
+  };
+
+  const ejecutarCargaArchivoComun = async (file, desc, fechaDoc, cat = 'Escrito IIRESODH', numAnexo = '') => {
     if (!file) return;
 
     setUploadingDoc(true);
@@ -583,6 +859,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             url: downloadURL,
             storage_path: storagePath,
             descripcion: desc.trim(),
+            categoria_procesal: cat,
+            numero_anexo: numAnexo.trim(),
             fecha_documento: fechaDoc,
             fecha_subida: new Date().toISOString()
           });
@@ -590,7 +868,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           await registrarLogAuditoria(
             currentUserEmail, 
             'Carga de Doc Común', 
-            `Se subió el documento global "${file.name}" con descripción: "${desc.trim()}" para el caso "${caso.nombre}"`
+            `Se subió el documento global "${file.name}" (${cat}) con descripción: "${desc.trim()}" para el caso "${caso.nombre}"`
           );
           
           fetchDocsComunes();
@@ -628,13 +906,102 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
     const file = fileComunSeleccionado;
     const desc = descripcionComun;
     const fecha = fechaDocumentoComun;
+    const cat = categoriaComun;
+    const numAnexo = anexoNumeroComun;
 
     setOpenUploadModal(false);
     setFileComunSeleccionado(null);
     setDescripcionComun('');
     setFechaDocumentoComun('');
+    setCategoriaComun('Escrito IIRESODH');
+    setAnexoNumeroComun('');
 
-    await ejecutarCargaArchivoComun(file, desc, fecha);
+    await ejecutarCargaArchivoComun(file, desc, fecha, cat, numAnexo);
+  };
+
+  const handleVincularDriveDoc = async (e) => {
+    e.preventDefault();
+    if (!driveDocNombre.trim() || !driveDocUrl.trim()) return;
+    try {
+      await addDoc(collection(db, 'casos', caso.id, 'documentos_comunes'), {
+        nombre: driveDocNombre.trim(),
+        url: driveDocUrl.trim(),
+        storage_path: '',
+        origen: 'Google Drive',
+        descripcion: `Documento vinculado desde Google Drive (${driveDocCategoria})`,
+        categoria_procesal: driveDocCategoria,
+        numero_anexo: driveDocAnexo.trim(),
+        fecha_documento: new Date().toISOString().slice(0, 10),
+        fecha_subida: new Date().toISOString()
+      });
+      setDriveDocNombre('');
+      setDriveDocUrl('');
+      setDriveDocAnexo('');
+      setOpenDriveLinkModal(false);
+      fetchDocsComunes();
+    } catch (err) {
+      setError('No se pudo vincular el documento de Google Drive.');
+    }
+  };
+
+  const handleAnalizarPiezaIA = async (docItem) => {
+    setAnalizandoDocIAId(docItem.id);
+    setResultadoAnalisisDocIA(null);
+    setError('');
+    try {
+      const res = await analizarPiezaProcesalIA({
+        fileUrl: docItem.storage_path ? docItem.url : null,
+        nombreArchivo: docItem.nombre,
+        contextoCaso: caso,
+        usarPensamientoAvanzado: usarArgonEnDoc
+      });
+      setResultadoAnalisisDocIA({ ...res, docNombre: docItem.nombre });
+    } catch (err) {
+      setError(`No se pudo analizar la pieza procesal con IA: ${err.message}`);
+    } finally {
+      setAnalizandoDocIAId(null);
+    }
+  };
+
+  const handleAgendarPlazoDesdeIA = async () => {
+    if (!resultadoAnalisisDocIA?.fecha_vencimiento_sugerida) return;
+    const desc =
+      resultadoAnalisisDocIA.titulo_plazo_sugerido ||
+      `Plazo extraído por IA: ${resultadoAnalisisDocIA.docNombre}`;
+    const fecha = resultadoAnalisisDocIA.fecha_vencimiento_sugerida;
+    const nuevoPlazoObj = {
+      id: 'plazo_' + Date.now(),
+      descripcion: desc,
+      fechaFatal: fecha,
+      responsable: currentUserEmail || '',
+      prorroga: 'Detectado automáticamente por IA',
+      completado: false,
+      fechaPresentacion: '',
+      documentoProbatorioNombre: '',
+      documentoProbatorioUrl: '',
+      documentoProbatorioDescripcion: '',
+      documentoProbatorioFechaDocumento: '',
+      storage_path: ''
+    };
+    try {
+      await updateDoc(doc(db, 'casos', caso.id), {
+        plazos: arrayUnion(nuevoPlazoObj)
+      });
+      await addDoc(collection(db, 'workspace_eventos'), {
+        titulo: `🚨 [PLAZO FATAL] ${caso.nombre}: ${desc}`,
+        fecha: fecha,
+        hora: '09:00',
+        tipo: 'audiencia',
+        descripcion: `Vencimiento fatal del caso ${caso.nombre} (${caso.expediente_oficial || 'SIDH'}). Detectado por Copiloto IA.`,
+        creadoPor: currentUserEmail || 'ia@iiresodh.org',
+        casoId: caso.id,
+        createdAt: serverTimestamp()
+      });
+      setLocalPlazos((prev) => [...prev, nuevoPlazoObj]);
+      alert(`✅ Plazo fatal (${fecha}) registrado en el expediente y sincronizado con el Calendario Institucional.`);
+    } catch (err) {
+      setError('No se pudo agendar el plazo detectado.');
+    }
   };
 
   const handleDeleteDocComun = async (docId, storagePath) => {
@@ -666,6 +1033,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       id: 'plazo_' + Date.now(),
       descripcion: descripcionPlazo.trim(),
       fechaFatal: fechaFatalInput,
+      responsable: responsablePlazoInput.trim() || currentUserEmail || '',
+      prorroga: prorrogaPlazoInput.trim(),
       completado: false,
       fechaPresentacion: '',
       documentoProbatorioNombre: '',
@@ -681,6 +1050,19 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         plazos: arrayUnion(nuevoPlazoObj)
       });
 
+      if (sincronizarCalendarioInput) {
+        await addDoc(collection(db, 'workspace_eventos'), {
+          titulo: `🚨 [PLAZO FATAL] ${caso.nombre}: ${descripcionPlazo.trim()}`,
+          fecha: fechaFatalInput,
+          hora: '09:00',
+          tipo: 'audiencia',
+          descripcion: `Término perentorio del litigio "${caso.nombre}" (${caso.jurisdiccion || 'SIDH'}). Responsable: ${nuevoPlazoObj.responsable}`,
+          creadoPor: currentUserEmail || '',
+          casoId: caso.id,
+          createdAt: serverTimestamp()
+        });
+      }
+
       await registrarLogAuditoria(
         currentUserEmail,
         'Registro de Plazo',
@@ -690,9 +1072,111 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       setLocalPlazos(prev => [...prev, nuevoPlazoObj]);
       setDescripcionPlazo('');
       setFechaFatalInput('');
+      setProrrogaPlazoInput('');
       setOpenPlazoModal(false);
     } catch (err) {
       setError('No se pudo guardar el plazo procesal.');
+    }
+  };
+
+  const handleEliminarPlazo = async (plazoId) => {
+    if (!window.confirm('¿Desea eliminar este término procesal de la lista?')) return;
+    try {
+      const filtrados = localPlazos.filter((p) => p.id !== plazoId);
+      await updateDoc(doc(db, 'casos', caso.id), { plazos: filtrados });
+      setLocalPlazos(filtrados);
+    } catch (err) {
+      setError('No se pudo eliminar el plazo.');
+    }
+  };
+
+  const handleActualizarPagoRapido = async (clienteItem, cambios) => {
+    try {
+      await updateDoc(doc(db, 'casos', caso.id, 'clientes', clienteItem.id), cambios);
+      setClientes((prev) =>
+        prev.map((c) => (c.id === clienteItem.id ? { ...c, ...cambios } : c))
+      );
+    } catch (err) {
+      setError('No se pudo actualizar el registro de pago.');
+    }
+  };
+
+  const handleRedactarComunicadoIA = async () => {
+    setRedactandoComunicadoIA(true);
+    setError('');
+    try {
+      const res = await redactarComunicadoClaroIA({
+        caso,
+        instruccion: instruccionComunicadoIA,
+        tipoPlantilla: plantillaComunicadoIA
+      });
+      if (res.asunto) setAsuntoComunicado(res.asunto);
+      if (res.cuerpo) setCuerpoComunicado(res.cuerpo);
+    } catch (err) {
+      setError(`No se pudo generar el borrador con IA: ${err.message}`);
+    } finally {
+      setRedactandoComunicadoIA(false);
+    }
+  };
+
+  const handleEjecutarCopilotoIA = async (promptPredefinido = null) => {
+    const promptBase = promptPredefinido || consultaCopilotoIA;
+    if (!promptBase || !promptBase.trim()) return;
+
+    setEjecutandoCopilotoIA(true);
+    setError('');
+    try {
+      const listosArt35 = clientes.filter((c) => c.tiene_poder && c.tiene_documento_id).length;
+      const vulnerables = clientes.filter(
+        (c) => c.condicion_vulnerabilidad && c.condicion_vulnerabilidad !== 'Ninguna'
+      ).length;
+      const plazosPend = localPlazos
+        .filter((p) => !p.completado)
+        .map((p) => `${p.descripcion} (Vence: ${p.fechaFatal})`)
+        .join('; ');
+      const listaDocs = docsComunes
+        .slice(0, 10)
+        .map((d) => `[${d.categoria_procesal || 'Doc'}] ${d.nombre}: ${d.descripcion || ''}`)
+        .join('\n');
+
+      const promptContextualizado = `EXPEDIENTE BAJO ANÁLISIS EN EL IIRESODH:
+- Nombre del Caso: ${caso.nombre}
+- Expediente Oficial: ${caso.expediente_oficial || 'En trámite'}
+- Jurisdicción / Instancia: ${caso.jurisdiccion || 'CIDH (Comisión)'}
+- Estado Demandado: ${caso.estado_demandado || 'Estado de Costa Rica'}
+- Etapa Procesal Actual: ${etapaActualCaso}
+- Derechos Invocados: ${Array.isArray(caso.derechos_invocados) ? caso.derechos_invocados.join(', ') : 'CADH Arts. 8 y 25'}
+- Descripción Fáctica: ${caso.descripcion || 'Sin descripción adicional'}
+- Padrón de Víctimas (Art. 35 Corte IDH): ${clientes.length} representados totales (${listosArt35} con Poder + ID completos; ${vulnerables} con condición de vulnerabilidad registrada para Art. 29.2 CIDH).
+- Plazos Fatales Pendientes: ${plazosPend || 'Ninguno activo'}
+- Piezas Procesales en el Expediente:
+${listaDocs || 'Sin documentos comunes aún.'}
+
+SOLICITUD JURÍDICA AL COPILOTO:
+${promptBase.trim()}`;
+
+      const tierSeleccionado =
+        modeloCopilotoIA === 'gemini-4-argon'
+          ? 'deep'
+          : modeloCopilotoIA === 'gemini-3.8-flash'
+          ? 'secondary'
+          : 'simple';
+
+      const res = await ejecutarConsultaJuridicaIA({
+        prompt: promptContextualizado,
+        tier: tierSeleccionado,
+        modelOverride: modeloCopilotoIA
+      });
+
+      setRespuestaCopilotoIA({
+        consulta: promptBase.trim(),
+        ...res,
+        fecha: new Date().toLocaleString('es-CR')
+      });
+    } catch (err) {
+      setError(`Error en Copiloto Jurídico IA: ${err.message}`);
+    } finally {
+      setEjecutandoCopilotoIA(false);
     }
   };
 
@@ -939,22 +1423,52 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
   const clientesFiltrados = clientes.filter(c => {
     const queryTerm = searchQuery.toLowerCase().trim();
-    if (!queryTerm) return true;
+    const coincideTexto = !queryTerm || (
+      `${c.nombres || ''} ${c.apellidos || ''}`.toLowerCase().includes(queryTerm) ||
+      `${c.apellidos || ''} ${c.nombres || ''}`.toLowerCase().includes(queryTerm) ||
+      (c.identificacion || '').toLowerCase().includes(queryTerm) ||
+      (c.pais || '').toLowerCase().includes(queryTerm) ||
+      (c.correo_principal || '').toLowerCase().includes(queryTerm)
+    );
 
-    const nombreCompleto = `${c.nombres || ''} ${c.apellidos || ''}`.toLowerCase();
-    const apellidosNombres = `${c.apellidos || ''} ${c.nombres || ''}`.toLowerCase();
-    const documento = (c.identificacion || '').toLowerCase();
-    const territorio = (c.pais || '').toLowerCase();
-    const correoElectronico = (c.correo_principal || '').toLowerCase();
+    const coincideAcreditacion =
+      filtroAcreditacion === 'Todos' ||
+      (filtroAcreditacion === 'Listos Art. 35' && c.tiene_poder && c.tiene_documento_id) ||
+      (filtroAcreditacion === 'Pendientes Poder/ID' && (!c.tiene_poder || !c.tiene_documento_id)) ||
+      (filtroAcreditacion === 'Con Vulnerabilidad' && c.condicion_vulnerabilidad && c.condicion_vulnerabilidad !== 'Ninguna');
 
-    return nombreCompleto.includes(queryTerm) || 
-           apellidosNombres.includes(queryTerm) || 
-           documento.includes(queryTerm) || 
-           territorio.includes(queryTerm) || 
-           correoElectronico.includes(queryTerm);
+    return coincideTexto && coincideAcreditacion;
   });
 
   const clientesPaginados = clientesFiltrados.slice(page * rowsPerPage, (page * rowsPerPage) + rowsPerPage);
+
+  const docsComunesFiltrados = docsComunes.filter(d => {
+    if (filtroCategoriaDoc === 'Todas') return true;
+    return (d.categoria_procesal || 'Escrito IIRESODH') === filtroCategoriaDoc;
+  });
+
+  const metricasFinancieras = (() => {
+    let totalUSD = 0;
+    let totalCRC = 0;
+    let pagados = 0;
+    let abonos = 0;
+    let exonerados = 0;
+    let pendientes = 0;
+
+    clientes.forEach(c => {
+      const m = Number(c.monto_pagado) || 0;
+      if ((c.moneda_pago || 'USD') === 'CRC') totalCRC += m;
+      else totalUSD += m;
+
+      const st = c.estado_pago || 'Pendiente';
+      if (st === 'Pagado') pagados++;
+      else if (st === 'Abono Parcial') abonos++;
+      else if (st === 'Exonerado / Pro Bono') exonerados++;
+      else pendientes++;
+    });
+
+    return { totalUSD, totalCRC, pagados, abonos, exonerados, pendientes };
+  })();
 
   if (clienteSeleccionadoId) {
     return (
@@ -972,18 +1486,110 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       <Button 
         startIcon={<ArrowLeft size={16} />} 
         onClick={onVolver} 
-        sx={{ mb: 2, textTransform: 'none', color: 'text.secondary' }}
+        sx={{ mb: 2, textTransform: 'none', color: 'text.secondary', fontWeight: 'bold' }}
       >
         Volver a todos los casos
       </Button>
 
+      {/* CABECERA INTERNACIONAL + PIPELINE DE 6 ETAPAS PROCESALES (PILAR 1) */}
       <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1.5, mb: 1.5 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Chip
+              icon={<Globe size={14} />}
+              label={caso.jurisdiccion || 'CIDH (Comisión)'}
+              size="small"
+              color="primary"
+              sx={{ fontWeight: 'bold' }}
+            />
+            {caso.expediente_oficial && (
+              <Chip
+                label={`Exp: ${caso.expediente_oficial}`}
+                size="small"
+                sx={{ fontWeight: 'bold', fontFamily: 'monospace', bgcolor: '#1e293b', color: '#ffffff' }}
+              />
+            )}
+            {caso.estado_demandado && (
+              <Chip
+                label={`🏛️ Contra: ${caso.estado_demandado}`}
+                size="small"
+                variant="outlined"
+                sx={{ fontWeight: 'bold' }}
+              />
+            )}
+            {caso.abogado_responsable && (
+              <Chip
+                label={`⚖️ ${caso.abogado_responsable}`}
+                size="small"
+                variant="outlined"
+                sx={{ fontWeight: 'medium' }}
+              />
+            )}
+          </Box>
+
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<Sparkles size={15} />}
+            onClick={() => setActiveTab(5)}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 'bold',
+              borderRadius: 2,
+              background: 'linear-gradient(90deg, #312e81 0%, #6d28d9 100%)'
+            }}
+          >
+            Abrir Copiloto Jurídico (Gemini 4 Argon)
+          </Button>
+        </Box>
+
         <Typography variant="h4" fontWeight="bold" color="primary.main" gutterBottom sx={{ fontSize: { xs: '1.35rem', sm: '2rem' } }}>
           {caso.nombre}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {caso.descripcion || 'Sin descripción del litigio.'}
         </Typography>
+
+        {Array.isArray(caso.derechos_invocados) && caso.derechos_invocados.length > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
+            {caso.derechos_invocados.map((der) => (
+              <Chip
+                key={der}
+                label={der}
+                size="small"
+                sx={{ bgcolor: '#eff6ff', color: '#1e40af', fontWeight: 'bold', fontSize: '0.72rem' }}
+              />
+            ))}
+          </Box>
+        )}
+
+        <Divider sx={{ my: 1.5 }} />
+
+        {/* Pipeline Procesal Interactivo */}
+        <Box>
+          <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}>
+            Línea de Tiempo / Etapa Procesal Actual (Haz clic para actualizar etapa):
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {ETAPAS_PROCESALES_LITIGIO.map((etapa) => {
+              const activa = etapaActualCaso === etapa;
+              return (
+                <Chip
+                  key={etapa}
+                  label={etapa}
+                  size="small"
+                  color={activa ? 'primary' : 'default'}
+                  variant={activa ? 'filled' : 'outlined'}
+                  onClick={() => handleCambiarEtapaProcesal(etapa)}
+                  sx={{
+                    fontWeight: activa ? 'bold' : 'medium',
+                    cursor: 'pointer'
+                  }}
+                />
+              );
+            })}
+          </Box>
+        </Box>
       </Paper>
 
       {error && (
@@ -1009,43 +1615,116 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             }
           }}
         >
-          <Tab icon={<Users size={18} />} iconPosition="start" label="Fichas de Clientes" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
-          <Tab icon={<FileText size={18} />} iconPosition="start" label="Documentos Comunes" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
-          <Tab icon={<CreditCard size={18} />} iconPosition="start" label="Control de Pagos" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
+          <Tab icon={<Users size={18} />} iconPosition="start" label={`Padrón de Víctimas (${clientes.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
+          <Tab icon={<FileText size={18} />} iconPosition="start" label={`Piezas y Anexos (${docsComunes.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
+          <Tab icon={<CreditCard size={18} />} iconPosition="start" label="Control Financiero y Aportes" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
           <Tab 
             icon={<Clock size={18} style={{ color: semaforoGeneral ? semaforoGeneral.color : 'inherit' }} />} 
             iconPosition="start" 
-            label={semaforoGeneral ? `Control de Vencimientos (${semaforoGeneral.label})` : "Control de Vencimientos"} 
+            label={semaforoGeneral ? `Plazos Fatales (${semaforoGeneral.label})` : "Plazos Fatales"} 
             style={{ 
               textTransform: 'none', 
               fontWeight: 'bold', 
               color: semaforoGeneral ? semaforoGeneral.color : 'inherit' 
             }} 
           />
-          <Tab icon={<Mail size={18} />} iconPosition="start" label="Comunicados Enviados" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
+          <Tab icon={<Mail size={18} />} iconPosition="start" label="Comunicados Oficiales" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
+          <Tab icon={<Sparkles size={18} />} iconPosition="start" label="✨ Copiloto Jurídico IA" sx={{ textTransform: 'none', fontWeight: 'bold', color: '#4338ca' }} />
         </Tabs>
       </Box>
 
-      {/* PESTAÑA 1: RECONSTRUCCIÓN VERTICAL TABLA DE REPRESETADOS */}
+      {/* PESTAÑA 1: PADRÓN DE VÍCTIMAS Y ACREDITACIÓN ART. 35 CORTE IDH */}
       <TabPanel value={activeTab} index={0}>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
-          <Typography variant="h6" fontWeight="bold">Representados en el Litigio</Typography>
-          <Button 
-            variant="contained" 
-            startIcon={<Plus size={18} />} 
-            onClick={() => setOpenModal(true)} 
-            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', width: { xs: '100%', sm: 'auto' } }}
-          >
-            Agregar Cliente
-          </Button>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 3 }}>
+          <Box>
+            <Typography variant="h6" fontWeight="bold">Padrón Oficial de Víctimas y Representados (Art. 35 Corte IDH)</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Control de poderes, documentos de identidad, condiciones de vulnerabilidad (Art. 29.2 CIDH) y exportación oficial.
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<ShieldCheck size={16} />}
+              disabled={auditandoPadronIA}
+              onClick={handleAuditarPadronIA}
+              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', color: '#4338ca', borderColor: '#c7d2fe', bgcolor: '#eef2ff' }}
+            >
+              {auditandoPadronIA ? 'Auditando con IA...' : '🛡️ Auditar Padrón (Art. 35)'}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Download size={16} />}
+              onClick={handleExportarPadronCSV}
+              disabled={clientes.length === 0}
+              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+            >
+              Exportar Anexo CSV/Excel
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              component="label"
+              startIcon={<Upload size={16} />}
+              disabled={importandoCSV}
+              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+            >
+              {importandoCSV ? 'Importando...' : 'Importar CSV'}
+              <input type="file" accept=".csv" hidden onChange={handleImportarPadronCSV} />
+            </Button>
+            <Button 
+              variant="contained" 
+              size="small"
+              startIcon={<Plus size={18} />} 
+              onClick={() => setOpenModal(true)} 
+              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+            >
+              Agregar Representado
+            </Button>
+          </Box>
         </Box>
 
-        <Box sx={{ mb: 3 }}>
+        {/* Panel de Resultado de Auditoría IA del Padrón */}
+        {resultadoAuditoriaPadron && (
+          <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #c7d2fe', bgcolor: '#eef2ff', boxShadow: 'none' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ShieldCheck size={18} color="#4338ca" />
+                <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
+                  Auditoría de Cumplimiento del Padrón (Art. 35 Reglamento Corte IDH)
+                </Typography>
+                <Chip
+                  size="small"
+                  label={resultadoAuditoriaPadron._metaIA?.modeloEjecutado || 'gemini-3.5-flash-lite'}
+                  sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
+                />
+              </Box>
+              <Button size="small" color="inherit" onClick={() => setResultadoAuditoriaPadron(null)} sx={{ textTransform: 'none' }}>
+                Cerrar
+              </Button>
+            </Box>
+
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+              <Chip size="small" color="success" label={`Listos Art. 35: ${resultadoAuditoriaPadron.estadisticas.listosArt35}/${resultadoAuditoriaPadron.estadisticas.total} (${resultadoAuditoriaPadron.estadisticas.porcentajeListos}%)`} sx={{ fontWeight: 'bold' }} />
+              <Chip size="small" color="warning" label={`Sin Poder: ${resultadoAuditoriaPadron.estadisticas.sinPoderCount}`} sx={{ fontWeight: 'bold' }} />
+              <Chip size="small" color="warning" label={`Sin Cédula/ID: ${resultadoAuditoriaPadron.estadisticas.sinIdCount}`} sx={{ fontWeight: 'bold' }} />
+              <Chip size="small" color="secondary" label={`Vulnerables (Art. 29.2): ${resultadoAuditoriaPadron.estadisticas.vulnerablesCount}`} sx={{ fontWeight: 'bold' }} />
+            </Box>
+
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', bgcolor: '#ffffff', p: 2, borderRadius: 2, border: '1px solid #e0e7ff' }}>
+              {resultadoAuditoriaPadron.dictamenIA}
+            </Typography>
+          </Paper>
+        )}
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2, mb: 3 }}>
           <TextField
             fullWidth
             size="small"
             variant="outlined"
-            placeholder="Buscar representados por nombres, apellidos, identificación, país de residencia o correo electrónico..."
+            placeholder="Buscar representados por nombres, apellidos, identificación, país o correo..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -1059,52 +1738,126 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
               ),
             }}
           />
+
+          <FormControl size="small" fullWidth>
+            <InputLabel>Filtro de Acreditación Procesal</InputLabel>
+            <Select
+              value={filtroAcreditacion}
+              label="Filtro de Acreditación Procesal"
+              onChange={(e) => {
+                setFiltroAcreditacion(e.target.value);
+                setPage(0);
+              }}
+            >
+              <MenuItem value="Todos">Todos los Representados ({clientes.length})</MenuItem>
+              <MenuItem value="Listos Art. 35">🟢 Listos Art. 35 (Poder + ID)</MenuItem>
+              <MenuItem value="Pendientes Poder/ID">🟡 Pendientes de Poder o ID</MenuItem>
+              <MenuItem value="Con Vulnerabilidad">🛡️ Con Vulnerabilidad (Art. 29.2 CIDH)</MenuItem>
+            </Select>
+          </FormControl>
         </Box>
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
         ) : clientesFiltrados.length === 0 ? (
           <Alert severity="info" sx={{ borderRadius: 2 }}>
-            {searchQuery ? 'No se localizaron registros de representados que coincidan con los criterios de búsqueda introducidos.' : 'No hay clientes registrados en este litigio.'}
+            {searchQuery || filtroAcreditacion !== 'Todos'
+              ? 'No se localizaron registros de representados que coincidan con los criterios de búsqueda.'
+              : 'No hay clientes registrados en este litigio.'}
           </Alert>
         ) : (
           <>
             <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none', overflowX: 'auto' }}>
-              <Table sx={{ minWidth: 650 }}>
+              <Table sx={{ minWidth: 780 }}>
                 <TableHead sx={{ bgcolor: '#f8fafc' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>Apellidos y Nombres</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Documento de Identidad</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>País</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Identificación / País</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Checklist Art. 35 (Clic para marcar)</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Contacto Principal</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Pago Stripe</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Acciones</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Estado Pago</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Ficha</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {clientesPaginados.map((clienteItem) => (
                     <TableRow key={clienteItem.id} hover>
                       <TableCell sx={{ fontWeight: 'medium' }}>
-                        {clienteItem.apellidos}, {clienteItem.nombres}
+                        <Typography variant="body2" fontWeight="bold">
+                          {clienteItem.apellidos}, {clienteItem.nombres}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                          <Chip
+                            label={clienteItem.calidad_procesal || 'Víctima Directa'}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 18, fontSize: '0.65rem' }}
+                          />
+                          {clienteItem.condicion_vulnerabilidad && clienteItem.condicion_vulnerabilidad !== 'Ninguna' && (
+                            <Chip
+                              label={`🛡️ ${clienteItem.condicion_vulnerabilidad}`}
+                              size="small"
+                              color="secondary"
+                              sx={{ height: 18, fontSize: '0.65rem', fontWeight: 'bold' }}
+                            />
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{clienteItem.identificacion}</Typography>
-                        <Typography variant="caption" color="text.secondary">{clienteItem.tipo_identificacion}</Typography>
+                        <Typography variant="body2" fontFamily="monospace" fontWeight="bold">
+                          {clienteItem.identificacion}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {clienteItem.tipo_identificacion} · {clienteItem.pais || 'CR'}
+                        </Typography>
                       </TableCell>
                       <TableCell>
-                        {clienteItem.pais || 'No especificado'}
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          <Chip
+                            size="small"
+                            label={clienteItem.tiene_poder ? '✓ Poder' : '⚠ Poder'}
+                            color={clienteItem.tiene_poder ? 'success' : 'default'}
+                            variant={clienteItem.tiene_poder ? 'filled' : 'outlined'}
+                            onClick={() => handleToggleAcreditacionRapida(clienteItem, 'tiene_poder')}
+                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
+                          />
+                          <Chip
+                            size="small"
+                            label={clienteItem.tiene_documento_id ? '✓ ID' : '⚠ ID'}
+                            color={clienteItem.tiene_documento_id ? 'success' : 'default'}
+                            variant={clienteItem.tiene_documento_id ? 'filled' : 'outlined'}
+                            onClick={() => handleToggleAcreditacionRapida(clienteItem, 'tiene_documento_id')}
+                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
+                          />
+                          <Chip
+                            size="small"
+                            label={clienteItem.tiene_prueba_dano ? '✓ Daño' : 'Daño'}
+                            color={clienteItem.tiene_prueba_dano ? 'info' : 'default'}
+                            variant={clienteItem.tiene_prueba_dano ? 'filled' : 'outlined'}
+                            onClick={() => handleToggleAcreditacionRapida(clienteItem, 'tiene_prueba_dano')}
+                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
+                          />
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{clienteItem.correo_principal || 'Sin correo'}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {clienteItem.telefono_principal ? `${clienteItem.codigo_telefono_principal} ${clienteItem.telefono_principal}` : 'Sin teléfono'}
+                          {clienteItem.telefono_principal ? `${clienteItem.codigo_telefono_principal || ''} ${clienteItem.telefono_principal}` : 'Sin teléfono'}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Chip 
-                          label={clienteItem.estado_pago} 
+                          label={clienteItem.estado_pago || 'Pendiente'} 
                           size="small" 
-                          color={clienteItem.estado_pago === 'Pagado' ? 'success' : 'warning'} 
+                          color={
+                            clienteItem.estado_pago === 'Pagado'
+                              ? 'success'
+                              : clienteItem.estado_pago === 'Abono Parcial'
+                              ? 'info'
+                              : clienteItem.estado_pago === 'Exonerado / Pro Bono'
+                              ? 'secondary'
+                              : 'warning'
+                          } 
                           sx={{ fontWeight: 'bold' }} 
                         />
                       </TableCell>
@@ -1142,7 +1895,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         )}
       </TabPanel>
 
-      {/* PESTAÑA 2: DOCUMENTOS COMUNES */}
+      {/* PESTAÑA 2: PIEZAS PROCESALES, ANEXOS, GOOGLE DRIVE Y ANALIZADOR IA */}
       <TabPanel value={activeTab} index={1}>
         <Paper 
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -1157,21 +1910,60 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             transition: 'all 0.2s ease'
           }}
         >
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 2.5 }}>
             <Box>
-              <Typography variant="h6" fontWeight="bold">Escritos y Respuestas de Instancias Internacionales</Typography>
-              <Typography variant="caption" color="text.secondary">Puede arrastrar y soltar archivos PDF directamente sobre este panel.</Typography>
+              <Typography variant="h6" fontWeight="bold">Piezas Procesales, Resoluciones y Anexos del Caso</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Clasifica escritos, resoluciones CIDH/Corte IDH, contestaciones del Estado y analiza plazos fatales con IA.
+              </Typography>
             </Box>
-            <Button 
-              variant="contained" 
-              component="label" 
-              startIcon={<Upload size={18} />} 
-              disabled={uploadingDoc} 
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', width: { xs: '100%', sm: 'auto' } }}
-            >
-              {uploadingDoc ? 'Subiendo...' : 'Subir Documento Común'}
-              <input type="file" accept="application/pdf,image/*" hidden onChange={handleUploadDocComun} />
-            </Button>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={usarArgonEnDoc}
+                    onChange={(e) => setUsarArgonEnDoc(e.target.checked)}
+                  />
+                }
+                label={<Typography variant="caption" fontWeight="bold">🧠 Usar Gemini 4 Argon al analizar</Typography>}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<FolderOpen size={16} />}
+                onClick={() => setOpenDriveLinkModal(true)}
+                sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+              >
+                Vincular desde Google Drive
+              </Button>
+              <Button 
+                variant="contained" 
+                size="small"
+                component="label" 
+                startIcon={<Upload size={16} />} 
+                disabled={uploadingDoc} 
+                sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+              >
+                {uploadingDoc ? 'Subiendo...' : 'Subir Pieza / Anexo'}
+                <input type="file" accept="application/pdf,image/*" hidden onChange={handleUploadDocComun} />
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Filtro por Categoría Procesal */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2.5 }}>
+            {['Todas', ...CATEGORIAS_DOCUMENTOS_PROCESALES].map((cat) => (
+              <Chip
+                key={cat}
+                label={cat}
+                size="small"
+                color={filtroCategoriaDoc === cat ? 'primary' : 'default'}
+                variant={filtroCategoriaDoc === cat ? 'filled' : 'outlined'}
+                onClick={() => setFiltroCategoriaDoc(cat)}
+                sx={{ fontWeight: 'bold' }}
+              />
+            ))}
           </Box>
           
           {uploadingDoc && (
@@ -1180,14 +1972,82 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             </Box>
           )}
 
+          {/* Panel de Resultado del Analizador Multimodal IA */}
+          {resultadoAnalisisDocIA && (
+            <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #c7d2fe', bgcolor: '#eef2ff', boxShadow: 'none' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Sparkles size={18} color="#4338ca" />
+                  <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
+                    Análisis Multimodal de Pieza: {resultadoAnalisisDocIA.docNombre}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={resultadoAnalisisDocIA._metaIA?.modeloEjecutado || 'gemini-3.8-flash'}
+                    sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
+                  />
+                  <Chip
+                    size="small"
+                    color={resultadoAnalisisDocIA.riesgo_procesal === 'Alto' ? 'error' : 'info'}
+                    label={`Riesgo: ${resultadoAnalisisDocIA.riesgo_procesal || 'Medio'}`}
+                    sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
+                  />
+                </Box>
+                <Button size="small" color="inherit" onClick={() => setResultadoAnalisisDocIA(null)} sx={{ textTransform: 'none' }}>
+                  Cerrar
+                </Button>
+              </Box>
+
+              <Typography variant="body2" sx={{ mb: 1.5, bgcolor: '#ffffff', p: 1.5, borderRadius: 2, border: '1px solid #e0e7ff' }}>
+                <strong>Resumen Ejecutivo:</strong> {resultadoAnalisisDocIA.resumen_ejecutivo}
+              </Typography>
+
+              {Array.isArray(resultadoAnalisisDocIA.puntos_clave) && resultadoAnalisisDocIA.puntos_clave.length > 0 && (
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                    Puntos Resolutivos / Argumentos Detectados:
+                  </Typography>
+                  {resultadoAnalisisDocIA.puntos_clave.map((pt, idx) => (
+                    <Typography key={idx} variant="caption" display="block" sx={{ ml: 1 }}>
+                      • {pt}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
+
+              {resultadoAnalisisDocIA.fecha_vencimiento_sugerida && (
+                <Box sx={{ p: 1.5, bgcolor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                  <Box>
+                    <Typography variant="caption" fontWeight="bold" color="error.main" display="block">
+                      🚨 PLAZO FATAL DETECTADO EN EL DOCUMENTO: {resultadoAnalisisDocIA.fecha_vencimiento_sugerida}
+                    </Typography>
+                    <Typography variant="caption" color="text.primary">
+                      {resultadoAnalisisDocIA.titulo_plazo_sugerido}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="error"
+                    startIcon={<Calendar size={15} />}
+                    onClick={handleAgendarPlazoDesdeIA}
+                    sx={{ textTransform: 'none', fontWeight: 'bold' }}
+                  >
+                    Agendar Plazo Fatal y Sincronizar Calendario
+                  </Button>
+                </Box>
+              )}
+            </Paper>
+          )}
+
           {loadingDocs ? (
             <CircularProgress />
-          ) : docsComunes.length === 0 ? (
-            <Alert severity="info">No hay documentos globales subidos para este litigio.</Alert>
+          ) : docsComunesFiltrados.length === 0 ? (
+            <Alert severity="info">No hay piezas procesales registradas en esta categoría.</Alert>
           ) : (
             <List>
-              {docsComunes.map((d) => (
-                <ListItem key={d.id} disablePadding sx={{ mb: 1, display: 'flex', gap: { xs: 1, sm: 2 } }}>
+              {docsComunesFiltrados.map((d) => (
+                <ListItem key={d.id} disablePadding sx={{ mb: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Button 
                     component="a" 
                     href={d.url} 
@@ -1198,7 +2058,27 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
                     sx={{ flexGrow: 1, justifyContent: 'flex-start', p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}
                   >
                     <ListItemText 
-                      primary={d.nombre} 
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Typography variant="subtitle2" fontWeight="bold">
+                            {d.nombre}
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label={d.categoria_procesal || 'Escrito IIRESODH'}
+                            color="primary"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: '0.68rem', fontWeight: 'bold' }}
+                          />
+                          {d.numero_anexo && (
+                            <Chip
+                              size="small"
+                              label={`Anexo ${d.numero_anexo}`}
+                              sx={{ height: 20, fontSize: '0.68rem', fontWeight: 'bold', bgcolor: '#e2e8f0' }}
+                            />
+                          )}
+                        </Box>
+                      } 
                       secondary={
                         <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
                           <Typography variant="body2" component="span" color="text.primary" sx={{ display: 'block', fontWeight: 'medium' }}>
@@ -1210,6 +2090,16 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
                         </Box>
                       } 
                     />
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={analizandoDocIAId === d.id ? <CircularProgress size={14} /> : <Sparkles size={15} />}
+                    disabled={analizandoDocIAId === d.id}
+                    onClick={() => handleAnalizarPiezaIA(d)}
+                    sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2, whiteSpace: 'nowrap' }}
+                  >
+                    Analizar IA
                   </Button>
                   <IconButton 
                     size="small" 
@@ -1226,21 +2116,161 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         </Paper>
       </TabPanel>
 
-      {/* PESTAÑA 3: PAGOS */}
+      {/* PESTAÑA 3: CONTROL FINANCIERO, APORTES Y REPARACIONES (PILAR 4) */}
       <TabPanel value={activeTab} index={2}>
         <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-          <Typography variant="h6" fontWeight="bold" gutterBottom>Pasarela de Stripe</Typography>
-          <Typography variant="body2" color="text.secondary">Registro general de conciliación de pagos de este litigio.</Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+            <Box>
+              <Typography variant="h6" fontWeight="bold">Control Financiero, Aportes y Conciliación Stripe / SINPE</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Gestión en tiempo real de los aportes procesales, exoneraciones Pro Bono y referencias bancarias de cada representado.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Download size={16} />}
+              onClick={handleExportarPadronCSV}
+              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+            >
+              Exportar Reporte Financiero CSV
+            </Button>
+          </Box>
+
+          {/* KPIs Financieros */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', boxShadow: 'none' }}>
+              <Typography variant="caption" fontWeight="bold" color="#15803d">TOTAL RECAUDADO (USD)</Typography>
+              <Typography variant="h5" fontWeight="bold" color="#14532d">
+                ${metricasFinancieras.totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                CRC: ₡{metricasFinancieras.totalCRC.toLocaleString('es-CR')}
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+              <Typography variant="caption" fontWeight="bold" color="text.secondary">PAGADOS / AL DÍA</Typography>
+              <Typography variant="h5" fontWeight="bold" color="success.main">
+                {metricasFinancieras.pagados}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                De {clientes.length} representados
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: '#fffbeb', border: '1px solid #fde68a', boxShadow: 'none' }}>
+              <Typography variant="caption" fontWeight="bold" color="#b45309">PENDIENTES / ABONO PARCIAL</Typography>
+              <Typography variant="h5" fontWeight="bold" color="#92400e">
+                {metricasFinancieras.pendientes + metricasFinancieras.abonos}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Abonos parciales: {metricasFinancieras.abonos}
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: '#faf5ff', border: '1px solid #e9d5ff', boxShadow: 'none' }}>
+              <Typography variant="caption" fontWeight="bold" color="#7e22ce">EXONERADOS / PRO BONO</Typography>
+              <Typography variant="h5" fontWeight="bold" color="#581c87">
+                {metricasFinancieras.exonerados}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Cobertura solidaria institucional
+              </Typography>
+            </Paper>
+          </Box>
+
+          <TableContainer sx={{ borderRadius: 2, border: '1px solid #e2e8f0', maxHeight: 480 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Representado</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Estado de Pago</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Monto Aportado</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Moneda</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Vía de Pago</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Comprobante / Ref</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {clientes.map((c) => (
+                  <TableRow key={c.id} hover>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
+                      {c.apellidos}, {c.nombres}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        size="small"
+                        value={c.estado_pago || 'Pendiente'}
+                        onChange={(e) => handleActualizarPagoRapido(c, { estado_pago: e.target.value })}
+                        sx={{ fontSize: '0.78rem', height: 30 }}
+                      >
+                        {ESTADOS_PAGO_CLIENTE.map((st) => (
+                          <MenuItem key={st} value={st} sx={{ fontSize: '0.78rem' }}>
+                            {st}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        type="number"
+                        defaultValue={c.monto_pagado || 0}
+                        onBlur={(e) => handleActualizarPagoRapido(c, { monto_pagado: Number(e.target.value) || 0 })}
+                        sx={{ width: 105, '& input': { py: 0.5, fontSize: '0.8rem' } }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        size="small"
+                        value={c.moneda_pago || 'USD'}
+                        onChange={(e) => handleActualizarPagoRapido(c, { moneda_pago: e.target.value })}
+                        sx={{ fontSize: '0.78rem', height: 30 }}
+                      >
+                        <MenuItem value="USD">USD</MenuItem>
+                        <MenuItem value="CRC">CRC</MenuItem>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        size="small"
+                        value={c.metodo_pago || 'Transferencia / SINPE'}
+                        onChange={(e) => handleActualizarPagoRapido(c, { metodo_pago: e.target.value })}
+                        sx={{ fontSize: '0.78rem', height: 30 }}
+                      >
+                        <MenuItem value="Transferencia / SINPE">Transferencia / SINPE</MenuItem>
+                        <MenuItem value="Stripe">Stripe</MenuItem>
+                        <MenuItem value="Depósito Bancario">Depósito Bancario</MenuItem>
+                        <MenuItem value="Exoneración Pro Bono">Exoneración Pro Bono</MenuItem>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        placeholder="Ref / Recibo"
+                        defaultValue={c.referencia_pago || ''}
+                        onBlur={(e) => handleActualizarPagoRapido(c, { referencia_pago: e.target.value.trim() })}
+                        sx={{ width: 140, '& input': { py: 0.5, fontSize: '0.8rem' } }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </Paper>
       </TabPanel>
 
-      {/* PESTAÑA 4: CONTROL DE VENCIMIENTOS PROCESALES */}
+      {/* PESTAÑA 4: CONTROL DE VENCIMIENTOS PROCESALES SINCRONIZADOS CON CALENDARIO (PILAR 5) */}
       <TabPanel value={activeTab} index={3}>
         <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
             <Box>
-              <Typography variant="h6" fontWeight="bold">Fechas Fatales y Plazos Judiciales</Typography>
-              <Typography variant="body2" color="text.secondary">Seguimiento de términos perentorios asociados a las notificaciones oficiales.</Typography>
+              <Typography variant="h6" fontWeight="bold">Fechas Fatales y Plazos Judiciales (Sincronizados con Calendario Institucional)</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Seguimiento de términos perentorios asociados a notificaciones oficiales de la CIDH, Corte IDH, ONU o Tribunales.
+              </Typography>
             </Box>
             <Button 
               variant="contained" 
@@ -1256,10 +2286,10 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             <Alert severity="info" sx={{ borderRadius: 2 }}>No hay plazos procesales configurados para este litigio.</Alert>
           ) : (
             <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none', overflowX: 'auto' }}>
-              <Table size="small" sx={{ minWidth: 650 }}>
+              <Table size="small" sx={{ minWidth: 700 }}>
                 <TableHead sx={{ bgcolor: '#f8fafc' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Término Procesal / Descripción</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Término Procesal / Responsable</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Fecha Límite</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Estatus</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Documento Probatorio</TableCell>
@@ -1284,7 +2314,15 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
                     return (
                       <TableRow key={plazo.id} sx={{ bgcolor: cfg.bgFila }} hover>
-                        <TableCell sx={{ fontWeight: 'medium', py: 1.5 }}>{plazo.descripcion}</TableCell>
+                        <TableCell sx={{ fontWeight: 'medium', py: 1.5 }}>
+                          <Typography variant="body2" fontWeight="bold">{plazo.descripcion}</Typography>
+                          {(plazo.responsable || plazo.prorroga) && (
+                            <Typography variant="caption" color="text.secondary">
+                              {plazo.responsable ? `⚖️ ${plazo.responsable}` : ''}
+                              {plazo.prorroga ? ` · Nota: ${plazo.prorroga}` : ''}
+                            </Typography>
+                          )}
+                        </TableCell>
                         <TableCell sx={{ fontWeight: 'bold', color: '#b91c1c' }}>{plazo.fechaFatal}</TableCell>
                         <TableCell><Chip label={cfg.label} color={cfg.colorChip} size="small" sx={{ fontWeight: 'bold' }} /></TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
@@ -1316,19 +2354,24 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
                           )}
                         </TableCell>
                         <TableCell sx={{ textAlign: 'center' }}>
-                          {!plazo.completado ? (
-                            <Button 
-                              variant="contained" 
-                              color="success" 
-                              size="small" 
-                              onClick={() => { setPlazoAActivar(plazo); setOpenCerrarModal(true); }}
-                              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
-                            >
-                              Cerrar
-                            </Button>
-                          ) : (
-                            <Chip label="Histórico" size="small" variant="outlined" disabled />
-                          )}
+                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                            {!plazo.completado ? (
+                              <Button 
+                                variant="contained" 
+                                color="success" 
+                                size="small" 
+                                onClick={() => { setPlazoAActivar(plazo); setOpenCerrarModal(true); }}
+                                sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                              >
+                                Cerrar
+                              </Button>
+                            ) : (
+                              <Chip label="Histórico" size="small" variant="outlined" disabled />
+                            )}
+                            <IconButton size="small" color="error" onClick={() => handleEliminarPlazo(plazo.id)}>
+                              <Trash2 size={15} />
+                            </IconButton>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     );
@@ -1383,7 +2426,165 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         </Paper>
       </TabPanel>
 
-      {/* MODAL DE AGREGAR CLIENTE EXTENDIDO */}
+      {/* PESTAÑA 6: COPILOTO JURÍDICO INTERNACIONAL IA (GEMINI 4 ARGON / 3.8 FLASH / 3.5 FLASH-LITE) */}
+      <TabPanel value={activeTab} index={5}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #c7d2fe', bgcolor: '#f8fafc', boxShadow: 'none' }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 3 }}>
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Sparkles size={22} color="#4338ca" />
+                <Typography variant="h6" fontWeight="bold" color="#1e1b4b">
+                  Copiloto Jurídico Internacional IIRESODH (Vertex AI / Firebase AI Logic)
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Asistente especializado en el Sistema Interamericano (CIDH / Corte IDH) y ONU, conectado al contexto real de este expediente sin exponer API keys.
+              </Typography>
+            </Box>
+
+            <FormControl size="small" sx={{ minWidth: 290, bgcolor: '#ffffff' }}>
+              <InputLabel>Motor de Razonamiento IA</InputLabel>
+              <Select
+                value={modeloCopilotoIA}
+                label="Motor de Razonamiento IA"
+                onChange={(e) => setModeloCopilotoIA(e.target.value)}
+              >
+                <MenuItem value="gemini-4-argon">🧠 Gemini 4 Argon (Pensamiento Avanzado)</MenuItem>
+                <MenuItem value="gemini-3.8-flash">⚡ Gemini 3.8 Flash (Multimodal Secundario)</MenuItem>
+                <MenuItem value="gemini-3.5-flash-lite">🚀 Gemini 3.5 Flash-Lite (Tareas Simples)</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          {/* Plantillas Jurídicas Interamericanas de 1 Clic */}
+          <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}>
+            Generadores Estratégicos de 1 Clic (Contextualizados con los datos de "{caso.nombre}"):
+          </Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 1.5, mb: 3 }}>
+            {[
+              {
+                titulo: '🌎 Test de Admisibilidad (Arts. 46-47 CADH)',
+                prompt: 'Elabora un análisis exhaustivo de admisibilidad ante la CIDH (Arts. 46 y 47 CADH y Arts. 31-34 del Reglamento CIDH), evaluando agotamiento de recursos internos o las excepciones del Art. 46.2 CADH aplicables a este caso, plazo o situación continuada y caracterización (colorable claim).'
+              },
+              {
+                titulo: '🏛️ Estándares y Jurisprudencia Corte IDH',
+                prompt: 'Construye una matriz de estándares jurisprudenciales de la Corte IDH aplicables a los derechos invocados en este caso, citando casos contenciosos líderes (leading cases) y cómo subsumir los hechos del expediente en dichos estándares.'
+              },
+              {
+                titulo: '🚨 Solicitud de Medidas Cautelares (Art. 25 CIDH)',
+                prompt: 'Redacta la estructura argumentativa para una solicitud de Medidas Cautelares (Art. 25 Reglamento CIDH) o Medidas Provisionales (Art. 63.2 CADH), acreditando gravedad, urgencia e irreparabilidad del daño.'
+              },
+              {
+                titulo: '⚡ Tramitación Prioritaria (Art. 29.2 CIDH)',
+                prompt: 'Redacta un escrito fundamentado solicitando el adelanto de estudio / tramitación prioritaria conforme al Artículo 29.2 del Reglamento de la CIDH, destacando las condiciones de vulnerabilidad del padrón de víctimas.'
+              },
+              {
+                titulo: '💰 Pretensiones y Reparaciones (Art. 63.1 CADH)',
+                prompt: 'Diseña el pliego integral de reparaciones bajo el Art. 63.1 de la CADH para el ESAP o alegatos de fondo: restitución, rehabilitación, satisfacción, garantías de no repetición y criterios de daño material e inmaterial.'
+              },
+              {
+                titulo: '🤝 Ruta de Solución Amistosa (Art. 40 CIDH)',
+                prompt: 'Propón una hoja de ruta estratégica y cláusulas esenciales para negociar un Acuerdo de Solución Amistosa (Art. 40 Reglamento CIDH) con el Estado demandado garantizando supervisión internacional.'
+              }
+            ].map((item) => (
+              <Button
+                key={item.titulo}
+                variant="outlined"
+                disabled={ejecutandoCopilotoIA}
+                onClick={() => {
+                  setConsultaCopilotoIA(item.prompt);
+                  handleEjecutarCopilotoIA(item.prompt);
+                }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: '#ffffff',
+                  borderColor: '#cbd5e1',
+                  '&:hover': { bgcolor: '#eef2ff', borderColor: '#6366f1' }
+                }}
+              >
+                {item.titulo}
+              </Button>
+            ))}
+          </Box>
+
+          {/* Caja de Consulta Libre */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Consulta jurídica libre o instrucción de redacción procesal"
+              placeholder="Ej: Redacta los puntos petitorios para el Escrito de Solicitudes, Argumentos y Pruebas (ESAP) conforme al Art. 40 del Reglamento de la Corte IDH..."
+              value={consultaCopilotoIA}
+              onChange={(e) => setConsultaCopilotoIA(e.target.value)}
+              sx={{ bgcolor: '#ffffff' }}
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={ejecutandoCopilotoIA ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={18} />}
+                disabled={ejecutandoCopilotoIA || !consultaCopilotoIA.trim()}
+                onClick={() => handleEjecutarCopilotoIA()}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  borderRadius: 2,
+                  px: 3,
+                  background: 'linear-gradient(90deg, #312e81 0%, #6d28d9 100%)'
+                }}
+              >
+                {ejecutandoCopilotoIA ? 'Razonando estrategia jurídica...' : 'Ejecutar Análisis con IA'}
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Resultado del Copiloto Jurídico IA */}
+          {respuestaCopilotoIA && (
+            <Paper sx={{ p: 3, borderRadius: 2.5, bgcolor: '#ffffff', border: '1px solid #c7d2fe', boxShadow: 'none' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2, pb: 1.5, borderBottom: '1px solid #e2e8f0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Chip
+                    label={respuestaCopilotoIA.badge || respuestaCopilotoIA.modeloEjecutado}
+                    color="primary"
+                    size="small"
+                    sx={{ fontWeight: 'bold' }}
+                  />
+                  <Chip
+                    label={`Modelo: ${respuestaCopilotoIA.modeloEjecutado}`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontWeight: 'bold', fontFamily: 'monospace' }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Vía {respuestaCopilotoIA.backendUtilizado} · {respuestaCopilotoIA.fecha}
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    navigator.clipboard.writeText(respuestaCopilotoIA.text);
+                    alert('✅ Dictamen copiado al portapapeles.');
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 'bold' }}
+                >
+                  📋 Copiar Dictamen
+                </Button>
+              </Box>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: '#1e293b' }}>
+                {respuestaCopilotoIA.text}
+              </Typography>
+            </Paper>
+          )}
+        </Paper>
+      </TabPanel>
+
+      {/* MODAL DE AGREGAR CLIENTE EXTENDIDO + AUTOCOMPLETADO OCR IA */}
       <Dialog 
         open={openModal} 
         onClose={() => setOpenModal(false)} 
@@ -1399,7 +2600,20 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           } 
         }}
       >
-        <DialogTitle fontWeight="bold">Nueva Ficha de Cliente</DialogTitle>
+        <DialogTitle fontWeight="bold" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <span>Nueva Ficha de Representado</span>
+          <Button
+            size="small"
+            variant="outlined"
+            component="label"
+            startIcon={autocompletandoOcrCliente ? <CircularProgress size={14} /> : <Sparkles size={15} />}
+            disabled={autocompletandoOcrCliente}
+            sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+          >
+            {autocompletandoOcrCliente ? 'Extrayendo con Gemini 3.8 Flash...' : '✨ Autocompletar desde Cédula/Pasaporte'}
+            <input type="file" accept="application/pdf,image/*" hidden onChange={handleAutocompletarClienteConOcrIA} />
+          </Button>
+        </DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
             <TextField label="Nombres" autoFocus required fullWidth value={nombres} onChange={(e) => setNombres(e.target.value)} />
@@ -1414,6 +2628,21 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
               </Select>
             </FormControl>
             <TextField label="Número de Identificación" required fullWidth value={identificacion} onChange={(e) => setIdentificacion(e.target.value)} />
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
+            <FormControl fullWidth>
+              <InputLabel>Calidad Procesal (SIDH)</InputLabel>
+              <Select value={calidadProcesalInput} label="Calidad Procesal (SIDH)" onChange={(e) => setCalidadProcesalInput(e.target.value)}>
+                {CALIDADES_PROCESALES.map((cal) => <MenuItem key={cal} value={cal}>{cal}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Vulnerabilidad (Art. 29.2 CIDH)</InputLabel>
+              <Select value={vulnerabilidadInput} label="Vulnerabilidad (Art. 29.2 CIDH)" onChange={(e) => setVulnerabilidadInput(e.target.value)}>
+                {CONDICIONES_VULNERABILIDAD.map((cond) => <MenuItem key={cond} value={cond}>{cond}</MenuItem>)}
+              </Select>
+            </FormControl>
           </Box>
           
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
@@ -1444,8 +2673,19 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
             <TextField label="Número Telefónico Principal" fullWidth value={telefonoPrincipal} onChange={(e) => setTelefonoPrincipal(e.target.value)} />
           </Box>
           
-          <Box sx={{ mb: 2.5 }}>
+          <Box sx={{ mb: 2 }}>
             <TextField label="Dirección Física Completa" fullWidth multiline rows={2} value={direccion} onChange={(e) => setDireccion(e.target.value)} />
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <FormControlLabel
+              control={<Checkbox checked={tienePoderInput} onChange={(e) => setTienePoderInput(e.target.checked)} />}
+              label="Poder de representación ya verificado"
+            />
+            <FormControlLabel
+              control={<Checkbox checked={tieneIdInput} onChange={(e) => setTieneIdInput(e.target.checked)} />}
+              label="Cédula / ID legible verificado"
+            />
           </Box>
           
           <TextField label="Notas Jurídicas Iniciales" fullWidth multiline rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />
@@ -1456,7 +2696,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         </DialogActions>
       </Dialog>
 
-      {/* MODAL: CARGAR PLAZO */}
+      {/* MODAL: CARGAR PLAZO + SINCRONIZACIÓN CALENDARIO */}
       <Dialog 
         open={openPlazoModal} 
         onClose={() => setOpenPlazoModal(false)} 
@@ -1472,10 +2712,21 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           } 
         }}
       >
-        <DialogTitle fontWeight="bold">Cargar Término Procesal</DialogTitle>
+        <DialogTitle fontWeight="bold">Cargar Término Procesal / Fecha Fatal</DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField label="Descripción del Término (Ej: Recurso de Apelación)" autoFocus fullWidth required value={descripcionPlazo} onChange={e => setDescripcionPlazo(e.target.value)} />
+          <TextField label="Descripción del Término (Ej: Presentar ESAP / Observaciones)" autoFocus fullWidth required value={descripcionPlazo} onChange={e => setDescripcionPlazo(e.target.value)} />
           <TextField label="Fecha Límite Judicial (Fecha Fatal)" type="date" fullWidth required slotProps={{ inputLabel: { shrink: true } }} value={fechaFatalInput} onChange={e => setFechaFatalInput(e.target.value)} />
+          <TextField label="Abogado(a) Responsable" fullWidth value={responsablePlazoInput} onChange={e => setResponsablePlazoInput(e.target.value)} />
+          <TextField label="Nota de Prórroga / Observación" fullWidth value={prorrogaPlazoInput} onChange={e => setProrrogaPlazoInput(e.target.value)} />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={sincronizarCalendarioInput}
+                onChange={(e) => setSincronizarCalendarioInput(e.target.checked)}
+              />
+            }
+            label={<Typography variant="caption" fontWeight="bold">📅 Sincronizar automáticamente con Calendario Institucional</Typography>}
+          />
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
           <Button onClick={() => setOpenPlazoModal(false)} color="inherit" sx={{ textTransform: 'none' }}>Cancelar</Button>
@@ -1499,17 +2750,82 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           } 
         }}
       >
-        <DialogTitle fontWeight="bold">Metadatos del Documento Común</DialogTitle>
+        <DialogTitle fontWeight="bold">Metadatos de la Pieza Procesal</DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
           <Typography variant="body2" color="text.secondary">
             Archivo detectado: <strong>{fileComunSeleccionado?.name}</strong>
           </Typography>
+          <FormControl fullWidth>
+            <InputLabel>Categoría Procesal</InputLabel>
+            <Select value={categoriaComun} label="Categoría Procesal" onChange={(e) => setCategoriaComun(e.target.value)}>
+              {CATEGORIAS_DOCUMENTOS_PROCESALES.map((cat) => (
+                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField label="Número de Anexo (Opcional, ej. 1 o A-1)" fullWidth value={anexoNumeroComun} onChange={e => setAnexoNumeroComun(e.target.value)} />
           <TextField label="Descripción Material del Documento" autoFocus fullWidth required value={descripcionComun} onChange={e => setDescripcionComun(e.target.value)} />
           <TextField label="Fecha de Emisión del Documento" type="date" fullWidth required slotProps={{ inputLabel: { shrink: true } }} value={fechaDocumentoComun} onChange={e => setFechaDocumentoComun(e.target.value)} />
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
           <Button onClick={() => { setOpenUploadModal(false); setFileComunSeleccionado(null); }} color="inherit" sx={{ textTransform: 'none' }}>Cancelar</Button>
           <Button type="submit" variant="contained" sx={{ textTransform: 'none', fontWeight: 'bold' }}>Subir Documento</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MODAL: VINCULAR DOCUMENTO DESDE GOOGLE DRIVE */}
+      <Dialog
+        open={openDriveLinkModal}
+        onClose={() => setOpenDriveLinkModal(false)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{
+          paper: {
+            component: 'form',
+            onSubmit: handleVincularDriveDoc,
+            sx: { borderRadius: 3 }
+          }
+        }}
+      >
+        <DialogTitle fontWeight="bold">Vincular Pieza o Anexo desde Google Drive</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Nombre del Documento / Pieza"
+            required
+            fullWidth
+            value={driveDocNombre}
+            onChange={(e) => setDriveDocNombre(e.target.value)}
+          />
+          <TextField
+            label="Enlace de Google Drive (URL)"
+            required
+            fullWidth
+            placeholder="https://drive.google.com/..."
+            value={driveDocUrl}
+            onChange={(e) => setDriveDocUrl(e.target.value)}
+          />
+          <FormControl fullWidth>
+            <InputLabel>Categoría Procesal</InputLabel>
+            <Select value={driveDocCategoria} label="Categoría Procesal" onChange={(e) => setDriveDocCategoria(e.target.value)}>
+              {CATEGORIAS_DOCUMENTOS_PROCESALES.map((cat) => (
+                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="N° de Anexo (Opcional)"
+            fullWidth
+            value={driveDocAnexo}
+            onChange={(e) => setDriveDocAnexo(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenDriveLinkModal(false)} color="inherit" sx={{ textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="contained" sx={{ textTransform: 'none', fontWeight: 'bold' }}>
+            Vincular al Expediente
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -1567,7 +2883,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         </DialogActions>
       </Dialog>
 
-      {/* MODAL: REDACTAR COMUNICADO MASIVO O SELECTIVO CON FILTRO DE DESTINATARIOS */}
+      {/* MODAL: REDACTAR COMUNICADO MASIVO O SELECTIVO + REDACTOR IA EN LENGUAJE CLARO */}
       <Dialog 
         open={openComunicadoModal} 
         onClose={() => { if (!uploadingComunicado) { setOpenComunicadoModal(false); setFileComunicado(null); } }} 
@@ -1583,20 +2899,70 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
           } 
         }}
       >
-        <DialogTitle fontWeight="bold">Redactar y Registrar Comunicado</DialogTitle>
+        <DialogTitle fontWeight="bold">Redactar y Registrar Comunicado Oficial</DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            El texto aquí registrado se enviará a los representados seleccionados. El archivo adjunto es opcional.
-          </Typography>
+          {/* Asistente IA de Redacción en Lenguaje Claro */}
+          <Box sx={{ p: 2, bgcolor: '#eef2ff', borderRadius: 2, border: '1px solid #c7d2fe' }}>
+            <Typography variant="caption" fontWeight="bold" color="#312e81" sx={{ display: 'block', mb: 1 }}>
+              ✨ Redactor IA de Circulares en Lenguaje Claro (Gemini 3.8 Flash / 3.5 Flash-Lite)
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1, mb: 1 }}>
+              <FormControl size="small" fullWidth sx={{ bgcolor: '#ffffff' }}>
+                <InputLabel>Tipo de Circular</InputLabel>
+                <Select
+                  value={plantillaComunicadoIA}
+                  label="Tipo de Circular"
+                  onChange={(e) => setPlantillaComunicadoIA(e.target.value)}
+                >
+                  <MenuItem value="actualizacion_procesal">Actualización de Etapa Procesal</MenuItem>
+                  <MenuItem value="subsanacion_poder_id">Solicitud Urgente de Poder / Cédula (Art. 35)</MenuItem>
+                  <MenuItem value="convocatoria_reunion">Convocatoria a Asamblea / Google Meet</MenuItem>
+                  <MenuItem value="recordatorio_aporte">Recordatorio de Aporte / Conciliación</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                size="small"
+                placeholder="Instrucción opcional para la IA..."
+                value={instruccionComunicadoIA}
+                onChange={(e) => setInstruccionComunicadoIA(e.target.value)}
+                sx={{ bgcolor: '#ffffff' }}
+              />
+            </Box>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={redactandoComunicadoIA ? <CircularProgress size={14} color="inherit" /> : <Sparkles size={14} />}
+              disabled={redactandoComunicadoIA}
+              onClick={handleRedactarComunicadoIA}
+              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+            >
+              {redactandoComunicadoIA ? 'Redactando borrador...' : 'Generar Borrador con IA'}
+            </Button>
+          </Box>
           
           <TextField label="Asunto del Correo / Comunicado" autoFocus fullWidth required disabled={uploadingComunicado} value={asuntoComunicado} onChange={e => setAsuntoComunicado(e.target.value)} />
-          <TextField label="Cuerpo del Mensaje (Texto del Email)" fullWidth multiline rows={4} required disabled={uploadingComunicado} value={cuerpoComunicado} onChange={e => setCuerpoComunicado(e.target.value)} />
+          <TextField label="Cuerpo del Mensaje (Texto del Email)" fullWidth multiline rows={5} required disabled={uploadingComunicado} value={cuerpoComunicado} onChange={e => setCuerpoComunicado(e.target.value)} />
           
           {/* CONTROL DE SEGMENTACIÓN DE DESTINATARIOS */}
           <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
-            <FormLabel component="legend" style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#1a365d', marginBottom: '8px' }}>
-              Destinatarios del Mensaje
-            </FormLabel>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+              <FormLabel component="legend" style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#1a365d' }}>
+                Destinatarios del Mensaje
+              </FormLabel>
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                onClick={() => {
+                  setTipoDestinatario('especificos');
+                  const pendientes = clientes.filter((c) => !c.tiene_poder || !c.tiene_documento_id).map((c) => c.id);
+                  setClientesSeleccionadosIds(pendientes);
+                }}
+                sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 'bold', py: 0.25 }}
+              >
+                ⚠️ Seleccionar pendientes de Poder/ID
+              </Button>
+            </Box>
             <RadioGroup
               row
               value={tipoDestinatario}

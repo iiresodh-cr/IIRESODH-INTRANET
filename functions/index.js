@@ -1063,3 +1063,130 @@ exports.confirmarLecturaComunicado = onRequest(
     res.status(200).end(TRANSPARENT_GIF_BUFFER);
   }
 );
+
+// =========================================================================
+// 🧠 COPILOTO JURÍDICO IA — VERTEX AI NATIVO SIN EXPONER API KEYS
+// Soporta gemini-4-argon (Pensamiento Avanzado), gemini-3.8-flash y gemini-3.5-flash-lite
+// =========================================================================
+exports.consultarVertexLitigioIA = onCall(
+  {
+    region: 'us-central1',
+    cors: true,
+    timeoutSeconds: 180,
+    memory: '512MiB'
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        'unauthenticated',
+        'Debes iniciar sesión en la Intranet IIRESODH para utilizar el Copiloto Jurídico IA.'
+      );
+    }
+
+    const {
+      prompt,
+      systemInstruction = '',
+      model = 'gemini-4-argon',
+      inlineParts = [],
+      temperature = 0.25
+    } = request.data || {};
+
+    if (!prompt || typeof prompt !== 'string') {
+      throw new HttpsError('invalid-argument', 'Se requiere un prompt válido.');
+    }
+
+    const modelosPermitidos = [
+      'gemini-4-argon',
+      'gemini-3.8-flash',
+      'gemini-3.5-flash-lite'
+    ];
+    const modeloPrimario = modelosPermitidos.includes(model) ? model : 'gemini-4-argon';
+    const cadenaModelos = [
+      modeloPrimario,
+      ...modelosPermitidos.filter((m) => m !== modeloPrimario)
+    ];
+
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+    });
+    const client = await auth.getClient();
+    const adcTokenResponse = await client.getAccessToken();
+    const accessToken =
+      typeof adcTokenResponse === 'string' ? adcTokenResponse : adcTokenResponse?.token;
+
+    const parts = [];
+    if (Array.isArray(inlineParts)) {
+      for (const p of inlineParts) {
+        if (p && p.inlineData && p.inlineData.data) {
+          parts.push({
+            inlineData: {
+              mimeType: p.inlineData.mimeType || 'application/pdf',
+              data: p.inlineData.data
+            }
+          });
+        }
+      }
+    }
+    parts.push({ text: prompt });
+
+    const payload = {
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: typeof temperature === 'number' ? temperature : 0.25
+      }
+    };
+
+    if (systemInstruction && typeof systemInstruction === 'string') {
+      payload.systemInstruction = {
+        parts: [{ text: systemInstruction }]
+      };
+    }
+
+    const errores = [];
+    for (const modId of cadenaModelos) {
+      const endpoint = `https://aiplatform.googleapis.com/v1beta1/projects/litigio-management/locations/global/publishers/google/models/${modId}:generateContent`;
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errTxt = await res.text();
+          errores.push(`[${modId} HTTP ${res.status}]: ${errTxt.slice(0, 200)}`);
+          continue;
+        }
+
+        const data = await res.json();
+        const candParts = data?.candidates?.[0]?.content?.parts || [];
+        const textOut = candParts
+          .map((pt) => pt.text || '')
+          .join('\n')
+          .trim();
+
+        if (textOut) {
+          return {
+            success: true,
+            text: textOut,
+            modeloSolicitado: modeloPrimario,
+            modeloEjecutado: data.modelVersion || modId,
+            backendUtilizado: 'Vertex AI Enterprise (aiplatform.googleapis.com)'
+          };
+        }
+      } catch (err) {
+        errores.push(`[${modId}]: ${err.message}`);
+      }
+    }
+
+    throw new HttpsError(
+      'internal',
+      `No se pudo completar la consulta en Vertex AI: ${errores.join(' | ')}`
+    );
+  }
+);
+
