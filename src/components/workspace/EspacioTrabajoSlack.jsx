@@ -537,7 +537,10 @@ export default function EspacioTrabajoSlack({
         const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const visibles = docs.filter((c) => {
           if (c.tipo === 'dm') {
-            return (c.participantes || []).includes(currentUserEmail);
+            const parts = c.participantes || [];
+            // Excluir DMs consigo mismo
+            const otros = parts.filter((p) => p !== currentUserEmail);
+            return parts.includes(currentUserEmail) && otros.length > 0;
           }
           if (!c.esPrivado || userRole === 'Superadmin') return true;
           return (c.miembros || []).includes(currentUserEmail) || c.creadoPor === currentUserEmail;
@@ -671,6 +674,7 @@ export default function EspacioTrabajoSlack({
   // 5. ACCIONES DE CANALES Y MENSAJES DIRECTOS (1 A 1)
   // =========================================================================
   const abrirMensajeDirecto = async (colega) => {
+    if (!colega || colega.email.toLowerCase() === currentUserEmail) return;
     const emailsOrdenados = [currentUserEmail, colega.email.toLowerCase()].sort();
     const dmId = `dm_${emailsOrdenados[0].replace(/[^a-z0-9]/g, '_')}_${emailsOrdenados[1].replace(/[^a-z0-9]/g, '_')}`;
 
@@ -1366,12 +1370,15 @@ export default function EspacioTrabajoSlack({
   }, [canales, busquedaSidebar]);
 
   const colegasFiltrados = useMemo(() => {
-    if (!busquedaSidebar.trim()) return usuariosEquipo;
+    const soloOtrosColegas = usuariosEquipo.filter(
+      (u) => u.email.toLowerCase() !== currentUserEmail
+    );
+    if (!busquedaSidebar.trim()) return soloOtrosColegas;
     const term = busquedaSidebar.toLowerCase();
-    return usuariosEquipo.filter(
+    return soloOtrosColegas.filter(
       (u) => u.nombre.toLowerCase().includes(term) || u.email.toLowerCase().includes(term)
     );
-  }, [usuariosEquipo, busquedaSidebar]);
+  }, [usuariosEquipo, busquedaSidebar, currentUserEmail]);
 
   return (
     <Box
