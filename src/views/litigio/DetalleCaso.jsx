@@ -129,16 +129,38 @@ function TabPanel(props) {
 // =====================================================================================
 function ItemComunicadoMasivo({ c }) {
   const [expanded, setExpanded] = useState(false);
+  const deliveryState = c.delivery?.state || null;
 
   return (
     <ListItem disablePadding sx={{ mb: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0', display: 'block' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="subtitle1" fontWeight="bold" color="primary.main">{c.asunto}</Typography>
           <Typography variant="caption" color="text.secondary">
-            {`Enviado por: ${c.enviado_por} | Fecha: ${c.fecha_envio ? new Date(c.fecha_envio).toLocaleString() : ''} | Cobertura: ${c.tipo_cobertura === 'todos' ? 'Todos los representados' : 'Segmentación selectiva'} (${c.destinatarios_conteo || 0} correos)`}
+            {`Remitente: ${c.from || 'contacto@iiresodh.org'} | Enviado por: ${c.enviado_por} | Fecha: ${c.fecha_envio ? new Date(c.fecha_envio).toLocaleString() : ''} | Cobertura: ${c.tipo_cobertura === 'todos' ? 'Todos los representados' : 'Segmentación selectiva'} (${c.destinatarios_conteo || 0} correos)`}
           </Typography>
         </Box>
+        {deliveryState && (
+          <Chip
+            size="small"
+            label={
+              deliveryState === 'SUCCESS'
+                ? 'Despachado (Google Workspace)'
+                : deliveryState === 'PROCESSING'
+                  ? 'Procesando envío...'
+                  : 'Revisión requerida'
+            }
+            color={
+              deliveryState === 'SUCCESS'
+                ? 'success'
+                : deliveryState === 'PROCESSING'
+                  ? 'info'
+                  : 'warning'
+            }
+            variant="outlined"
+            sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
+          />
+        )}
       </Box>
 
       <Button
@@ -591,9 +613,35 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
     const guardarDocumentoEnFirestore = async (pdfNombre = '', pdfUrl = '', storagePath = '') => {
       try {
+        const fechaCR = new Date().toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' });
+        const destinatariosDetalle = poolClientesAEnviar
+          .filter(c => c.correo_principal && c.correo_principal.trim() !== '')
+          .map(c => ({
+            clienteId: c.id,
+            email: c.correo_principal.trim(),
+            nombre: `${c.nombres || ''} ${c.apellidos || ''}`.trim()
+          }));
+
+        // 1. Registrar primero en historial_comunicados de cada representado antes de disparar el trigger
+        for (const clienteItem of poolClientesAEnviar) {
+          if (!clienteItem.correo_principal || !clienteItem.correo_principal.trim()) continue;
+          const historialRef = doc(db, 'casos', caso.id, 'clientes', clienteItem.id, 'historial_comunicados', comunicadoId);
+          await setDoc(historialRef, {
+            comunicadoId: comunicadoId,
+            asunto: asuntoComunicado.trim(),
+            cuerpo: cuerpoComunicado.trim(),
+            pdf_nombre: pdfNombre,
+            pdf_url: pdfUrl,
+            storage_path: storagePath,
+            estado: 'Enviado',
+            ultima_actualizacion: fechaCR
+          }, { merge: true });
+        }
+
         const modeloDocumentoMail = {
-          from: 'comunicados@iiresodh.org', 
+          from: 'contacto@iiresodh.org',
           to: listaCorreos,
+          destinatarios_detalle: destinatariosDetalle,
           template: {
             name: 'comunicado_institucional',
             data: {
@@ -627,21 +675,6 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         }
 
         await setDoc(nuevoComunicadoDoc, modeloDocumentoMail);
-
-        const fechaCR = new Date().toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' });
-        for (const clienteItem of poolClientesAEnviar) {
-          const historialRef = doc(db, 'casos', caso.id, 'clientes', clienteItem.id, 'historial_comunicados', comunicadoId);
-          await setDoc(historialRef, {
-            comunicadoId: comunicadoId,
-            asunto: asuntoComunicado.trim(),
-            cuerpo: cuerpoComunicado.trim(),
-            pdf_nombre: pdfNombre,
-            pdf_url: pdfUrl,
-            storage_path: storagePath,
-            estado: 'Enviado',
-            ultima_actualizacion: fechaCR
-          });
-        }
 
         await registrarLogAuditoria(
           currentUserEmail,
