@@ -1373,12 +1373,23 @@ export default function EspacioTrabajoSlack({
     const soloOtrosColegas = usuariosEquipo.filter(
       (u) => u.email.toLowerCase() !== currentUserEmail
     );
-    if (!busquedaSidebar.trim()) return soloOtrosColegas;
-    const term = busquedaSidebar.toLowerCase();
-    return soloOtrosColegas.filter(
-      (u) => u.nombre.toLowerCase().includes(term) || u.email.toLowerCase().includes(term)
-    );
-  }, [usuariosEquipo, busquedaSidebar, currentUserEmail]);
+    const base = !busquedaSidebar.trim()
+      ? soloOtrosColegas
+      : soloOtrosColegas.filter((u) => {
+          const term = busquedaSidebar.toLowerCase();
+          return (
+            u.nombre.toLowerCase().includes(term) ||
+            u.email.toLowerCase().includes(term)
+          );
+        });
+
+    return [...base].sort((a, b) => {
+      const aOnline = estaEnLinea(a.email) ? 1 : 0;
+      const bOnline = estaEnLinea(b.email) ? 1 : 0;
+      if (bOnline !== aOnline) return bOnline - aOnline;
+      return (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' });
+    });
+  }, [usuariosEquipo, busquedaSidebar, currentUserEmail, presenciaMap]);
 
   return (
     <Box
