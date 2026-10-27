@@ -223,7 +223,7 @@ function ItemComunicadoMasivo({ c, casoId, clientes = [], onVerCliente }) {
             size="small"
             label={
               deliveryState === 'SUCCESS'
-                ? 'Despachado (Google Workspace)'
+                ? 'Despachado'
                 : deliveryState === 'PROCESSING'
                   ? 'Procesando envío...'
                   : 'Revisión requerida'
