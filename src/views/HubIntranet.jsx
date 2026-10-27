@@ -1,13 +1,42 @@
 // src/views/HubIntranet.jsx
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, CardContent, Button, Divider, Avatar, Chip } from '@mui/material';
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, Typography, Card, CardContent, Button, Divider, Avatar, Chip, Snackbar, Alert } from '@mui/material';
 import { 
   Scale, Users, ShieldCheck, FileSpreadsheet, Activity, 
   Globe, MessageCircle, FolderArchive, Calendar, ArrowRight,
   Lock, ExternalLink, Building2, GraduationCap
 } from 'lucide-react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import AcordeonHerramientas from '../components/AcordeonHerramientas';
+
+function playWhatsappChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc1.type = 'sine';
+    osc2.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, now); // D5
+    osc2.frequency.setValueAtTime(880, now + 0.11); // A5
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.12);
+    osc2.start(now + 0.11);
+    osc2.stop(now + 0.35);
+  } catch (e) {
+    // Ignorar si el navegador bloquea autoplay de audio antes de interacción
+  }
+}
 
 export default function HubIntranet({ setView, userRole, userPermisos, user: propUser, userName }) {
   const { user: authUser } = useAuth();
@@ -25,6 +54,60 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
   const tieneAccesoLitigio = userRole !== 'Invitado';
   const tieneAccesoWeb = userRole === 'Superadmin' || userPermisos?.web === true;
   const tieneAccesoWhatsapp = userRole === 'Superadmin' || userPermisos?.whatsapp === true;
+
+  // Telemetría en tiempo real de WhatsApp Institucional (solo para usuarios con permiso activo)
+  const [whatsappSinLeer, setWhatsappSinLeer] = useState(0);
+  const [alertaWhatsappReciente, setAlertaWhatsappReciente] = useState(null);
+  const prevUnreadByChatRef = useRef(null);
+
+  useEffect(() => {
+    if (!tieneAccesoWhatsapp) {
+      setWhatsappSinLeer(0);
+      prevUnreadByChatRef.current = null;
+      return;
+    }
+
+    const chatsRef = collection(db, 'whatsapp_chats');
+    const unsubscribe = onSnapshot(
+      chatsRef,
+      (snapshot) => {
+        let totalUnread = 0;
+        const nextMap = {};
+        let chatConNuevoMensaje = null;
+
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const count = Number(data.no_leidos) || 0;
+          totalUnread += count;
+          nextMap[docSnap.id] = count;
+
+          if (prevUnreadByChatRef.current !== null) {
+            const prevCount = prevUnreadByChatRef.current[docSnap.id] || 0;
+            if (count > prevCount) {
+              chatConNuevoMensaje = {
+                id: docSnap.id,
+                nombre: data.nombre || `+${data.telefono || docSnap.id}`,
+                ultimo_mensaje: data.ultimo_mensaje || 'Nuevo mensaje recibido'
+              };
+            }
+          }
+        });
+
+        prevUnreadByChatRef.current = nextMap;
+        setWhatsappSinLeer(totalUnread);
+
+        if (chatConNuevoMensaje) {
+          playWhatsappChime();
+          setAlertaWhatsappReciente(chatConNuevoMensaje);
+        }
+      },
+      (err) => {
+        console.warn('Error escuchando estado de WhatsApp Institucional:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [tieneAccesoWhatsapp]);
 
   // Saludo dinámico según horario local
   const obtenerSaludo = () => {
@@ -239,7 +322,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             </Box>
 
             {/* Enlaces rápidos al ecosistema oficial IIRESODH */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'center', md: 'flex-end' }, gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'center', md: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
               <Button
                 component="a"
                 href="https://iiresodh.org"
@@ -287,6 +370,88 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
                 Campus Virtual
               </Button>
             </Box>
+
+            {/* Indicador en tiempo real de WhatsApp Institucional (exclusivo para usuarios con permiso) */}
+            {tieneAccesoWhatsapp && (
+              <Button
+                onClick={() => setView('whatsapp')}
+                size="small"
+                sx={{
+                  textTransform: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: { xs: 'center', md: 'flex-end' },
+                  gap: 1,
+                  px: 1.5,
+                  py: 0.55,
+                  borderRadius: 2,
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  color: '#FFFFFF',
+                  bgcolor: whatsappSinLeer > 0 ? 'rgba(37, 211, 102, 0.18)' : 'rgba(255, 255, 255, 0.06)',
+                  border: whatsappSinLeer > 0
+                    ? '1px solid rgba(37, 211, 102, 0.65)'
+                    : '1px solid rgba(168, 218, 220, 0.22)',
+                  boxShadow: whatsappSinLeer > 0 ? '0 0 16px rgba(37, 211, 102, 0.25)' : 'none',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    bgcolor: whatsappSinLeer > 0 ? 'rgba(37, 211, 102, 0.28)' : 'rgba(255, 255, 255, 0.12)',
+                    borderColor: '#25D366'
+                  }
+                }}
+              >
+                <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', color: '#25D366' }}>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M12.031 2C6.508 2 2.023 6.484 2.023 12.006c0 1.766.461 3.49 1.337 5.011L2 22l5.122-1.343a9.969 9.969 0 0 0 4.906 1.298h.004c5.522 0 10.007-4.484 10.007-10.006C22.039 6.484 17.553 2 12.031 2zm5.847 14.28c-.244.688-1.425 1.318-1.972 1.399-.506.075-1.147.107-1.856-.118-.429-.136-.979-.318-1.682-.622-2.961-1.278-4.894-4.262-5.042-4.459-.148-.197-1.205-1.603-1.205-3.058 0-1.455.762-2.171 1.033-2.467.271-.296.591-.37.788-.37.197 0 .394.002.567.01.182.009.426-.069.667.509.246.592.838 2.047.912 2.195.074.148.123.321.025.518-.099.197-.148.321-.296.493-.148.173-.311.386-.444.518-.148.148-.302.309-.13.605.173.296.766 1.264 1.645 2.048 1.13 1.008 2.083 1.32 2.379 1.468.296.148.469.123.641-.074.173-.197.74-.863.937-1.159.197-.296.395-.247.666-.148.271.099 1.726.814 2.022.962.296.148.493.222.567.345.075.124.075.716-.169 1.404z" />
+                  </svg>
+                  {whatsappSinLeer > 0 && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: -2,
+                        right: -2,
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        bgcolor: '#25D366',
+                        boxShadow: '0 0 0 2px #1D3557',
+                        animation: 'pulseWhatsappDot 1.6s infinite',
+                        '@keyframes pulseWhatsappDot': {
+                          '0%': { transform: 'scale(0.95)', opacity: 1 },
+                          '50%': { transform: 'scale(1.35)', opacity: 0.65 },
+                          '100%': { transform: 'scale(0.95)', opacity: 1 }
+                        }
+                      }}
+                    />
+                  )}
+                </Box>
+                <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#F1FAEE' }}>
+                  WhatsApp Institucional
+                </Typography>
+                <Chip
+                  size="small"
+                  label={
+                    whatsappSinLeer === 1
+                      ? '1 sin leer'
+                      : `${whatsappSinLeer} sin leer`
+                  }
+                  sx={{
+                    height: 20,
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    bgcolor: whatsappSinLeer > 0 ? '#25D366' : 'rgba(168, 218, 220, 0.16)',
+                    color: whatsappSinLeer > 0 ? '#052E16' : '#A8DADC',
+                    '& .MuiChip-label': { px: 1 }
+                  }}
+                />
+              </Button>
+            )}
           </Box>
         </Card>
 
@@ -867,6 +1032,51 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           </Typography>
         </Box>
       </Box>
+
+      {/* NOTIFICACIÓN EN TIEMPO REAL DE NUEVO MENSAJE DE WHATSAPP */}
+      {tieneAccesoWhatsapp && (
+        <Snackbar
+          open={Boolean(alertaWhatsappReciente)}
+          autoHideDuration={7000}
+          onClose={() => setAlertaWhatsappReciente(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          sx={{ mt: 7 }}
+        >
+          <Alert
+            severity="success"
+            variant="filled"
+            onClose={() => setAlertaWhatsappReciente(null)}
+            sx={{
+              bgcolor: '#064E3B',
+              color: '#FFFFFF',
+              border: '1px solid #25D366',
+              boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
+              alignItems: 'center',
+              maxWidth: 380
+            }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  setAlertaWhatsappReciente(null);
+                  setView('whatsapp');
+                }}
+                sx={{ fontWeight: 800, textTransform: 'none', color: '#A7F3D0' }}
+              >
+                Abrir
+              </Button>
+            }
+          >
+            <Typography variant="caption" sx={{ fontWeight: 800, display: 'block', color: '#25D366' }}>
+              Nuevo WhatsApp · {alertaWhatsappReciente?.nombre}
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', color: '#ECFDF5' }} noWrap>
+              {alertaWhatsappReciente?.ultimo_mensaje}
+            </Typography>
+          </Alert>
+        </Snackbar>
+      )}
     </Box>
   );
 }
