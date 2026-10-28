@@ -694,20 +694,40 @@ export default function WhatsappInterface({
   // 5. VERIFICAR PLANTILLAS EN META E INICIAR NUEVO CHAT
   // ==============================================================
   const verificarPlantillaIiresodhEnMeta = async () => {
-    const wabaId = metaConfig.waba_id || DEFAULT_WABA_ID;
+    const wabaPrincipal = metaConfig.waba_id || DEFAULT_WABA_ID;
     const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
-    if (!wabaId || !token) return 'UNKNOWN';
+    if (!wabaPrincipal || !token) return 'UNKNOWN';
     setCargandoPlantillasMeta(true);
     try {
-      const res = await fetch(
-        `https://graph.facebook.com/v21.0/${wabaId}/message_templates?name=aviso_institucional_iiresodh&fields=name,status,language`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const data = await res.json().catch(() => ({}));
-      const tpl = (data?.data || []).find((t) => t.name === 'aviso_institucional_iiresodh');
-      const status = tpl?.status || 'NOT_FOUND';
-      setEstadoPlantillaIiresodh(status);
-      return status;
+      const wabasAConsultar = Array.from(new Set([wabaPrincipal, '1431176165105564', '2324714508024659']));
+      let mejorEstado = 'NOT_FOUND';
+      for (const wId of wabasAConsultar) {
+        const res = await fetch(
+          `https://graph.facebook.com/v21.0/${wId}/message_templates?fields=name,status,language`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) continue;
+        const data = await res.json().catch(() => ({}));
+        const lista = data?.data || [];
+        const aprobada = lista.find(
+          (t) =>
+            (t.name === 'aviso_institucional_iiresodh' || t.name === 'notificacion_expediente_iiresodh') &&
+            t.status === 'APPROVED'
+        );
+        if (aprobada) {
+          mejorEstado = 'APPROVED';
+          break;
+        }
+        const pendiente = lista.find(
+          (t) =>
+            t.name === 'aviso_institucional_iiresodh' || t.name === 'notificacion_expediente_iiresodh'
+        );
+        if (pendiente && mejorEstado !== 'APPROVED') {
+          mejorEstado = pendiente.status || 'PENDING';
+        }
+      }
+      setEstadoPlantillaIiresodh(mejorEstado);
+      return mejorEstado;
     } catch {
       return estadoPlantillaIiresodh;
     } finally {
@@ -742,12 +762,6 @@ export default function WhatsappInterface({
       // Verificar estado actual de la plantilla en español en Meta
       const statusTpl = await verificarPlantillaIiresodhEnMeta();
 
-      // Determinar estrategia de envío según la Regla de Ventana de 24h de Meta
-      let usarModo = modoInicioChat;
-      if (usarModo === 'auto') {
-        usarModo = statusTpl === 'APPROVED' ? 'template_iiresodh' : 'template_hello';
-      }
-
       let metaPrimerMsgId = null;
       let textoGuardadoEnBurbuja = primerMensaje;
       let tipoMensajeGuardado = 'text';
@@ -755,12 +769,12 @@ export default function WhatsappInterface({
 
       if (metaConfig.whatsapp_token && metaConfig.phone_number_id) {
         try {
-          let payloadMeta = null;
+          const intentarComoPlantilla = modoInicioChat !== 'texto_libre' && statusTpl === 'APPROVED';
 
-          if (usarModo === 'template_iiresodh' && statusTpl === 'APPROVED') {
+          if (intentarComoPlantilla) {
             tipoMensajeGuardado = 'template';
             textoGuardadoEnBurbuja = `📋 [Plantilla Oficial IIRESODH]\nEstimado(a) ${nombreFinal}, le saludamos del Instituto Internacional de Responsabilidad Social y Derechos Humanos (IIRESODH). ${primerMensaje} Por favor responda a este mensaje para continuar la atención.`;
-            payloadMeta = {
+            const payloadTemplate = {
               messaging_product: 'whatsapp',
               recipient_type: 'individual',
               to: telLimpio,
@@ -779,56 +793,56 @@ export default function WhatsappInterface({
                 ]
               }
             };
-          } else if (usarModo === 'template_hello' || (usarModo === 'template_iiresodh' && statusTpl !== 'APPROVED')) {
-            tipoMensajeGuardado = 'template';
-            textoGuardadoEnBurbuja = `📋 [Plantilla de Apertura Meta: hello_world]\n${primerMensaje}`;
-            payloadMeta = {
-              messaging_product: 'whatsapp',
-              recipient_type: 'individual',
-              to: telLimpio,
-              type: 'template',
-              template: {
-                name: 'hello_world',
-                language: { code: 'en_US' }
+
+            const tplRes = await fetch(
+              `https://graph.facebook.com/v21.0/${metaConfig.phone_number_id}/messages`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${metaConfig.whatsapp_token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payloadTemplate)
               }
-            };
-          } else {
+            );
+            const tplData = await tplRes.json().catch(() => ({}));
+            if (tplRes.ok) {
+              metaPrimerMsgId = tplData.messages?.[0]?.id || null;
+            }
+          }
+
+          // Si no se envió por plantilla (porque eligió texto libre o porque la plantilla aún está en PENDING en la cuenta +506 4081-6188),
+          // enviar inmediatamente como mensaje de texto directo (sin llamar a hello_world inexistente)
+          if (!metaPrimerMsgId) {
             tipoMensajeGuardado = 'text';
             textoGuardadoEnBurbuja = primerMensaje;
-            payloadMeta = {
+            const payloadTexto = {
               messaging_product: 'whatsapp',
               recipient_type: 'individual',
               to: telLimpio,
               type: 'text',
               text: { body: primerMensaje }
             };
-          }
 
-          const metaRes = await fetch(
-            `https://graph.facebook.com/v21.0/${metaConfig.phone_number_id}/messages`,
-            {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${metaConfig.whatsapp_token}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(payloadMeta)
-            }
-          );
-          const metaData = await metaRes.json().catch(() => ({}));
-          if (metaRes.ok) {
-            metaPrimerMsgId = metaData.messages?.[0]?.id || null;
-          } else {
-            errorMetaDetallado =
-              metaData?.error?.error_user_msg ||
-              metaData?.error?.message ||
-              `Error Meta (${metaData?.error?.code || metaRes.status})`;
-            if (metaData?.error?.code === 131030) {
-              setNotificacion({
-                tipo: 'warning',
-                mensaje:
-                  '⚠️ En modo de prueba, debes agregar este número a la lista permitida en Meta Developers > WhatsApp > Primeros pasos.'
-              });
+            const txtRes = await fetch(
+              `https://graph.facebook.com/v21.0/${metaConfig.phone_number_id}/messages`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${metaConfig.whatsapp_token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payloadTexto)
+              }
+            );
+            const txtData = await txtRes.json().catch(() => ({}));
+            if (txtRes.ok) {
+              metaPrimerMsgId = txtData.messages?.[0]?.id || null;
+            } else {
+              errorMetaDetallado =
+                txtData?.error?.error_user_msg ||
+                txtData?.error?.message ||
+                `Error Meta (${txtData?.error?.code || txtRes.status})`;
             }
           }
         } catch (eMeta) {
@@ -837,15 +851,7 @@ export default function WhatsappInterface({
         }
       }
 
-      if (errorMetaDetallado && !metaPrimerMsgId) {
-        setNotificacion({
-          tipo: 'error',
-          mensaje: `No se pudo entregar el mensaje inicial en Meta: ${errorMetaDetallado}`
-        });
-        setIsSending(false);
-        return;
-      }
-
+      // Siempre crear y abrir la conversación en la Intranet para que el operador pueda gestionarla
       await setDoc(
         chatRef,
         {
@@ -869,7 +875,8 @@ export default function WhatsappInterface({
         agente_nombre: userName,
         agente_email: currentUserEmail,
         fecha: serverTimestamp(),
-        estado: metaPrimerMsgId ? 'sent' : metaConfig.whatsapp_token ? 'enviado' : 'esperando_meta_api',
+        estado: metaPrimerMsgId ? 'sent' : errorMetaDetallado ? 'failed' : 'enviado',
+        error_detalle: errorMetaDetallado || null,
         tipo: tipoMensajeGuardado
       };
       if (metaPrimerMsgId) {
@@ -891,13 +898,25 @@ export default function WhatsappInterface({
       setNuevoNombre('');
       setNuevoMensajeInicial('');
 
-      setNotificacion({
-        tipo: 'success',
-        mensaje:
-          tipoMensajeGuardado === 'template'
-            ? `✅ Plantilla inicial enviada a ${nombreFinal}. En cuanto responda, se abrirá la ventana de 24h de texto libre.`
-            : `Chat iniciado con ${nombreFinal}. (Recuerda: en WhatsApp API el texto libre solo llega si el contacto escribió en las últimas 24h).`
-      });
+      if (metaPrimerMsgId && tipoMensajeGuardado === 'template') {
+        setNotificacion({
+          tipo: 'success',
+          mensaje: `✅ Plantilla oficial enviada a ${nombreFinal}. En cuanto responda, se abrirá la ventana de 24h de texto libre.`
+        });
+      } else if (metaPrimerMsgId) {
+        setNotificacion({
+          tipo: statusTpl === 'APPROVED' ? 'success' : 'info',
+          mensaje:
+            statusTpl === 'APPROVED'
+              ? `✅ Mensaje enviado a ${nombreFinal}.`
+              : `💬 Chat abierto y mensaje enviado a Meta para ${nombreFinal}. Nota: la plantilla en español "aviso_institucional_iiresodh" en la cuenta principal (+506 4081-6188) está en estado PENDING de aprobación por Meta; si el contacto no ha escrito en las últimas 24h, el texto directo solo le llegará cuando nos escriba o cuando Meta pase la plantilla a APPROVED.`
+        });
+      } else {
+        setNotificacion({
+          tipo: 'warning',
+          mensaje: `⚠️ Conversación abierta para ${nombreFinal}, pero Meta indicó: ${errorMetaDetallado}`
+        });
+      }
     } catch (e) {
       console.error('Error creando nuevo chat:', e);
       setNotificacion({ tipo: 'error', mensaje: 'Error al iniciar chat: ' + e.message });
