@@ -196,10 +196,22 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                                     estado_actual = (snap.to_dict() or {}).get("estado", "")
                                     # Evitar que un evento desordenado degrade 'read' a 'delivered' o 'sent'
                                     if status_val == "failed" or orden_estados.get(status_val, 0) >= orden_estados.get(estado_actual, 0):
-                                        msg_doc_ref.update({
+                                        update_fields = {
                                             "estado": status_val,
                                             "actualizado_en": firestore.SERVER_TIMESTAMP
-                                        })
+                                        }
+                                        if status_val == "failed":
+                                            errs = st.get("errors", [])
+                                            if errs:
+                                                err0 = errs[0]
+                                                update_fields["error_codigo"] = err0.get("code")
+                                                update_fields["error_detalle"] = (
+                                                    (err0.get("error_data") or {}).get("details")
+                                                    or err0.get("message")
+                                                    or err0.get("title")
+                                                    or "Error de entrega en Meta API"
+                                                )
+                                        msg_doc_ref.update(update_fields)
                             except Exception as e_st:
                                 print(f"Error actualizando estado {status_id}:", str(e_st))
 
