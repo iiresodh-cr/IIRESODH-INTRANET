@@ -74,7 +74,7 @@ import {
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
-import { useAuth, crearEspacioGoogleMeet } from '../context/AuthContext';
+import { crearEspacioGoogleMeet } from '../context/AuthContext';
 import { registrarLogAuditoria } from '../utils/auditLogger';
 
 const CLOUD_FUNCTION_BASE = 'https://us-central1-litigio-management.cloudfunctions.net';
@@ -149,7 +149,6 @@ export default function WhatsappInterface({
   const [anchorElRespuestas, setAnchorElRespuestas] = useState(null);
 
   // --- Opciones de Voz (1. Central Voz Web / Teléfono Físico, 2. Notas de Voz, 3. Sala Meet) ---
-  const { googleAccessToken, ensureGoogleToken } = useAuth() || {};
   const [recepcionVozWebActiva, setRecepcionVozWebActiva] = useState(true);
   const [cambiandoModoVoz, setCambiandoModoVoz] = useState(false);
   const [llamadaEntrante, setLlamadaEntrante] = useState(null);
@@ -1595,39 +1594,33 @@ export default function WhatsappInterface({
     }
   };
 
-  // Opción 3: Crear y enviar Sala de Voz / Videollamada (Google Meet) en 1 Clic al WhatsApp del cliente
+  // Opción 3: Crear y enviar Sala de Voz / Videollamada (Google Meet Nativo) en 1 Clic al WhatsApp del cliente
   const handleEnviarSalaVozMeet = async () => {
-    if (!selectedChat) return;
+    if (!selectedChat || creandoSalaMeet) return;
     setCreandoSalaMeet(true);
     try {
-      let meetUrl = null;
-      let tokenOAuth = googleAccessToken;
-      if (!tokenOAuth && typeof ensureGoogleToken === 'function') {
-        tokenOAuth = await ensureGoogleToken().catch(() => null);
-      }
-      if (tokenOAuth) {
-        const espacio = await crearEspacioGoogleMeet(tokenOAuth).catch(() => null);
-        if (espacio?.meetingUri) {
-          meetUrl = espacio.meetingUri;
-        }
-      }
+      const espacio = await crearEspacioGoogleMeet(currentUserEmail);
+      const meetUrl = espacio?.meetingUri;
       if (!meetUrl) {
-        const codigoSala = `IIRESODH-Voz-${String(selectedChat.telefono || '').slice(-4)}-${Date.now()
-          .toString(36)
-          .slice(-4)}`;
-        meetUrl = `https://meet.jit.si/${codigoSala}`;
+        throw new Error('No se recibió el enlace de la sala de Google Meet.');
       }
 
-      window.open(meetUrl, '_blank', 'noopener,noreferrer');
+      const urlOperador = currentUserEmail
+        ? `${meetUrl}${meetUrl.includes('?') ? '&' : '?'}authuser=${encodeURIComponent(currentUserEmail)}`
+        : meetUrl;
+      window.open(urlOperador, '_blank', 'noopener,noreferrer');
+
+      const rawNombre = (selectedChat.nombre || '').trim();
+      const esSoloNumero = !rawNombre || /^\+?\d[\d\s-]*$/.test(rawNombre);
+      const saludoNombre = esSoloNumero ? 'usuario(a)' : rawNombre;
+
       await handleSendMessage(
-        `📞 Estimado(a) ${
-          selectedChat.nombre || ''
-        }, hemos habilitado una sala directa de atención por voz/video de IIRESODH. Puede ingresar desde su teléfono o computadora tocando este enlace:\n${meetUrl}`
+        `📹 Estimado(a) ${saludoNombre}, hemos iniciado una sala oficial de Google Meet de IIRESODH para atenderle por voz/video. Puede unirse directamente tocando este enlace:\n${meetUrl}`
       );
     } catch (e) {
       setNotificacion({
         tipo: 'error',
-        mensaje: 'Error al generar la sala de llamada: ' + e.message
+        mensaje: 'No se pudo iniciar la sala de Google Meet: ' + e.message
       });
     } finally {
       setCreandoSalaMeet(false);
