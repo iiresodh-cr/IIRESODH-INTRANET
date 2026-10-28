@@ -159,8 +159,9 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                         chat_ref.set(chat_data, merge=True)
 
                         # Guardar mensaje individual en la subcolección
+                        media_obj = msg.get(msg_type, {}) if msg_type in ["audio", "image", "document", "video"] else {}
                         msg_ref = chat_ref.collection("mensajes").document(msg_id)
-                        msg_ref.set({
+                        msg_payload = {
                             "id_meta": msg_id,
                             "texto": cuerpo_texto,
                             "tipo": msg_type,
@@ -170,7 +171,50 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                             "fecha": firestore.SERVER_TIMESTAMP,
                             "estado": "recibido",
                             "raw_type": msg_type
-                        })
+                        }
+                        if isinstance(media_obj, dict) and media_obj.get("id"):
+                            msg_payload["media_id"] = media_obj.get("id")
+                            msg_payload["mime_type"] = media_obj.get("mime_type", "")
+                        msg_ref.set(msg_payload)
+
+                    # B2. Eventos de Llamadas de Voz de WhatsApp (Calling API / WebRTC)
+                    calls = value.get("calls", [])
+                    if calls:
+                        creds_call = obtener_credenciales_meta()
+                        voz_web_activa = creds_call.get("recepcion_voz_web_activa", True)
+                        token_call = creds_call.get("whatsapp_token")
+                        phone_id_call = creds_call.get("phone_number_id")
+                        for call_ev in calls:
+                            call_id = call_ev.get("id")
+                            call_from = call_ev.get("from")
+                            call_event_type = call_ev.get("event") # connect, terminate, etc.
+                            session_data = call_ev.get("session", {})
+                            if not call_id:
+                                continue
+                            # Si la recepción web está EN PAUSA, rechazar en WebRTC para que usen la línea física +506 4081-6188
+                            if not voz_web_activa and call_event_type == "connect" and token_call and phone_id_call:
+                                try:
+                                    requests.post(
+                                        f"https://graph.facebook.com/v21.0/{phone_id_call}/calls",
+                                        headers={"Authorization": f"Bearer {token_call}", "Content-Type": "application/json"},
+                                        json={"messaging_product": "whatsapp", "call_id": call_id, "action": "reject"},
+                                        timeout=6
+                                    )
+                                except Exception as e_rej:
+                                    print("Error rechazando llamada en modo pausa:", str(e_rej))
+                                continue
+
+                            # Registrar llamada en Firestore para que timbre en tiempo real en la Intranet
+                            db.collection("whatsapp_calls").document(call_id).set({
+                                "call_id": call_id,
+                                "from": call_from,
+                                "from_name": contact_map.get(call_from, f"+{call_from}"),
+                                "event": call_event_type,
+                                "sdp_type": session_data.get("sdp_type", ""),
+                                "sdp": session_data.get("sdp", ""),
+                                "estado": "entrante" if call_event_type == "connect" else "finalizada",
+                                "fecha": firestore.SERVER_TIMESTAMP
+                            }, merge=True)
 
                     # C. Notificaciones de estado (enviado, entregado, leído, error)
                     statuses = value.get("statuses", [])

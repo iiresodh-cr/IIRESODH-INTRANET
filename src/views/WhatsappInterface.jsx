@@ -46,7 +46,16 @@ import {
   Edit3,
   Sparkles,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  AlertCircle,
+  Mic,
+  Square,
+  PhoneCall,
+  PhoneOff,
+  PhoneIncoming,
+  Video,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { 
   collection, 
@@ -63,7 +72,9 @@ import {
   writeBatch,
   getDocs
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../config/firebase';
+import { useAuth, crearEspacioGoogleMeet } from '../context/AuthContext';
 import { registrarLogAuditoria } from '../utils/auditLogger';
 
 const CLOUD_FUNCTION_BASE = 'https://us-central1-litigio-management.cloudfunctions.net';
@@ -137,6 +148,32 @@ export default function WhatsappInterface({
   // --- Menú de Respuestas Rápidas ---
   const [anchorElRespuestas, setAnchorElRespuestas] = useState(null);
 
+  // --- Opciones de Voz (1. Central Voz Web / Teléfono Físico, 2. Notas de Voz, 3. Sala Meet) ---
+  const { googleAccessToken, ensureGoogleToken } = useAuth() || {};
+  const [recepcionVozWebActiva, setRecepcionVozWebActiva] = useState(true);
+  const [cambiandoModoVoz, setCambiandoModoVoz] = useState(false);
+  const [llamadaEntrante, setLlamadaEntrante] = useState(null);
+  const [enLlamadaWebRTC, setEnLlamadaWebRTC] = useState(false);
+  const [micSilenciado, setMicSilenciado] = useState(false);
+  const [segundosLlamada, setSegundosLlamada] = useState(0);
+  const peerConnectionRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const llamadaTimerRef = useRef(null);
+
+  // Grabador de Notas de Voz
+  const [grabandoVoz, setGrabandoVoz] = useState(false);
+  const [enviandoNotaVoz, setEnviandoNotaVoz] = useState(false);
+  const [segundosGrabacion, setSegundosGrabacion] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const grabacionTimerRef = useRef(null);
+  const [audiosResueltos, setAudiosResueltos] = useState({});
+  const [cargandoAudioId, setCargandoAudioId] = useState(null);
+
+  // Sala de Voz / Meet en 1 clic
+  const [creandoSalaMeet, setCreandoSalaMeet] = useState(false);
+
   const messagesEndRef = useRef(null);
 
   // Auto-scroll al final del chat cuando llegan o se envían mensajes
@@ -149,7 +186,7 @@ export default function WhatsappInterface({
   }, [mensajesChat]);
 
   // ==============================================================
-  // 1. CARGA DE CONFIGURACIÓN DE META API (Firestore)
+  // 1. CARGA Y SINCRONIZACIÓN EN TIEMPO REAL DE CONFIGURACIÓN META API
   // ==============================================================
   const cargarConfigMeta = async () => {
     try {
@@ -167,6 +204,9 @@ export default function WhatsappInterface({
           verify_token: data.verify_token || DEFAULT_VERIFY_TOKEN,
           waba_id: data.waba_id || DEFAULT_WABA_ID
         });
+        if (typeof data.recepcion_voz_web_activa === 'boolean') {
+          setRecepcionVozWebActiva(data.recepcion_voz_web_activa);
+        }
 
         // Si en Firestore aún estaba guardado el token viejo expirado, migrarlo automáticamente
         if (esTokenExpirado && DEFAULT_TOKEN) {
@@ -190,6 +230,19 @@ export default function WhatsappInterface({
 
   useEffect(() => {
     cargarConfigMeta();
+    const unsubCfg = onSnapshot(
+      doc(db, 'whatsapp_config', 'credenciales'),
+      (snap) => {
+        if (snap.exists()) {
+          const d = snap.data();
+          if (typeof d.recepcion_voz_web_activa === 'boolean') {
+            setRecepcionVozWebActiva(d.recepcion_voz_web_activa);
+          }
+        }
+      },
+      () => {}
+    );
+    return () => unsubCfg();
   }, []);
 
   const handleProbarConexion = async () => {
@@ -901,6 +954,572 @@ export default function WhatsappInterface({
     setAnchorElRespuestas(null);
   };
 
+  // ==============================================================
+  // 8. CENTRAL DE VOZ WEB (PAUSAR → TELÉFONO FÍSICO +506 4081-6188),
+  //    LLAMADAS WEBRTC, NOTAS DE VOZ (🎙️) Y SALA MEET EN 1 CLIC
+  // ==============================================================
+  const handleToggleRecepcionVozWeb = async () => {
+    const nuevoEstado = !recepcionVozWebActiva;
+    setCambiandoModoVoz(true);
+    try {
+      const phoneId = metaConfig.phone_number_id || DEFAULT_PHONE_ID;
+      const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+
+      // 1. Actualizar directamente en Meta Cloud API (settings.calling)
+      if (phoneId && token) {
+        const callingSetting = nuevoEstado
+          ? { status: 'ENABLED', call_icon_visibility: 'DEFAULT', callback_permission_status: 'ENABLED' }
+          : { status: 'DISABLED', call_icon_visibility: 'DISABLE_ALL' };
+        await fetch(`https://graph.facebook.com/v21.0/${phoneId}/settings`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ calling: callingSetting })
+        }).catch(() => {});
+      }
+
+      // 2. Guardar en Firestore para sincronizar a todos los operadores en tiempo real
+      await setDoc(
+        doc(db, 'whatsapp_config', 'credenciales'),
+        {
+          recepcion_voz_web_activa: nuevoEstado,
+          voz_modificado_por: userName,
+          actualizado_en: serverTimestamp()
+        },
+        { merge: true }
+      );
+
+      setRecepcionVozWebActiva(nuevoEstado);
+      await registrarLogAuditoria(
+        currentUserEmail,
+        nuevoEstado ? 'Activación de Llamadas Web WhatsApp' : 'Pausa de Llamadas Web (Desvío a Teléfono Físico)',
+        `El operador [${userName}] configuró la recepción de llamadas en: ${
+          nuevoEstado ? 'ACTIVA EN WEB (Intranet)' : 'EN PAUSA (Suena línea física +506 4081-6188)'
+        }`
+      );
+
+      setNotificacion({
+        tipo: nuevoEstado ? 'success' : 'info',
+        mensaje: nuevoEstado
+          ? '🟢 Recepción de Llamadas Web ACTIVA: Las llamadas de WhatsApp timbrarán aquí en la Intranet.'
+          : '🟠 Recepción Web EN PAUSA: Las llamadas de voz de WhatsApp están desactivadas en la web para que entren directamente al teléfono físico (+506 4081-6188).'
+      });
+    } catch (err) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'No se pudo cambiar el estado de recepción de llamadas: ' + err.message
+      });
+    } finally {
+      setCambiandoModoVoz(false);
+    }
+  };
+
+  // Escucha en tiempo real de llamadas entrantes de WhatsApp (solo cuando recepcionVozWebActiva === true)
+  useEffect(() => {
+    if (!recepcionVozWebActiva) {
+      setLlamadaEntrante(null);
+      return;
+    }
+    const callsQuery = query(collection(db, 'whatsapp_calls'), orderBy('fecha', 'desc'));
+    const unsubCalls = onSnapshot(
+      callsQuery,
+      (snap) => {
+        const ahoraMs = Date.now();
+        const activa = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .find((c) => {
+            if (c.estado !== 'entrante') return false;
+            const fechaMs = c.fecha?.toMillis ? c.fecha.toMillis() : ahoraMs;
+            return ahoraMs - fechaMs < 60000; // Últimos 60 segundos
+          });
+        setLlamadaEntrante(activa || null);
+      },
+      () => {}
+    );
+    return () => unsubCalls();
+  }, [recepcionVozWebActiva]);
+
+  const limpiarRecursosWebRTC = () => {
+    if (llamadaTimerRef.current) {
+      clearInterval(llamadaTimerRef.current);
+      llamadaTimerRef.current = null;
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
+    }
+    if (peerConnectionRef.current) {
+      try {
+        peerConnectionRef.current.close();
+      } catch {
+        // Silencioso
+      }
+      peerConnectionRef.current = null;
+    }
+    setEnLlamadaWebRTC(false);
+    setSegundosLlamada(0);
+    setMicSilenciado(false);
+  };
+
+  const handleContestarLlamadaWebRTC = async () => {
+    if (!llamadaEntrante) return;
+    const phoneId = metaConfig.phone_number_id || DEFAULT_PHONE_ID;
+    const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localStreamRef.current = stream;
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+      peerConnectionRef.current = pc;
+
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      pc.ontrack = (event) => {
+        if (remoteAudioRef.current && event.streams[0]) {
+          remoteAudioRef.current.srcObject = event.streams[0];
+          remoteAudioRef.current.play().catch(() => {});
+        }
+      };
+
+      if (llamadaEntrante.sdp) {
+        await pc.setRemoteDescription(
+          new RTCSessionDescription({
+            type: 'offer',
+            sdp: llamadaEntrante.sdp
+          })
+        );
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        await fetch(`https://graph.facebook.com/v21.0/${phoneId}/calls`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            call_id: llamadaEntrante.call_id,
+            action: 'accept',
+            session: {
+              sdp_type: 'answer',
+              sdp: answer.sdp
+            }
+          })
+        });
+      }
+
+      await updateDoc(doc(db, 'whatsapp_calls', llamadaEntrante.id), {
+        estado: 'en_curso',
+        atendida_por: userName
+      }).catch(() => {});
+
+      setEnLlamadaWebRTC(true);
+      setSegundosLlamada(0);
+      llamadaTimerRef.current = setInterval(() => {
+        setSegundosLlamada((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'No se pudo acceder al micrófono o conectar WebRTC: ' + err.message
+      });
+      limpiarRecursosWebRTC();
+    }
+  };
+
+  const handleRechazarODesviarLlamada = async () => {
+    if (!llamadaEntrante) return;
+    const phoneId = metaConfig.phone_number_id || DEFAULT_PHONE_ID;
+    const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+    try {
+      await fetch(`https://graph.facebook.com/v21.0/${phoneId}/calls`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          call_id: llamadaEntrante.call_id,
+          action: 'reject'
+        })
+      }).catch(() => {});
+
+      await updateDoc(doc(db, 'whatsapp_calls', llamadaEntrante.id), {
+        estado: 'desviada_telefono_fisico',
+        rechazada_por: userName
+      }).catch(() => {});
+    } finally {
+      limpiarRecursosWebRTC();
+      setLlamadaEntrante(null);
+    }
+  };
+
+  const handleColgarLlamadaWebRTC = async () => {
+    const phoneId = metaConfig.phone_number_id || DEFAULT_PHONE_ID;
+    const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+    if (llamadaEntrante?.call_id) {
+      await fetch(`https://graph.facebook.com/v21.0/${phoneId}/calls`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          call_id: llamadaEntrante.call_id,
+          action: 'terminate'
+        })
+      }).catch(() => {});
+      await updateDoc(doc(db, 'whatsapp_calls', llamadaEntrante.id), {
+        estado: 'finalizada'
+      }).catch(() => {});
+    }
+    limpiarRecursosWebRTC();
+    setLlamadaEntrante(null);
+  };
+
+  const handleToggleMuteMic = () => {
+    if (localStreamRef.current) {
+      const nuevoMute = !micSilenciado;
+      localStreamRef.current.getAudioTracks().forEach((t) => {
+        t.enabled = !nuevoMute;
+      });
+      setMicSilenciado(nuevoMute);
+    }
+  };
+
+  // Solicitar Permiso de Llamada de Voz por WhatsApp (Política de Meta para llamadas salientes)
+  const handleSolicitarPermisoLlamadaWhatsApp = async () => {
+    if (!selectedChat) return;
+    const telClean = String(selectedChat.telefono || selectedChat.id).replace(/\D/g, '');
+    const phoneId = metaConfig.phone_number_id || DEFAULT_PHONE_ID;
+    const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+
+    setIsSending(true);
+    try {
+      const res = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: telClean,
+          type: 'interactive',
+          interactive: {
+            type: 'call_permission_request',
+            action: { name: 'call_permission_request' },
+            body: {
+              text: `Estimado(a) ${
+                selectedChat.nombre || 'usuario'
+              }, el equipo de IIRESODH solicita su autorización para comunicarse con usted mediante llamada de voz de WhatsApp.`
+            }
+          }
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const wamid = data.messages?.[0]?.id || null;
+        const txt = '📞 [Solicitud de Permiso de Llamada de Voz de WhatsApp enviada al contacto]';
+        const payload = {
+          id_meta: wamid,
+          texto: txt,
+          es_mio: true,
+          agente_nombre: userName,
+          agente_email: currentUserEmail,
+          fecha: serverTimestamp(),
+          estado: 'sent',
+          tipo: 'interactive'
+        };
+        if (wamid) {
+          await setDoc(doc(db, 'whatsapp_chats', telClean, 'mensajes', wamid), payload);
+        } else {
+          await addDoc(collection(db, 'whatsapp_chats', telClean, 'mensajes'), payload);
+        }
+        setNotificacion({
+          tipo: 'success',
+          mensaje: '📞 Solicitud de llamada enviada al WhatsApp del contacto.'
+        });
+      } else {
+        // Si la ventana de 24h está cerrada o el número aún no tiene habilitado el botón interactivo, enviamos aviso directo
+        await handleSendMessage(
+          `📞 Estimado(a) ${
+            selectedChat.nombre || ''
+          }, deseamos comunicarnos con usted por vía telefónica desde IIRESODH (+506 4081-6188). ¿Nos confirma si puede recibir nuestra llamada en este momento?`
+        );
+      }
+    } catch (e) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'Error solicitando llamada: ' + e.message
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Opción 2: Grabación y Envío de Notas de Voz (🎙️)
+  const handleIniciarGrabacionVoz = async () => {
+    if (!selectedChat) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimePreferido = MediaRecorder.isTypeSupported('audio/ogg; codecs=opus')
+        ? 'audio/ogg; codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : 'audio/webm';
+
+      const recorder = new MediaRecorder(stream, { mimeType: mimePreferido });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setGrabandoVoz(true);
+      setSegundosGrabacion(0);
+      grabacionTimerRef.current = setInterval(() => {
+        setSegundosGrabacion((s) => s + 1);
+      }, 1000);
+    } catch (err) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'No se pudo acceder al micrófono del navegador: ' + err.message
+      });
+    }
+  };
+
+  const handleCancelarGrabacionVoz = () => {
+    if (grabacionTimerRef.current) {
+      clearInterval(grabacionTimerRef.current);
+      grabacionTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current) {
+      try {
+        mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+        mediaRecorderRef.current.stop();
+      } catch {
+        // Silencioso
+      }
+      mediaRecorderRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setGrabandoVoz(false);
+    setSegundosGrabacion(0);
+  };
+
+  const handleDetenerYEnviarNotaVoz = async () => {
+    if (!mediaRecorderRef.current || !selectedChat) return;
+    if (grabacionTimerRef.current) {
+      clearInterval(grabacionTimerRef.current);
+      grabacionTimerRef.current = null;
+    }
+
+    const recorder = mediaRecorderRef.current;
+    const mimeType = recorder.mimeType || 'audio/ogg';
+    const duracionSegs = segundosGrabacion;
+
+    setGrabandoVoz(false);
+    setEnviandoNotaVoz(true);
+
+    try {
+      const audioBlob = await new Promise((resolve) => {
+        recorder.onstop = () => {
+          recorder.stream.getTracks().forEach((t) => t.stop());
+          resolve(new Blob(audioChunksRef.current, { type: mimeType }));
+        };
+        recorder.stop();
+      });
+      mediaRecorderRef.current = null;
+
+      const telClean = String(selectedChat.telefono || selectedChat.id).replace(/\D/g, '');
+      const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+      const fileName = `nota_voz_${Date.now()}.${ext}`;
+
+      // 1. Subir a Firebase Storage para reproducción inmediata multi-operador en la Intranet
+      const refStorage = storageRef(storage, `whatsapp_audios/${telClean}/${fileName}`);
+      await uploadBytes(refStorage, audioBlob, { contentType: mimeType });
+      const publicAudioUrl = await getDownloadURL(refStorage);
+
+      // 2. Enviar a Meta WhatsApp API como Nota de Voz (subiendo a /media o por link)
+      const phoneId = metaConfig.phone_number_id || DEFAULT_PHONE_ID;
+      const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+      let wamidAudio = null;
+
+      if (phoneId && token) {
+        try {
+          const form = new FormData();
+          form.append('messaging_product', 'whatsapp');
+          const mimeMeta = mimeType.includes('mp4') ? 'audio/mp4' : 'audio/ogg';
+          form.append('file', new File([audioBlob], fileName, { type: mimeMeta }));
+          form.append('type', mimeMeta);
+
+          const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/media`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: form
+          });
+          const uploadData = await uploadRes.json().catch(() => ({}));
+
+          let msgAudioBody = null;
+          if (uploadRes.ok && uploadData.id) {
+            msgAudioBody = {
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: telClean,
+              type: 'audio',
+              audio: { id: uploadData.id }
+            };
+          } else {
+            msgAudioBody = {
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: telClean,
+              type: 'text',
+              text: { body: `🎙️ Nota de voz de IIRESODH (${duracionSegs}s): ${publicAudioUrl}` }
+            };
+          }
+
+          const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(msgAudioBody)
+          });
+          const sendData = await sendRes.json().catch(() => ({}));
+          if (sendRes.ok) {
+            wamidAudio = sendData.messages?.[0]?.id || null;
+          }
+        } catch (eMetaAudio) {
+          console.warn('Fallback enviando link de nota de voz:', eMetaAudio);
+        }
+      }
+
+      const textoResumen = `🎙️ Nota de voz (${duracionSegs}s)`;
+      const msgPayload = {
+        id_meta: wamidAudio,
+        texto: textoResumen,
+        media_url: publicAudioUrl,
+        mime_type: mimeType,
+        duracion_segundos: duracionSegs,
+        es_mio: true,
+        agente_nombre: userName,
+        agente_email: currentUserEmail,
+        fecha: serverTimestamp(),
+        estado: wamidAudio ? 'sent' : 'enviado',
+        tipo: 'audio'
+      };
+
+      if (wamidAudio) {
+        await setDoc(doc(db, 'whatsapp_chats', telClean, 'mensajes', wamidAudio), msgPayload);
+      } else {
+        await addDoc(collection(db, 'whatsapp_chats', telClean, 'mensajes'), msgPayload);
+      }
+
+      await setDoc(
+        doc(db, 'whatsapp_chats', telClean),
+        {
+          telefono: telClean,
+          ultimo_mensaje: textoResumen,
+          ultima_fecha: serverTimestamp(),
+          actualizado_en: serverTimestamp(),
+          ultimo_agente: userName,
+          no_leidos: 0
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'Error al enviar la nota de voz: ' + err.message
+      });
+    } finally {
+      setEnviandoNotaVoz(false);
+      setSegundosGrabacion(0);
+    }
+  };
+
+  // Resolver y escuchar notas de voz entrantes enviadas por el cliente desde WhatsApp
+  const handleReproducirAudioMeta = async (msg) => {
+    if (!msg?.media_id) return;
+    if (audiosResueltos[msg.id]) return;
+    setCargandoAudioId(msg.id);
+    try {
+      const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+      const infoRes = await fetch(`https://graph.facebook.com/v21.0/${msg.media_id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const infoData = await infoRes.json();
+      if (!infoData?.url) throw new Error('No se encontró la URL del audio en Meta');
+
+      const binRes = await fetch(infoData.url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const blob = await binRes.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setAudiosResueltos((prev) => ({ ...prev, [msg.id]: blobUrl }));
+    } catch (e) {
+      setNotificacion({
+        tipo: 'warning',
+        mensaje: 'No se pudo descargar el audio desde Meta API: ' + e.message
+      });
+    } finally {
+      setCargandoAudioId(null);
+    }
+  };
+
+  // Opción 3: Crear y enviar Sala de Voz / Videollamada (Google Meet) en 1 Clic al WhatsApp del cliente
+  const handleEnviarSalaVozMeet = async () => {
+    if (!selectedChat) return;
+    setCreandoSalaMeet(true);
+    try {
+      let meetUrl = null;
+      let tokenOAuth = googleAccessToken;
+      if (!tokenOAuth && typeof ensureGoogleToken === 'function') {
+        tokenOAuth = await ensureGoogleToken().catch(() => null);
+      }
+      if (tokenOAuth) {
+        const espacio = await crearEspacioGoogleMeet(tokenOAuth).catch(() => null);
+        if (espacio?.meetingUri) {
+          meetUrl = espacio.meetingUri;
+        }
+      }
+      if (!meetUrl) {
+        const codigoSala = `IIRESODH-Voz-${String(selectedChat.telefono || '').slice(-4)}-${Date.now()
+          .toString(36)
+          .slice(-4)}`;
+        meetUrl = `https://meet.jit.si/${codigoSala}`;
+      }
+
+      window.open(meetUrl, '_blank', 'noopener,noreferrer');
+      await handleSendMessage(
+        `📞 Estimado(a) ${
+          selectedChat.nombre || ''
+        }, hemos habilitado una sala directa de atención por voz/video de IIRESODH. Puede ingresar desde su teléfono o computadora tocando este enlace:\n${meetUrl}`
+      );
+    } catch (e) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'Error al generar la sala de llamada: ' + e.message
+      });
+    } finally {
+      setCreandoSalaMeet(false);
+    }
+  };
+
   // Filtrado de chats
   const chatsFiltrados = chats.filter((c) => {
     const coincideBusqueda = 
@@ -941,6 +1560,8 @@ export default function WhatsappInterface({
       border: '1px solid #e2e8f0',
       boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
     }}>
+      {/* Audio oculto para llamadas WebRTC en vivo */}
+      <audio ref={remoteAudioRef} autoPlay style={{ display: 'none' }} />
       
       {/* 🚀 BARRA DE ESTADO MULTIUSUARIO & META API */}
       <Box sx={{ 
@@ -950,9 +1571,11 @@ export default function WhatsappInterface({
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        borderBottom: '1px solid #e2e8f0' 
+        borderBottom: '1px solid #e2e8f0',
+        flexWrap: 'wrap',
+        gap: 1
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
           <IconButton onClick={onVolver} size="small" sx={{ color: '#475569', '&:hover': { bgcolor: '#f1f5f9' } }}>
             <ArrowLeft size={20} />
           </IconButton>
@@ -977,7 +1600,51 @@ export default function WhatsappInterface({
           />
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          {/* 🎛️ INTERRUPTOR DE RECEPCIÓN DE LLAMADAS WEB VS TELÉFONO FÍSICO (+506 4081-6188) */}
+          <Tooltip
+            title={
+              recepcionVozWebActiva
+                ? 'Haz clic para PAUSAR las llamadas en la Web y que suene únicamente el teléfono físico (+506 4081-6188)'
+                : 'En Pausa: Las llamadas entran al teléfono físico (+506 4081-6188). Haz clic para volver a recibir llamadas en la Web'
+            }
+          >
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={cambiandoModoVoz}
+              onClick={handleToggleRecepcionVozWeb}
+              startIcon={
+                recepcionVozWebActiva ? (
+                  <Volume2 size={15} color="#15803d" />
+                ) : (
+                  <VolumeX size={15} color="#b45309" />
+                )
+              }
+              sx={{
+                textTransform: 'none',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                borderRadius: 2,
+                px: 1.4,
+                py: 0.4,
+                bgcolor: recepcionVozWebActiva ? '#f0fdf4' : '#fffbeb',
+                borderColor: recepcionVozWebActiva ? '#86efac' : '#fde68a',
+                color: recepcionVozWebActiva ? '#166534' : '#92400e',
+                '&:hover': {
+                  bgcolor: recepcionVozWebActiva ? '#dcfce7' : '#fef3c7',
+                  borderColor: recepcionVozWebActiva ? '#4ade80' : '#fcd34d'
+                }
+              }}
+            >
+              {cambiandoModoVoz
+                ? 'Cambiando...'
+                : recepcionVozWebActiva
+                ? '📞 Llamadas Web: Activas (Pausar)'
+                : '⏸️ Llamadas Web en Pausa (Suena Teléfono Físico)'}
+            </Button>
+          </Tooltip>
+
           <Tooltip title={tieneApiConectada ? "Meta Cloud API conectada en vivo" : "Pendiente de ingresar llaves de Meta"}>
             <Chip 
               icon={tieneApiConectada ? <ShieldCheck size={14} color="#16a34a" /> : <Clock size={14} color="#d97706" />}
@@ -1038,6 +1705,111 @@ export default function WhatsappInterface({
         >
           {notificacion.mensaje}
         </Alert>
+      )}
+
+      {/* BANNER GLOBAL DE LLAMADA DE VOZ WHATSAPP ENTRANTE / EN CURSO (WebRTC) */}
+      {llamadaEntrante && (
+        <Box
+          sx={{
+            bgcolor: llamadaActiva ? '#065f46' : '#1e293b',
+            color: 'white',
+            px: 3,
+            py: 1.5,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            borderBottom: '2px solid #10b981'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Avatar sx={{ bgcolor: '#10b981', width: 36, height: 36 }}>
+              {llamadaActiva ? <PhoneCall size={18} /> : <PhoneIncoming size={18} />}
+            </Avatar>
+            <Box>
+              <Typography variant="subtitle2" fontWeight="700" sx={{ color: '#ecfdf5' }}>
+                {llamadaActiva
+                  ? `🟢 Llamada de Voz WhatsApp en Curso con +${llamadaEntrante.from || 'Cliente'}`
+                  : `📲 Llamada Entrante de WhatsApp: +${llamadaEntrante.from || 'Cliente'}`}
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#a7f3d0', display: 'block' }}>
+                {llamadaActiva
+                  ? `Atendida desde el navegador por ${llamadaEntrante.atendida_por || userName}`
+                  : 'Puedes contestar aquí con tu micrófono o desviarla para que la atiendan en el teléfono físico (+506 4081-6188)'}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {!llamadaActiva ? (
+              <>
+                <Button
+                  size="small"
+                  variant="contained"
+                  startIcon={<PhoneCall size={15} />}
+                  onClick={() => handleContestarLlamadaWebRTC(llamadaEntrante)}
+                  sx={{
+                    bgcolor: '#10b981',
+                    color: 'white',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    '&:hover': { bgcolor: '#059669' }
+                  }}
+                >
+                  Contestar en Web
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<PhoneOff size={15} />}
+                  onClick={() => handleRechazarODesviarLlamada(llamadaEntrante)}
+                  sx={{
+                    borderColor: '#fca5a5',
+                    color: '#fecaca',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    '&:hover': { bgcolor: 'rgba(239,68,68,0.2)', borderColor: '#f87171' }
+                  }}
+                >
+                  Desviar a Teléfono Físico / Rechazar
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={micSilenciado ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                  onClick={handleToggleMuteMic}
+                  sx={{
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    color: 'white',
+                    textTransform: 'none',
+                    fontWeight: 600
+                  }}
+                >
+                  {micSilenciado ? 'Activar Micrófono' : 'Silenciar Micrófono'}
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  startIcon={<PhoneOff size={15} />}
+                  onClick={handleColgarLlamadaWebRTC}
+                  sx={{
+                    bgcolor: '#dc2626',
+                    color: 'white',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    '&:hover': { bgcolor: '#b91c1c' }
+                  }}
+                >
+                  Colgar Llamada
+                </Button>
+              </>
+            )}
+          </Box>
+        </Box>
       )}
 
       {/* ÁREA PRINCIPAL: BANDEJA IZQUIERDA + CONVERSACIÓN DERECHA */}
@@ -1279,7 +2051,47 @@ export default function WhatsappInterface({
                   </Box>
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Tooltip title="Solicitar permiso de llamada de voz nativa de WhatsApp al contacto">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={enviandoSolicitudLlamada ? <CircularProgress size={12} /> : <PhoneCall size={14} />}
+                      disabled={enviandoSolicitudLlamada}
+                      onClick={handleSolicitarPermisoLlamadaWhatsApp}
+                      sx={{
+                        fontSize: '11px',
+                        textTransform: 'none',
+                        borderColor: '#10b981',
+                        color: '#047857',
+                        fontWeight: 600,
+                        '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' }
+                      }}
+                    >
+                      Solicitar Llamada
+                    </Button>
+                  </Tooltip>
+
+                  <Tooltip title="Crear Sala de Voz / Google Meet en 1 clic y enviar invitación por WhatsApp">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={creandoSalaVoz ? <CircularProgress size={12} /> : <Video size={14} />}
+                      disabled={creandoSalaVoz}
+                      onClick={handleEnviarSalaVozMeet}
+                      sx={{
+                        fontSize: '11px',
+                        textTransform: 'none',
+                        borderColor: '#3b82f6',
+                        color: '#1d4ed8',
+                        fontWeight: 600,
+                        '&:hover': { borderColor: '#2563eb', bgcolor: '#eff6ff' }
+                      }}
+                    >
+                      Sala Voz/Meet
+                    </Button>
+                  </Tooltip>
+
                   <Button 
                     size="small"
                     variant="outlined"
@@ -1337,6 +2149,7 @@ export default function WhatsappInterface({
                 ) : (
                   mensajesChat.map((msg) => {
                     const esMiMensaje = msg.es_mio === true;
+                    const audioSrc = msg.media_url || audiosResueltos[msg.id];
                     return (
                       <Box 
                         key={msg.id} 
@@ -1372,6 +2185,32 @@ export default function WhatsappInterface({
                         <Typography variant="body2" color="#0f172a" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '13.5px', lineHeight: 1.45 }}>
                           {msg.texto}
                         </Typography>
+
+                        {/* Reproductor de Notas de Voz (Salientes o Entrantes de WhatsApp) */}
+                        {(msg.tipo === 'audio' || audioSrc || msg.media_id) && (
+                          <Box sx={{ mt: 1 }}>
+                            {audioSrc ? (
+                              <audio controls src={audioSrc} style={{ height: 36, maxWidth: '260px' }} />
+                            ) : msg.media_id ? (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={cargandoAudioId === msg.id ? <CircularProgress size={12} /> : <Volume2 size={14} />}
+                                disabled={cargandoAudioId === msg.id}
+                                onClick={() => handleReproducirAudioMeta(msg)}
+                                sx={{
+                                  fontSize: '11px',
+                                  textTransform: 'none',
+                                  borderColor: '#0f766e',
+                                  color: '#0f766e',
+                                  mt: 0.5
+                                }}
+                              >
+                                {cargandoAudioId === msg.id ? 'Descargando audio...' : 'Escuchar nota de voz'}
+                              </Button>
+                            ) : null}
+                          </Box>
+                        )}
 
                         {/* Metadatos y checks de entrega */}
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.4 }}>
@@ -1428,7 +2267,7 @@ export default function WhatsappInterface({
                 <div ref={messagesEndRef} />
               </Box>
 
-              {/* Input de Mensaje */}
+              {/* Input de Mensaje o Grabador de Nota de Voz */}
               <Box sx={{ 
                 bgcolor: '#f0f2f5', 
                 px: 2, 
@@ -1438,43 +2277,113 @@ export default function WhatsappInterface({
                 gap: 1.2,
                 borderTop: '1px solid #e2e8f0' 
               }}>
-                <TextField
-                  fullWidth
-                  multiline
-                  maxRows={4}
-                  placeholder={`Responder a ${selectedChat.nombre || selectedChat.telefono} (como ${userName})...`}
-                  variant="outlined"
-                  size="small"
-                  value={mensajeTexto}
-                  onChange={(e) => setMensajeTexto(e.target.value)}
-                  onKeyDown={(e) => { 
-                    if (e.key === 'Enter' && !e.shiftKey) { 
-                      e.preventDefault(); 
-                      handleSendMessage(); 
-                    } 
-                  }}
-                  disabled={isSending}
-                  sx={{ 
-                    bgcolor: 'white', 
-                    borderRadius: 2.5, 
-                    '& fieldset': { borderColor: '#cbd5e1' },
-                    '&:hover fieldset': { borderColor: '#25D366' },
-                    '&.Mui-focused fieldset': { borderColor: '#25D366' },
-                    '& .MuiInputBase-input': { fontSize: '13.5px', py: 1 }
-                  }}
-                />
-                <IconButton 
-                  onClick={() => handleSendMessage()}
-                  disabled={!mensajeTexto.trim() || isSending}
-                  sx={{ 
-                    bgcolor: mensajeTexto.trim() ? '#25D366' : '#e2e8f0', 
-                    color: mensajeTexto.trim() ? 'white' : '#94a3b8', 
-                    p: 1.2,
-                    '&:hover': { bgcolor: mensajeTexto.trim() ? '#20bd5a' : '#e2e8f0' } 
-                  }}
-                >
-                  {isSending ? <CircularProgress size={20} color="inherit" /> : <Send size={18} />}
-                </IconButton>
+                {grabandoVoz ? (
+                  <Box
+                    sx={{
+                      flexGrow: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      bgcolor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: 2.5,
+                      px: 2,
+                      py: 0.8
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Mic size={18} color="#dc2626" />
+                      <Typography variant="body2" fontWeight="700" color="#dc2626">
+                        Grabando nota de voz... {Math.floor(segundosGrabacion / 60)}:
+                        {String(segundosGrabacion % 60).padStart(2, '0')}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={handleCancelarGrabacionVoz}
+                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<Send size={14} />}
+                        onClick={handleDetenerYEnviarNotaVoz}
+                        sx={{
+                          bgcolor: '#25D366',
+                          color: 'white',
+                          textTransform: 'none',
+                          fontWeight: 700,
+                          '&:hover': { bgcolor: '#20bd5a' }
+                        }}
+                      >
+                        Enviar Audio
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <>
+                    <TextField
+                      fullWidth
+                      multiline
+                      maxRows={4}
+                      placeholder={`Responder a ${selectedChat.nombre || selectedChat.telefono} (como ${userName})...`}
+                      variant="outlined"
+                      size="small"
+                      value={mensajeTexto}
+                      onChange={(e) => setMensajeTexto(e.target.value)}
+                      onKeyDown={(e) => { 
+                        if (e.key === 'Enter' && !e.shiftKey) { 
+                          e.preventDefault(); 
+                          handleSendMessage(); 
+                        } 
+                      }}
+                      disabled={isSending || subiendoNotaVoz}
+                      sx={{ 
+                        bgcolor: 'white', 
+                        borderRadius: 2.5, 
+                        '& fieldset': { borderColor: '#cbd5e1' },
+                        '&:hover fieldset': { borderColor: '#25D366' },
+                        '&.Mui-focused fieldset': { borderColor: '#25D366' },
+                        '& .MuiInputBase-input': { fontSize: '13.5px', py: 1 }
+                      }}
+                    />
+
+                    <Tooltip title="Grabar y enviar Nota de Voz de WhatsApp">
+                      <span>
+                        <IconButton
+                          onClick={handleIniciarGrabacionVoz}
+                          disabled={isSending || subiendoNotaVoz}
+                          sx={{
+                            bgcolor: '#ffffff',
+                            color: '#0f766e',
+                            border: '1px solid #cbd5e1',
+                            p: 1.1,
+                            '&:hover': { bgcolor: '#f0fdf4', borderColor: '#25D366' }
+                          }}
+                        >
+                          {subiendoNotaVoz ? <CircularProgress size={18} color="inherit" /> : <Mic size={18} />}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+
+                    <IconButton 
+                      onClick={() => handleSendMessage()}
+                      disabled={!mensajeTexto.trim() || isSending || subiendoNotaVoz}
+                      sx={{ 
+                        bgcolor: mensajeTexto.trim() ? '#25D366' : '#e2e8f0', 
+                        color: mensajeTexto.trim() ? 'white' : '#94a3b8', 
+                        p: 1.2,
+                        '&:hover': { bgcolor: mensajeTexto.trim() ? '#20bd5a' : '#e2e8f0' } 
+                      }}
+                    >
+                      {isSending ? <CircularProgress size={20} color="inherit" /> : <Send size={18} />}
+                    </IconButton>
+                  </>
+                )}
               </Box>
             </>
           ) : (
