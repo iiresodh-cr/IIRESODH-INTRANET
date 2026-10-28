@@ -198,11 +198,14 @@ export default function WhatsappInterface({
         const esTokenExpirado = Boolean(tokenGuardado && tokenGuardado.includes('BSZBSCJYkmRpp'));
         const tokenActivo = (tokenGuardado && !esTokenExpirado) ? tokenGuardado : DEFAULT_TOKEN;
 
+        const wabaActivo =
+          data.waba_id && data.waba_id !== '28701773989517598' ? data.waba_id : DEFAULT_WABA_ID;
+
         setMetaConfig({
           phone_number_id: data.phone_number_id || DEFAULT_PHONE_ID,
           whatsapp_token: tokenActivo,
           verify_token: data.verify_token || DEFAULT_VERIFY_TOKEN,
-          waba_id: data.waba_id || DEFAULT_WABA_ID
+          waba_id: wabaActivo
         });
         if (typeof data.recepcion_voz_web_activa === 'boolean') {
           setRecepcionVozWebActiva(data.recepcion_voz_web_activa);
@@ -522,9 +525,94 @@ export default function WhatsappInterface({
     setIsSending(true);
 
     const telefonoDestino = selectedChat.telefono || selectedChat.id;
+    const telClean = String(telefonoDestino).replace(/\D/g, '');
 
     try {
-      // 🚀 Intento 1: Llamada a la Cloud Function de Backend
+      // Verificar si el cliente nos ha escrito en las últimas 24 horas (Ventana de Atención de Meta)
+      const ahoraMs = Date.now();
+      const tieneVentana24hAbierta = mensajesChat.some((m) => {
+        if (m.es_mio) return false;
+        const fMs = m.fecha?.toMillis
+          ? m.fecha.toMillis()
+          : m.fecha?.seconds
+          ? m.fecha.seconds * 1000
+          : 0;
+        return fMs > 0 && ahoraMs - fMs < 24 * 60 * 60 * 1000;
+      });
+
+      // Si la ventana de 24h está CERRADA (el cliente aún no ha respondido o escribió hace >24h),
+      // enviar automáticamente usando la plantilla aprobada en español "aviso_institucional_iiresodh"
+      // para evitar que Meta rechace el mensaje con Error 131047 (❗).
+      if (!tieneVentana24hAbierta && metaConfig.whatsapp_token && metaConfig.phone_number_id) {
+        const nombreDest = selectedChat.nombre || `+${telClean}`;
+        const textoFormateado = textoAEnviar.replace(/\s+/g, ' ').trim();
+        const tplRes = await fetch(
+          `https://graph.facebook.com/v21.0/${metaConfig.phone_number_id}/messages`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${metaConfig.whatsapp_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: telClean,
+              type: 'template',
+              template: {
+                name: 'aviso_institucional_iiresodh',
+                language: { code: 'es' },
+                components: [
+                  {
+                    type: 'body',
+                    parameters: [
+                      { type: 'text', text: nombreDest },
+                      { type: 'text', text: textoFormateado }
+                    ]
+                  }
+                ]
+              }
+            })
+          }
+        );
+        const tplData = await tplRes.json().catch(() => ({}));
+        if (tplRes.ok) {
+          const wamidTpl = tplData.messages?.[0]?.id || null;
+          if (!textoPersonalizado) setMensajeTexto('');
+          const textoBurbuja = `📋 [Plantilla Oficial IIRESODH]\nEstimado(a) ${nombreDest}, le saludamos del Instituto Internacional de Responsabilidad Social y Derechos Humanos (IIRESODH). ${textoFormateado} Por favor responda a este mensaje para continuar la atención.`;
+          const msgPayload = {
+            id_meta: wamidTpl,
+            texto: textoBurbuja,
+            es_mio: true,
+            agente_nombre: userName,
+            agente_email: currentUserEmail,
+            fecha: serverTimestamp(),
+            estado: 'sent',
+            tipo: 'template'
+          };
+          if (wamidTpl) {
+            await setDoc(doc(db, 'whatsapp_chats', telClean, 'mensajes', wamidTpl), msgPayload);
+          } else {
+            await addDoc(collection(db, 'whatsapp_chats', telClean, 'mensajes'), msgPayload);
+          }
+          await setDoc(
+            doc(db, 'whatsapp_chats', telClean),
+            {
+              telefono: telClean,
+              ultimo_mensaje: textoBurbuja,
+              ultima_fecha: serverTimestamp(),
+              actualizado_en: serverTimestamp(),
+              ultimo_agente: userName,
+              no_leidos: 0
+            },
+            { merge: true }
+          );
+          setIsSending(false);
+          return;
+        }
+      }
+
+      // 🚀 Intento 1: Llamada a la Cloud Function de Backend (cuando la ventana de 24h está abierta)
       let enviadoPorFunction = false;
       let metaMessageId = null;
       let errorAutenticacion = false;
@@ -773,7 +861,9 @@ export default function WhatsappInterface({
 
           if (intentarComoPlantilla) {
             tipoMensajeGuardado = 'template';
-            textoGuardadoEnBurbuja = `📋 [Plantilla Oficial IIRESODH]\nEstimado(a) ${nombreFinal}, le saludamos del Instituto Internacional de Responsabilidad Social y Derechos Humanos (IIRESODH). ${primerMensaje} Por favor responda a este mensaje para continuar la atención.`;
+            const nombreParam = nombreFinal.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+            const mensajeParam = primerMensaje.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+            textoGuardadoEnBurbuja = `📋 [Plantilla Oficial IIRESODH]\nEstimado(a) ${nombreParam}, le saludamos del Instituto Internacional de Responsabilidad Social y Derechos Humanos (IIRESODH). ${mensajeParam} Por favor responda a este mensaje para continuar la atención.`;
             const payloadTemplate = {
               messaging_product: 'whatsapp',
               recipient_type: 'individual',
@@ -786,8 +876,8 @@ export default function WhatsappInterface({
                   {
                     type: 'body',
                     parameters: [
-                      { type: 'text', text: nombreFinal },
-                      { type: 'text', text: primerMensaje }
+                      { type: 'text', text: nombreParam },
+                      { type: 'text', text: mensajeParam }
                     ]
                   }
                 ]
