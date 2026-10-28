@@ -544,8 +544,10 @@ export default function WhatsappInterface({
       // enviar automáticamente usando la plantilla aprobada en español "aviso_institucional_iiresodh"
       // para evitar que Meta rechace el mensaje con Error 131047 (❗).
       if (!tieneVentana24hAbierta && metaConfig.whatsapp_token && metaConfig.phone_number_id) {
-        const nombreDest = selectedChat.nombre || `+${telClean}`;
-        const textoFormateado = textoAEnviar.replace(/\s+/g, ' ').trim();
+        const rawNombre = (selectedChat.nombre || '').trim();
+        const esSoloNumero = !rawNombre || /^\+?\d[\d\s-]*$/.test(rawNombre);
+        const nombreDest = esSoloNumero ? 'usuario(a)' : rawNombre.replace(/[\r\n\t]+/g, ' ').trim();
+        const textoFormateado = textoAEnviar.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
         const tplRes = await fetch(
           `https://graph.facebook.com/v21.0/${metaConfig.phone_number_id}/messages`,
           {
@@ -861,7 +863,10 @@ export default function WhatsappInterface({
 
           if (intentarComoPlantilla) {
             tipoMensajeGuardado = 'template';
-            const nombreParam = nombreFinal.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+            const esSoloNum = !nuevoNombre.trim() || /^\+?\d[\d\s-]*$/.test(nuevoNombre.trim());
+            const nombreParam = esSoloNum
+              ? 'usuario(a)'
+              : nuevoNombre.trim().replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
             const mensajeParam = primerMensaje.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
             textoGuardadoEnBurbuja = `📋 [Plantilla Oficial IIRESODH]\nEstimado(a) ${nombreParam}, le saludamos del Instituto Internacional de Responsabilidad Social y Derechos Humanos (IIRESODH). ${mensajeParam} Por favor responda a este mensaje para continuar la atención.`;
             const payloadTemplate = {
