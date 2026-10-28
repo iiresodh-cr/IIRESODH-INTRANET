@@ -1711,7 +1711,7 @@ export default function WhatsappInterface({
       {llamadaEntrante && (
         <Box
           sx={{
-            bgcolor: llamadaActiva ? '#065f46' : '#1e293b',
+            bgcolor: enLlamadaWebRTC ? '#065f46' : '#1e293b',
             color: 'white',
             px: 3,
             py: 1.5,
@@ -1725,16 +1725,16 @@ export default function WhatsappInterface({
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Avatar sx={{ bgcolor: '#10b981', width: 36, height: 36 }}>
-              {llamadaActiva ? <PhoneCall size={18} /> : <PhoneIncoming size={18} />}
+              {enLlamadaWebRTC ? <PhoneCall size={18} /> : <PhoneIncoming size={18} />}
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight="700" sx={{ color: '#ecfdf5' }}>
-                {llamadaActiva
+                {enLlamadaWebRTC
                   ? `🟢 Llamada de Voz WhatsApp en Curso con +${llamadaEntrante.from || 'Cliente'}`
                   : `📲 Llamada Entrante de WhatsApp: +${llamadaEntrante.from || 'Cliente'}`}
               </Typography>
               <Typography variant="caption" sx={{ color: '#a7f3d0', display: 'block' }}>
-                {llamadaActiva
+                {enLlamadaWebRTC
                   ? `Atendida desde el navegador por ${llamadaEntrante.atendida_por || userName}`
                   : 'Puedes contestar aquí con tu micrófono o desviarla para que la atiendan en el teléfono físico (+506 4081-6188)'}
               </Typography>
@@ -1742,7 +1742,7 @@ export default function WhatsappInterface({
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {!llamadaActiva ? (
+            {!enLlamadaWebRTC ? (
               <>
                 <Button
                   size="small"
@@ -2056,8 +2056,8 @@ export default function WhatsappInterface({
                     <Button
                       size="small"
                       variant="outlined"
-                      startIcon={enviandoSolicitudLlamada ? <CircularProgress size={12} /> : <PhoneCall size={14} />}
-                      disabled={enviandoSolicitudLlamada}
+                      startIcon={isSending ? <CircularProgress size={12} /> : <PhoneCall size={14} />}
+                      disabled={isSending}
                       onClick={handleSolicitarPermisoLlamadaWhatsApp}
                       sx={{
                         fontSize: '11px',
@@ -2076,8 +2076,8 @@ export default function WhatsappInterface({
                     <Button
                       size="small"
                       variant="outlined"
-                      startIcon={creandoSalaVoz ? <CircularProgress size={12} /> : <Video size={14} />}
-                      disabled={creandoSalaVoz}
+                      startIcon={creandoSalaMeet ? <CircularProgress size={12} /> : <Video size={14} />}
+                      disabled={creandoSalaMeet}
                       onClick={handleEnviarSalaVozMeet}
                       sx={{
                         fontSize: '11px',
@@ -2341,7 +2341,7 @@ export default function WhatsappInterface({
                           handleSendMessage(); 
                         } 
                       }}
-                      disabled={isSending || subiendoNotaVoz}
+                      disabled={isSending || enviandoNotaVoz}
                       sx={{ 
                         bgcolor: 'white', 
                         borderRadius: 2.5, 
@@ -2356,7 +2356,7 @@ export default function WhatsappInterface({
                       <span>
                         <IconButton
                           onClick={handleIniciarGrabacionVoz}
-                          disabled={isSending || subiendoNotaVoz}
+                          disabled={isSending || enviandoNotaVoz}
                           sx={{
                             bgcolor: '#ffffff',
                             color: '#0f766e',
@@ -2365,14 +2365,14 @@ export default function WhatsappInterface({
                             '&:hover': { bgcolor: '#f0fdf4', borderColor: '#25D366' }
                           }}
                         >
-                          {subiendoNotaVoz ? <CircularProgress size={18} color="inherit" /> : <Mic size={18} />}
+                          {enviandoNotaVoz ? <CircularProgress size={18} color="inherit" /> : <Mic size={18} />}
                         </IconButton>
                       </span>
                     </Tooltip>
 
                     <IconButton 
                       onClick={() => handleSendMessage()}
-                      disabled={!mensajeTexto.trim() || isSending || subiendoNotaVoz}
+                      disabled={!mensajeTexto.trim() || isSending || enviandoNotaVoz}
                       sx={{ 
                         bgcolor: mensajeTexto.trim() ? '#25D366' : '#e2e8f0', 
                         color: mensajeTexto.trim() ? 'white' : '#94a3b8', 
