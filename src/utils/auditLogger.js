@@ -3,16 +3,39 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 /**
  * Registra una acción de auditoría inmutable en Firestore con estándar Enterprise.
- * @param {string} usuarioEmail - Correo del usuario que ejecuta la acción.
- * @param {string} accion - Título o clasificación de la acción (Ej: "Eliminación de Caso").
- * @param {string} detalles - Metadatos o descripción detallada del movimiento.
+ * Soporta tanto la firma posicional `(usuarioEmail, accion, detalles)` como
+ * un objeto `{ usuarioEmail, usuario, accion, detalles, modulo, usuarioNombre }`.
  */
-export const registrarLogAuditoria = async (usuarioEmail, accion, detalles = '') => {
+export const registrarLogAuditoria = async (usuarioOrObj, accionParam, detallesParam = '') => {
   try {
+    let usuarioFinal = 'Sistema';
+    let accionFinal = 'Evento de Auditoría';
+    let detallesFinal = '';
+
+    if (usuarioOrObj && typeof usuarioOrObj === 'object') {
+      usuarioFinal =
+        usuarioOrObj.usuarioEmail ||
+        usuarioOrObj.usuario ||
+        usuarioOrObj.email ||
+        'Sistema';
+      accionFinal =
+        usuarioOrObj.accion ||
+        accionParam ||
+        'Evento de Auditoría';
+      detallesFinal =
+        usuarioOrObj.detalles ||
+        detallesParam ||
+        '';
+    } else {
+      usuarioFinal = usuarioOrObj || 'Sistema';
+      accionFinal = accionParam || 'Evento de Auditoría';
+      detallesFinal = detallesParam || '';
+    }
+
     await addDoc(collection(db, 'logs_auditoria'), {
-      usuario: usuarioEmail,
-      accion: accion,
-      detalles: detalles,
+      usuario: String(usuarioFinal),
+      accion: String(accionFinal),
+      detalles: String(detallesFinal),
       fecha: serverTimestamp()
     });
   } catch (err) {

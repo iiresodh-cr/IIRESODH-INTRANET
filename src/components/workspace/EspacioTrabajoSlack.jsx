@@ -825,13 +825,11 @@ export default function EspacioTrabajoSlack({
         console.warn('No se pudieron sincronizar metadatos de Drive del canal:', e);
       }
 
-      await registrarLogAuditoria({
-        accion: 'ACTUALIZAR_CANAL_WORKSPACE',
-        modulo: 'Workspace',
-        detalles: `Canal #${canalEnGestion.nombre} actualizado (${editCanalForm.esPrivado ? `Privado: ${miembrosFinal.length} miembros` : 'Abierto para todos'})`,
-        usuarioEmail: currentUserEmail,
-        usuarioNombre: currentUserName
-      });
+      await registrarLogAuditoria(
+        currentUserEmail,
+        'Actualización de Canal (Workspace)',
+        `Canal #${canalEnGestion.nombre} actualizado (${editCanalForm.esPrivado ? `Privado: ${miembrosFinal.length} miembros` : 'Abierto para todos'})`
+      );
 
       setMeetToast({
         open: true,
@@ -867,13 +865,11 @@ export default function EspacioTrabajoSlack({
       // 2. Eliminar el documento del canal
       await deleteDoc(doc(db, 'workspace_canales', canalIdBorrar));
 
-      await registrarLogAuditoria({
-        accion: 'ELIMINAR_CANAL_WORKSPACE',
-        modulo: 'Workspace',
-        detalles: `Canal #${canalNombreBorrar} eliminado permanentemente por ${currentUserEmail}`,
-        usuarioEmail: currentUserEmail,
-        usuarioNombre: currentUserName
-      });
+      await registrarLogAuditoria(
+        currentUserEmail,
+        'Eliminación de Canal (Workspace)',
+        `Canal #${canalNombreBorrar} eliminado permanentemente por ${currentUserEmail}`
+      );
 
       setConfirmDeleteCanalOpen(false);
       setModalGestionCanalOpen(false);
@@ -927,13 +923,11 @@ export default function EspacioTrabajoSlack({
       ultimoMensajeTexto: `Canal #${slug} creado por ${currentUserName}`
     });
 
-    await registrarLogAuditoria({
-      accion: 'CREAR_CANAL_WORKSPACE',
-      modulo: 'Workspace',
-      detalles: `Canal #${slug} creado (${nuevoCanalForm.esPrivado ? `Privado para ${miembrosFinal.length} miembros` : 'Abierto'})`,
-      usuarioEmail: currentUserEmail,
-      usuarioNombre: currentUserName
-    });
+    await registrarLogAuditoria(
+      currentUserEmail,
+      'Creación de Canal (Workspace)',
+      `Canal #${slug} creado (${nuevoCanalForm.esPrivado ? `Privado para ${miembrosFinal.length} miembros` : 'Abierto'})`
+    );
 
     setModalCanalOpen(false);
     setNuevoCanalForm({ nombre: '', descripcion: '', esPrivado: false, miembros: [] });
