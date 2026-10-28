@@ -415,6 +415,21 @@ export function esCasoInternacional(caso = {}) {
 }
 
 /**
+ * Crea una etiqueta híbrida que puede invocarse como función `etiqueta(cumpleBoolean)`
+ * en los Chips de React, o interpolarse directamente como texto `${etiqueta}` en prompts.
+ */
+function crearEtiquetaHibrida(textoBase, prefijoOk, prefijoPendiente, sufijoOk = '', sufijoPendiente = '') {
+  const fn = (cumple) =>
+    cumple
+      ? `${prefijoOk}${textoBase}${sufijoOk}`
+      : `${prefijoPendiente}${textoBase}${sufijoPendiente}`;
+  fn.toString = () => textoBase;
+  fn.valueOf = () => textoBase;
+  fn.texto = textoBase;
+  return fn;
+}
+
+/**
  * Devuelve todo el perfil adaptativo del caso (etapas, requisitos de acreditación,
  * etiquetas de auditoría PIDA y normas sugeridas) según sea Internacional o Nacional.
  */
@@ -434,6 +449,9 @@ export function obtenerPerfilJurisdiccional(caso = {}) {
     const normaTitulo = esONU
       ? 'Auditoría de Legitimación y Admisibilidad (Protocolos Facultativos ONU)'
       : 'Auditoría de Cumplimiento del Padrón (Art. 35 Reglamento Corte IDH / Art. 28 CIDH)';
+    const descInternacional = esONU
+      ? 'Cada víctima debe contar con autorización escrita firmada, documento de identidad y prueba de afectación/agotamiento interno.'
+      : 'Exigencia de la Corte IDH (Art. 35.1) y CIDH (Art. 28): cada presunta víctima debe estar debidamente identificada con documento oficial, poder de representación y prueba de afectación.';
 
     return {
       esInternacional: true,
@@ -448,24 +466,41 @@ export function obtenerPerfilJurisdiccional(caso = {}) {
       etiquetaContraparte: 'Estado Demandado',
       normaCorto,
       normaTitulo,
-      descripcionAcreditacion: esONU
-        ? 'Cada víctima debe contar con autorización escrita firmada, documento de identidad y prueba de afectación/agotamiento interno.'
-        : 'Exigencia de la Corte IDH (Art. 35.1) y CIDH (Art. 28): cada presunta víctima debe estar debidamente identificada con documento oficial, poder de representación y prueba de afectación.',
+      normaSubtitulo: descInternacional,
+      descripcionAcreditacion: descInternacional,
       requisitos: {
         poder: {
-          chipLabel: 'Poder Legal',
-          fichaLabel: 'Poder de Representación Internacional (Art. 35 / Art. 28)',
+          chipLabel: crearEtiquetaHibrida('Poder Legal', '✓ ', '✗ '),
+          fichaLabel: crearEtiquetaHibrida(
+            'Poder de Representación Internacional (Art. 35 / Art. 28)',
+            '✓ ',
+            '⏳ ',
+            ': Verificado',
+            ': Pendiente'
+          ),
           criterioIA:
             'Poder o carta de representación internacional firmada a favor de los representantes del IIRESODH.'
         },
         identidad: {
-          chipLabel: 'Cédula / ID',
-          fichaLabel: 'Documento Oficial de Identidad',
+          chipLabel: crearEtiquetaHibrida('Cédula / ID', '✓ ', '✗ '),
+          fichaLabel: crearEtiquetaHibrida(
+            'Documento Oficial de Identidad',
+            '✓ ',
+            '⏳ ',
+            ': Verificado',
+            ': Pendiente'
+          ),
           criterioIA: 'Cédula de identidad, DNI, pasaporte o partida de nacimiento legible.'
         },
         prueba: {
-          chipLabel: 'Prueba de Daño',
-          fichaLabel: 'Prueba de Daño / Afectación o Vínculo Familiar',
+          chipLabel: crearEtiquetaHibrida('Prueba de Daño', '✓ ', '○ '),
+          fichaLabel: crearEtiquetaHibrida(
+            'Prueba de Daño / Afectación o Vínculo Familiar',
+            '✓ ',
+            '⏳ ',
+            ': Acreditada',
+            ': Pendiente'
+          ),
           criterioIA:
             'Prueba documental del daño sufrido, vínculo familiar o copia de las resoluciones internas definitivas.'
         }
@@ -543,6 +578,7 @@ export function obtenerPerfilJurisdiccional(caso = {}) {
   // PERFIL PARA LITIGIO NACIONAL EN LATINOAMÉRICA (CONSTITUCIONAL VS ORDINARIO)
   // =========================================================================
   if (esConstitucional) {
+    const descConst = `En sede constitucional de ${paisObj.nombre} (${paisObj.recursoConstitucional}): se verifica la legitimación activa o poder/memorial, identificación de cada recurrente y prueba del acto lesivo o agravio directo.`;
     return {
       esInternacional: false,
       ambito: 'Nacional',
@@ -552,21 +588,40 @@ export function obtenerPerfilJurisdiccional(caso = {}) {
       etiquetaContraparte: 'Autoridad Recurrida / Entidad Accionada',
       normaCorto: `Legitimación Constitucional (${paisObj.codigo})`,
       normaTitulo: `Auditoría de Legitimación Activa y Requisitos Constitucionales (${paisObj.nombre})`,
-      descripcionAcreditacion: `En sede constitucional de ${paisObj.nombre} (${paisObj.recursoConstitucional}): se verifica la legitimación activa o poder/memorial, identificación de cada recurrente y prueba del acto lesivo o agravio directo.`,
+      normaSubtitulo: descConst,
+      descripcionAcreditacion: descConst,
       requisitos: {
         poder: {
-          chipLabel: 'Legitimación / Poder',
-          fichaLabel: `Legitimación Activa / Poder o Memorial (${paisObj.nombre})`,
+          chipLabel: crearEtiquetaHibrida('Legitimación / Poder', '✓ ', '✗ '),
+          fichaLabel: crearEtiquetaHibrida(
+            `Legitimación Activa / Poder o Memorial (${paisObj.nombre})`,
+            '✓ ',
+            '⏳ ',
+            ': Verificado',
+            ': Pendiente'
+          ),
           criterioIA: `En ${paisObj.nombre}: ${paisObj.requisitoPoderNacional}`
         },
         identidad: {
-          chipLabel: 'Cédula / ID',
-          fichaLabel: `Documento de Identidad (${paisObj.nombre})`,
+          chipLabel: crearEtiquetaHibrida('Cédula / ID', '✓ ', '✗ '),
+          fichaLabel: crearEtiquetaHibrida(
+            `Documento de Identidad (${paisObj.nombre})`,
+            '✓ ',
+            '⏳ ',
+            ': Verificado',
+            ': Pendiente'
+          ),
           criterioIA: `Documento oficial de identificación vigente en ${paisObj.nombre}.`
         },
         prueba: {
-          chipLabel: 'Prueba del Agravio',
-          fichaLabel: 'Prueba del Acto Impugnado / Violación Constitucional',
+          chipLabel: crearEtiquetaHibrida('Prueba del Agravio', '✓ ', '○ '),
+          fichaLabel: crearEtiquetaHibrida(
+            'Prueba del Acto Impugnado / Violación Constitucional',
+            '✓ ',
+            '⏳ ',
+            ': Acreditada',
+            ': Pendiente'
+          ),
           criterioIA:
             'Resolución, acto administrativo, omisión o constancia documental que acredita el agravio a derechos fundamentales.'
         }
@@ -647,21 +702,22 @@ export function obtenerPerfilJurisdiccional(caso = {}) {
     etiquetaContraparte: 'Entidad Demandada / Contraparte',
     normaCorto: `Personería Judicial (${paisObj.codigo})`,
     normaTitulo: `Auditoría de Personería Judicial y Presupuestos Procesales (${paisObj.nombre} — ${jur})`,
+    normaSubtitulo: `En la jurisdicción ${jur} de ${paisObj.nombre} (${organoLocal}): no aplica el Art. 35 de la Corte IDH aún, sino las reglas procesales internas de personería (${paisObj.requisitoPoderNacional}), identificación vigente y prueba documental/agotamiento administrativo.`,
     descripcionAcreditacion: `En la jurisdicción ${jur} de ${paisObj.nombre} (${organoLocal}): no aplica el Art. 35 de la Corte IDH aún, sino las reglas procesales internas de personería (${paisObj.requisitoPoderNacional}), identificación vigente y prueba documental/agotamiento administrativo.`,
     requisitos: {
       poder: {
-        chipLabel: 'Poder Judicial',
-        fichaLabel: `Poder Especial Judicial / Mandato (${paisObj.nombre})`,
+        chipLabel: crearEtiquetaHibrida('Poder Judicial', '✓ ', '✗ '),
+        fichaLabel: crearEtiquetaHibrida(`Poder Especial Judicial / Mandato (${paisObj.nombre})`, '✓ ', '⏳ ', ': Verificado', ': Pendiente'),
         criterioIA: `Verificar cumplimiento de personería en ${paisObj.nombre}: ${paisObj.requisitoPoderNacional}`
       },
       identidad: {
-        chipLabel: 'Cédula / ID',
-        fichaLabel: `Documento de Identidad (${paisObj.nombre})`,
+        chipLabel: crearEtiquetaHibrida('Cédula / ID', '✓ ', '✗ '),
+        fichaLabel: crearEtiquetaHibrida(`Documento de Identidad (${paisObj.nombre})`, '✓ ', '⏳ ', ': Verificado', ': Pendiente'),
         criterioIA: `Documento oficial de identidad vigente en ${paisObj.nombre}.`
       },
       prueba: {
-        chipLabel: 'Prueba / Vía Previa',
-        fichaLabel: 'Prueba Documental / Expediente Administrativo',
+        chipLabel: crearEtiquetaHibrida('Prueba / Vía Previa', '✓ ', '○ '),
+        fichaLabel: crearEtiquetaHibrida('Prueba Documental / Expediente Administrativo', '✓ ', '⏳ ', ': Acreditada', ': Pendiente'),
         criterioIA:
           'Prueba del derecho reclamado, relación jurídica/laboral, acto administrativo impugnado o reclamo administrativo previo.'
       }
