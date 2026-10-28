@@ -379,8 +379,20 @@ export default function WhatsappInterface({
   }, [selectedChat?.id]);
 
   // ==============================================================
-  // 3. ESCUCHA EN TIEMPO REAL DE MENSAJES DEL CHAT SELECCIONADO
+  // 3. ESCUCHA EN TIEMPO REAL DE MENSAJES DEL CHAT SELECCIONADO + CONFIRMACIÓN DE LECTURA (VISTO)
   // ==============================================================
+  useEffect(() => {
+    if (!selectedChat?.id) return;
+    if ((selectedChat.no_leidos || 0) > 0) {
+      const chatRef = doc(db, 'whatsapp_chats', selectedChat.id);
+      updateDoc(chatRef, {
+        no_leidos: 0,
+        ultimo_leido_por: userName,
+        ultimo_leido_en: serverTimestamp()
+      }).catch(() => {});
+    }
+  }, [selectedChat?.id, selectedChat?.no_leidos, userName]);
+
   useEffect(() => {
     if (!selectedChat) {
       setMensajesChat([]);
@@ -388,19 +400,10 @@ export default function WhatsappInterface({
     }
 
     setLoadingMensajes(true);
-
-    // Marcar como leído si tiene mensajes no leídos
-    if (selectedChat.no_leidos > 0) {
-      try {
-        const chatRef = doc(db, 'whatsapp_chats', selectedChat.id);
-        updateDoc(chatRef, { no_leidos: 0 }).catch(() => {});
-      } catch (e) {
-        // Silencioso
-      }
-    }
+    const chatIdActual = selectedChat.id;
 
     const mensajesQuery = query(
-      collection(db, 'whatsapp_chats', selectedChat.id, 'mensajes'),
+      collection(db, 'whatsapp_chats', chatIdActual, 'mensajes'),
       orderBy('fecha', 'asc')
     );
 
@@ -411,13 +414,47 @@ export default function WhatsappInterface({
       }));
       setMensajesChat(msgs);
       setLoadingMensajes(false);
+
+      // Marcar mensajes entrantes como vistos/leídos y notificar Read Receipt ("read") a Meta API
+      const entrantesNoLeidos = msgs.filter(
+        (m) => !m.es_mio && m.estado !== 'read' && m.estado !== 'leido'
+      );
+      if (entrantesNoLeidos.length > 0) {
+        entrantesNoLeidos.forEach((m) => {
+          const mRef = doc(db, 'whatsapp_chats', chatIdActual, 'mensajes', m.id);
+          updateDoc(mRef, {
+            estado: 'read',
+            leido_por: userName,
+            leido_en: serverTimestamp()
+          }).catch(() => {});
+        });
+
+        // Enviar confirmación oficial de lectura (doble check azul para el cliente) al último wamid
+        const ultimoConWamid = [...entrantesNoLeidos]
+          .reverse()
+          .find((m) => m.id_meta && String(m.id_meta).startsWith('wamid.'));
+        if (ultimoConWamid && metaConfig.whatsapp_token && metaConfig.phone_number_id) {
+          fetch(`https://graph.facebook.com/v21.0/${metaConfig.phone_number_id}/messages`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${metaConfig.whatsapp_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              status: 'read',
+              message_id: ultimoConWamid.id_meta
+            })
+          }).catch(() => {});
+        }
+      }
     }, (error) => {
       console.error('Error escuchando mensajes del chat:', error);
       setLoadingMensajes(false);
     });
 
     return () => unsubscribe();
-  }, [selectedChat?.id]);
+  }, [selectedChat?.id, metaConfig.whatsapp_token, metaConfig.phone_number_id, userName]);
 
   // ==============================================================
   // 4. ENVÍO DE MENSAJES (Cloud Function + Fallback Resiliente)
@@ -551,19 +588,23 @@ export default function WhatsappInterface({
         // Limpiamos el texto escrito
         if (!textoPersonalizado) setMensajeTexto('');
 
-        // Si fue enviado por fallback directo en cliente, guardar en Firestore
+        // Si fue enviado por fallback directo en cliente, guardar en Firestore con el mismo ID de Meta (wamid)
         if (!enviadoPorFunction) {
-          const msgRef = collection(db, 'whatsapp_chats', telefonoDestino, 'mensajes');
-          await addDoc(msgRef, {
+          const msgPayload = {
             id_meta: metaMessageId,
             texto: textoAEnviar,
             es_mio: true,
             agente_nombre: userName,
             agente_email: currentUserEmail,
             fecha: serverTimestamp(),
-            estado: 'enviado',
+            estado: 'sent',
             tipo: 'text'
-          });
+          };
+          if (metaMessageId) {
+            await setDoc(doc(db, 'whatsapp_chats', telefonoDestino, 'mensajes', metaMessageId), msgPayload);
+          } else {
+            await addDoc(collection(db, 'whatsapp_chats', telefonoDestino, 'mensajes'), msgPayload);
+          }
 
           const chatRef = doc(db, 'whatsapp_chats', telefonoDestino);
           await setDoc(chatRef, {
@@ -651,18 +692,22 @@ export default function WhatsappInterface({
         }
       }
 
-      // Enviar el mensaje inicial a la subcolección
-      const msgRef = collection(db, 'whatsapp_chats', telLimpio, 'mensajes');
-      await addDoc(msgRef, {
+      // Enviar el mensaje inicial a la subcolección con ID = wamid de Meta si existe
+      const primerPayload = {
         id_meta: metaPrimerMsgId,
         texto: primerMensaje,
         es_mio: true,
         agente_nombre: userName,
         agente_email: currentUserEmail,
         fecha: serverTimestamp(),
-        estado: metaConfig.whatsapp_token ? 'enviado' : 'esperando_meta_api',
+        estado: metaPrimerMsgId ? 'sent' : metaConfig.whatsapp_token ? 'enviado' : 'esperando_meta_api',
         tipo: 'text'
-      });
+      };
+      if (metaPrimerMsgId) {
+        await setDoc(doc(db, 'whatsapp_chats', telLimpio, 'mensajes', metaPrimerMsgId), primerPayload);
+      } else {
+        await addDoc(collection(db, 'whatsapp_chats', telLimpio, 'mensajes'), primerPayload);
+      }
 
       // Seleccionar el nuevo chat
       setSelectedChat({
@@ -1213,19 +1258,23 @@ export default function WhatsappInterface({
                             {formatearFecha(msg.fecha)}
                           </Typography>
                           
-                          {esMiMensaje && (
+                          {esMiMensaje ? (
                             <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
-                              {msg.estado === 'read' ? (
-                                <Tooltip title="Leído por el cliente">
-                                  <CheckCheck size={14} color="#0284c7" />
+                              {msg.estado === 'read' || msg.estado === 'leido' ? (
+                                <Tooltip title="Leído / Visto por el cliente (Doble check azul)">
+                                  <CheckCheck size={15} color="#0284c7" strokeWidth={2.4} />
                                 </Tooltip>
-                              ) : msg.estado === 'delivered' ? (
-                                <Tooltip title="Entregado al dispositivo">
-                                  <CheckCheck size={14} color="#64748b" />
+                              ) : msg.estado === 'delivered' || msg.estado === 'entregado' ? (
+                                <Tooltip title="Entregado al dispositivo del cliente">
+                                  <CheckCheck size={15} color="#64748b" />
                                 </Tooltip>
-                              ) : msg.estado === 'enviado' ? (
-                                <Tooltip title="Enviado a WhatsApp">
+                              ) : msg.estado === 'sent' || msg.estado === 'enviado' ? (
+                                <Tooltip title="Enviado a servidores de WhatsApp">
                                   <Check size={14} color="#64748b" />
+                                </Tooltip>
+                              ) : msg.estado === 'failed' || msg.estado === 'error' ? (
+                                <Tooltip title="No pudo entregarse al destinatario">
+                                  <AlertCircle size={13} color="#dc2626" />
                                 </Tooltip>
                               ) : (
                                 <Tooltip title="Guardado internamente en Intranet (En espera de llaves de Meta API)">
@@ -1233,6 +1282,16 @@ export default function WhatsappInterface({
                                 </Tooltip>
                               )}
                             </Box>
+                          ) : (
+                            (msg.estado === 'read' || msg.estado === 'leido') && (
+                              <Tooltip
+                                title={`Visto en Intranet${msg.leido_por ? ` por ${msg.leido_por}` : ''}`}
+                              >
+                                <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                                  <CheckCheck size={13} color="#0284c7" />
+                                </Box>
+                              </Tooltip>
+                            )
                           )}
                         </Box>
                       </Box>

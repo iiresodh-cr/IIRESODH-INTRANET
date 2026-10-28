@@ -174,6 +174,7 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
 
                     # C. Notificaciones de estado (enviado, entregado, leído, error)
                     statuses = value.get("statuses", [])
+                    orden_estados = {"enviado": 1, "sent": 1, "delivered": 2, "entregado": 2, "read": 3, "leido": 3}
                     for st in statuses:
                         status_id = st.get("id")
                         status_val = st.get("status") # sent, delivered, read, failed
@@ -181,12 +182,24 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
 
                         if destinatario and status_id and status_val:
                             try:
-                                msg_doc_ref = db.collection("whatsapp_chats").document(destinatario).collection("mensajes").document(status_id)
-                                if msg_doc_ref.get().exists:
-                                    msg_doc_ref.update({
-                                        "estado": status_val,
-                                        "actualizado_en": firestore.SERVER_TIMESTAMP
-                                    })
+                                msgs_col = db.collection("whatsapp_chats").document(destinatario).collection("mensajes")
+                                msg_doc_ref = msgs_col.document(status_id)
+                                snap = msg_doc_ref.get()
+                                if not snap.exists:
+                                    # Fallback para mensajes cuyo doc.id no sea el wamid pero tengan id_meta == status_id
+                                    q_matches = msgs_col.where("id_meta", "==", status_id).limit(1).stream()
+                                    for m_doc in q_matches:
+                                        msg_doc_ref = m_doc.reference
+                                        snap = m_doc
+                                        break
+                                if snap.exists:
+                                    estado_actual = (snap.to_dict() or {}).get("estado", "")
+                                    # Evitar que un evento desordenado degrade 'read' a 'delivered' o 'sent'
+                                    if status_val == "failed" or orden_estados.get(status_val, 0) >= orden_estados.get(estado_actual, 0):
+                                        msg_doc_ref.update({
+                                            "estado": status_val,
+                                            "actualizado_en": firestore.SERVER_TIMESTAMP
+                                        })
                             except Exception as e_st:
                                 print(f"Error actualizando estado {status_id}:", str(e_st))
 
