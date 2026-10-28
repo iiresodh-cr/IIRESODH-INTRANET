@@ -2,30 +2,31 @@ import { getAI, getGenerativeModel, VertexAIBackend, GoogleAIBackend } from 'fir
 import { httpsCallable } from 'firebase/functions';
 import { app, functions } from '../config/firebase';
 import { obtenerTokenGoogleDriveActivo, solicitarTokenGoogleDrive } from '../context/AuthContext';
+import { obtenerPerfilJurisdiccional } from './perfilesJurisdiccionales';
 
 /**
- * JERARQUÍA OFICIAL DE MODELOS PIDA — IIRESODH LITIGIO INTERNACIONAL
+ * JERARQUÍA OFICIAL DE MODELOS PIDA — IIRESODH LITIGIO ESTRATÉGICO (NACIONAL E INTERNACIONAL)
  */
 export const MODELOS_LITIGIO_IA = {
   deep: {
     id: 'gemini-4-argon',
     label: 'PIDA (Razonamiento Jurídico Avanzado)',
     badge: '🧠 PIDA · Razonamiento Jurídico Avanzado',
-    descripcion: 'Estrategia jurídica interamericana/ONU, admisibilidad (Arts. 46-47 CADH), fondo, medidas cautelares y análisis complejo de sentencias.',
+    descripcion: 'Estrategia jurídica nacional (Latinoamérica) e internacional (SIDH/ONU), admisibilidad, demandas, recursos y análisis complejo de sentencias.',
     fallbacks: ['gemini-3.8-flash', 'gemini-2.5-pro']
   },
   secondary: {
     id: 'gemini-3.8-flash',
     label: 'PIDA (Análisis Multimodal)',
     badge: '⚡ PIDA · Análisis Multimodal',
-    descripcion: 'Lectura multimodal de resoluciones PDF, verificación OCR de poderes/cédulas, extracción de plazos fatales y síntesis de expedientes.',
+    descripcion: 'Lectura multimodal de resoluciones PDF, verificación OCR de poderes/cédulas según la jurisdicción, extracción de plazos fatales y síntesis de expedientes.',
     fallbacks: ['gemini-3.5-flash-lite', 'gemini-2.5-flash']
   },
   simple: {
     id: 'gemini-3.5-flash-lite',
     label: 'PIDA (Auditoría Rápida)',
     badge: '🚀 PIDA · Auditoría Rápida',
-    descripcion: 'Auditoría rápida de padrón (Art. 35 Corte IDH), redacción ágil en lenguaje claro, clasificación de anexos y ajustes de tono.',
+    descripcion: 'Auditoría rápida de personería/padrón según la instancia, redacción ágil en lenguaje claro, clasificación de anexos y ajustes de tono.',
     fallbacks: ['gemini-3.8-flash', 'gemini-2.5-flash-lite']
   }
 };
@@ -34,17 +35,17 @@ export const MODELO_PENSAMIENTO_AVANZADO = MODELOS_LITIGIO_IA.deep.id;
 export const MODELO_SECUNDARIO_MULTIMODAL = MODELOS_LITIGIO_IA.secondary.id;
 export const MODELO_TAREAS_SIMPLES = MODELOS_LITIGIO_IA.simple.id;
 
-const SYSTEM_PROMPT_LITIGIO_INTERNACIONAL = `Eres PIDA, el sistema de Inteligencia Jurídica en Derecho Internacional de los Derechos Humanos del IIRESODH.
+const SYSTEM_PROMPT_LITIGIO_INTERNACIONAL = `Eres PIDA, el sistema de Inteligencia Jurídica del IIRESODH para Litigio Estratégico en Jurisdicciones Nacionales de Latinoamérica y en el Sistema Internacional (SIDH / ONU).
 Dominas a la perfección:
-1. La Convención Americana sobre Derechos Humanos (CADH), el Protocolo de San Salvador y demás instrumentos interamericanos.
-2. El Reglamento de la Comisión Interamericana de Derechos Humanos (CIDH) — en especial admisibilidad (Arts. 31-34), excepciones al agotamiento de recursos internos (Art. 46.2 CADH), medidas cautelares (Art. 25), tramitación prioritaria (Art. 29.2) y soluciones amistosas (Art. 40).
-3. El Reglamento de la Corte Interamericana de Derechos Humanos (Corte IDH) — en especial el requisito del Art. 35 (identificación precisa y padrón único de presuntas víctimas), ESAP (Art. 40), medidas provisionales (Art. 63.2 CADH) y reparaciones integrales (Art. 63.1 CADH).
-4. Los Procedimientos Especiales y Órganos de Tratados de Naciones Unidas (Comité de Derechos Humanos, CEDAW, Comité contra la Tortura, etc.).
+1. El Derecho Constitucional, Contencioso-Administrativo, Laboral y Procesal de los países de Latinoamérica (Costa Rica, México, Colombia, Perú, Chile, Argentina, Guatemala, El Salvador, Honduras, Nicaragua, Panamá, Ecuador, República Dominicana, Uruguay, Paraguay, Bolivia, Venezuela, Brasil, Cuba y Puerto Rico), incluyendo sus reglas específicas de personería judicial, legitimación activa en amparo/tutela, agotamiento de vía administrativa y recursos extraordinarios.
+2. La Convención Americana sobre Derechos Humanos (CADH), el Protocolo de San Salvador, el control de convencionalidad interno y demás instrumentos interamericanos.
+3. El Reglamento de la Comisión Interamericana de Derechos Humanos (CIDH) y de la Corte Interamericana de Derechos Humanos (Corte IDH — incluyendo el Art. 35 cuando el caso se encuentra en instancia interamericana).
+4. Los Procedimientos Especiales y Órganos de Tratados de Naciones Unidas.
 
 Reglas de estilo y rigor:
+- Adapta SIEMPRE tu análisis al ámbito del caso (Nacional interno vs. Internacional SIDH/ONU) y al país indicado. Si el caso está en jurisdicción nacional interna, NO exijas requisitos exclusivos de la Corte IDH (como el Art. 35) sino los presupuestos procesales y de personería propios de esa vía nacional, sin perjuicio de cuidar desde ya la futura admisibilidad internacional si se agotara la vía interna.
 - Responde siempre en español jurídico riguroso, estructurado y claro.
-- Nunca inventes hechos del expediente que no estén en el contexto suministrado; cuando falte un dato fáctico o probatorio, señálalo expresamente como "[Pendiente de acreditar en el expediente]".
-- Cita los artículos exactos de la CADH, Reglamentos CIDH/Corte IDH y estándares jurisprudenciales reales aplicables.`;
+- Nunca inventes hechos del expediente que no estén en el contexto suministrado; cuando falte un dato fáctico o probatorio, señálalo expresamente como "[Pendiente de acreditar en el expediente]".`;
 
 /**
  * Convierte un objeto File/Blob o una URL remota en una parte inlineData base64 para multimodalidad.
@@ -303,15 +304,23 @@ export async function extraerDatosIdentificacionIA({
   file = null,
   fileUrl = null,
   mimeType = null,
-  nombreArchivo = 'Documento'
+  nombreArchivo = 'Documento',
+  caso = {}
 }) {
   const inlinePart = await fileOrUrlToInlinePart(file, fileUrl, mimeType);
   if (!inlinePart) {
     throw new Error('Debes adjuntar una imagen o PDF legible de la identificación o poder.');
   }
 
+  const perfil = obtenerPerfilJurisdiccional(caso);
+
   const prompt = `Examina multimodalmente este documento ("${nombreArchivo}") subido al expediente de un representado ante el IIRESODH.
-Identifica si se trata de un documento de identidad (cédula, DNI, pasaporte), un poder de representación legal / carta de autorización, o prueba documental, y extrae sus datos con precisión.
+Contexto jurisdiccional del caso:
+- Ámbito: ${perfil.ambito} (${perfil.pais.nombre})
+- Vía / Instancia: ${perfil.jurisdiccion} (${perfil.organoEspecifico})
+- Criterio aplicable para el Poder / Legitimación en esta instancia: ${perfil.requisitos.poder.criterioIA}
+
+Identifica si se trata de un documento de identidad (cédula, DNI, pasaporte), un poder de representación legal / mandato judicial / carta de autorización, o prueba documental, y extrae sus datos con precisión.
 
 Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura exacta:
 {
@@ -321,12 +330,12 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura exacta:
   "nombre_completo": "Nombre y apellidos completos extraídos (o vacío si no aparece)",
   "tipo_identificacion": "Cédula de Identidad | DNI | Pasaporte | Cédula de Residencia | Otro",
   "identificacion": "Número de cédula, DNI o pasaporte extraído sin espacios innecesarios (o vacío si no aparece)",
-  "pais": "País emisor o de residencia detectado (ej. Costa Rica, Colombia, etc.)",
+  "pais": "País emisor o de residencia detectado (ej. ${perfil.pais.nombre})",
   "es_identificacion_legible": true,
   "es_poder_firmado": false,
   "es_prueba_dano": false,
   "condicion_vulnerabilidad_sugerida": "Una de: Ninguna | Adulto Mayor | Discapacidad | Pueblo Indígena / Afrodescendiente | Jefa de Hogar | Salud Crítica | NNA (según fecha de nacimiento o datos del documento)",
-  "observaciones_verificacion": "Breve dictamen de verificación (ej. Cédula vigente y legible, Poder cuenta con firma visible de la víctima, o Prueba documental de daño/afectación)."
+  "observaciones_verificacion": "Breve dictamen de verificación según la jurisdicción (${perfil.pais.nombre} - ${perfil.jurisdiccion}): indica si la cédula es legible, si el poder cumple la formalidad requerida (${perfil.requisitos.poder.chipLabel}) o si acredita prueba/agravio."
 }`;
 
   const respuesta = await ejecutarConsultaJuridicaIA({
@@ -399,22 +408,43 @@ export async function auditarPadronArt35IA({ clientes = [], caso = {} }) {
     cedulasDuplicadas
   };
 
-  const prompt = `Realiza una auditoría ejecutiva de cumplimiento del Artículo 35 del Reglamento de la Corte IDH y del Artículo 29.2 del Reglamento de la CIDH para el padrón del caso "${caso.nombre || 'Caso Colectivo'}" (Jurisdicción: ${caso.jurisdiccion || 'SIDH'}, Etapa: ${caso.etapa_procesal || 'En trámite'}).
+  const perfil = obtenerPerfilJurisdiccional(caso);
+
+  const prompt = perfil.esInternacional
+    ? `Realiza una auditoría ejecutiva de cumplimiento de ${perfil.normaCorto} (${perfil.organoEspecifico}) para el padrón del caso internacional "${caso.nombre || 'Caso Colectivo'}" (País: ${perfil.pais.nombre}, Jurisdicción: ${perfil.jurisdiccion}, Etapa: ${caso.etapa_procesal || 'En trámite'}).
 
 Datos estadísticos del padrón actual:
 - Total de personas registradas en el padrón: ${estadisticas.total}
-- Víctimas con acreditación completa (Poder + Documento de Identidad): ${estadisticas.listosArt35} (${estadisticas.porcentajeListos}%)
-- Sin poder de representación verificado: ${estadisticas.sinPoderCount}
-- Sin documento de identidad verificado: ${estadisticas.sinIdCount}
-- Sin soporte de daño/afectación marcado: ${estadisticas.sinPruebaDanoCount}
+- Víctimas con acreditación completa (${perfil.requisitos.poder.chipLabel} + ${perfil.requisitos.identidad.chipLabel}): ${estadisticas.listosArt35} (${estadisticas.porcentajeListos}%)
+- Sin ${perfil.requisitos.poder.chipLabel} verificado: ${estadisticas.sinPoderCount}
+- Sin ${perfil.requisitos.identidad.chipLabel} verificado: ${estadisticas.sinIdCount}
+- Sin ${perfil.requisitos.prueba.chipLabel} marcado: ${estadisticas.sinPruebaDanoCount}
 - Sin correo electrónico válido para notificaciones: ${estadisticas.sinCorreoCount}
-- Víctimas con condición de vulnerabilidad registrada (Adulto mayor, salud crítica, discapacidad, etc.): ${estadisticas.vulnerablesCount}
+- Víctimas con condición de vulnerabilidad registrada: ${estadisticas.vulnerablesCount}
 - Documentos de identidad duplicados detectados: ${cedulasDuplicadas.length > 0 ? cedulasDuplicadas.join(', ') : 'Ninguno'}
 
 Redacta un dictamen ejecutivo breve (máximo 180 palabras) con:
-1. Nivel de preparación del Anexo Único de Víctimas (Art. 35 Corte IDH).
-2. Riesgos procesales urgentes que deben subsanarse antes de presentar el escrito o ESAP.
-3. Viabilidad de invocar tramitación prioritaria (Art. 29.2 CIDH) según las personas en situación de vulnerabilidad.`;
+1. Nivel de preparación del padrón de víctimas según ${perfil.normaCorto}.
+2. Riesgos procesales urgentes que deben subsanarse antes de presentar el escrito internacional.
+3. Viabilidad de invocar tramitación prioritaria o medidas urgentes según las personas en situación de vulnerabilidad.`
+    : `Realiza una auditoría ejecutiva de Personería Judicial, Legitimación Activa y Presupuestos Procesales en jurisdicción nacional de ${perfil.pais.nombre} para el caso "${caso.nombre || 'Litigio Nacional'}" tramitado en vía "${perfil.jurisdiccion}" ante ${perfil.organoEspecifico} (Etapa actual: ${caso.etapa_procesal || 'En trámite'}).
+IMPORTANTE: Este caso se encuentra en sede nacional interna de ${perfil.pais.nombre}, por lo que NO debes evaluarlo bajo el Art. 35 de la Corte IDH, sino bajo las reglas procesales internas de ${perfil.pais.nombre}:
+- Regla de personería aplicable: ${perfil.requisitos.poder.criterioIA}
+
+Datos estadísticos de los representados:
+- Total de actores / recurrentes registrados: ${estadisticas.total}
+- Con personería e identificación completa (${perfil.requisitos.poder.chipLabel} + ${perfil.requisitos.identidad.chipLabel}): ${estadisticas.listosArt35} (${estadisticas.porcentajeListos}%)
+- Sin ${perfil.requisitos.poder.chipLabel} verificado: ${estadisticas.sinPoderCount}
+- Sin ${perfil.requisitos.identidad.chipLabel} verificado: ${estadisticas.sinIdCount}
+- Sin ${perfil.requisitos.prueba.chipLabel} acreditada: ${estadisticas.sinPruebaDanoCount}
+- Sin correo electrónico válido: ${estadisticas.sinCorreoCount}
+- Personas con condición de vulnerabilidad / tutela reforzada: ${estadisticas.vulnerablesCount}
+- Documentos de identidad duplicados: ${cedulasDuplicadas.length > 0 ? cedulasDuplicadas.join(', ') : 'Ninguno'}
+
+Redacta un dictamen ejecutivo breve (máximo 180 palabras) con:
+1. Nivel de cumplimiento de la Personería Judicial / Legitimación Activa en ${perfil.pais.nombre} (${perfil.jurisdiccion}).
+2. Riesgos de inadmisión, prevención o excepción de falta de personería/legitimación que deben subsanarse de inmediato.
+3. Recomendación para aprovechar las condiciones de vulnerabilidad en sede nacional (tramitación preferente o medida cautelar interna) y resguardar desde ahora el expediente por si en el futuro se requiere agotar la vía interna.`;
 
   const respuesta = await ejecutarConsultaJuridicaIA({
     prompt,
@@ -507,16 +537,17 @@ export async function sintetizarExpedienteRepresentadoIA({
     cliente.nombre_completo ||
     'Sin nombre';
   const idRep = cliente.identificacion || cliente.documento_identidad || 'Sin registrar';
+  const perfil = obtenerPerfilJurisdiccional(caso);
 
-  const prompt = `Elabora una Ficha Ejecutiva de Situación Jurídica e Individualización (estándar SIDH) para la persona representada:
+  const prompt = `Elabora una Ficha Ejecutiva de Situación Jurídica e Individualización (${perfil.normaCorto} — ${perfil.pais.nombre}) para la persona representada:
 - Nombre: ${nombreRep}
 - Identificación: ${idRep} (${cliente.tipo_identificacion || 'ID'})
-- País de residencia: ${cliente.pais || 'No especificado'}
+- País de residencia: ${cliente.pais || perfil.pais.nombre}
 - Calidad procesal: ${cliente.calidad_procesal || 'Víctima Directa / Representado Principal'}
 - Condición de vulnerabilidad: ${cliente.condicion_vulnerabilidad || 'Ninguna registrada'}
-- Acreditación documental: Poder (${cliente.tiene_poder ? 'SÍ' : 'PENDIENTE'}), ID (${cliente.tiene_documento_id ? 'SÍ' : 'PENDIENTE'}), Prueba de daño (${cliente.tiene_prueba_dano ? 'SÍ' : 'PENDIENTE'})
+- Acreditación documental (${perfil.normaCorto}): ${perfil.requisitos.poder.chipLabel} (${cliente.tiene_poder ? 'SÍ' : 'PENDIENTE'}), ${perfil.requisitos.identidad.chipLabel} (${cliente.tiene_documento_id ? 'SÍ' : 'PENDIENTE'}), ${perfil.requisitos.prueba.chipLabel} (${cliente.tiene_prueba_dano ? 'SÍ' : 'PENDIENTE'})
 - Estado de aportes/pagos: ${cliente.estado_pago || 'Pendiente'} (${cliente.monto_pagado ? `${cliente.moneda_pago || 'USD'} ${cliente.monto_pagado}` : 'Sin monto registrado'})
-- Caso principal: ${caso.nombre || 'Litigio IIRESODH'} (${caso.jurisdiccion || 'SIDH'} - Etapa: ${caso.etapa_procesal || 'En trámite'})
+- Caso principal: ${caso.nombre || 'Litigio IIRESODH'} (Ámbito: ${perfil.ambito}, País: ${perfil.pais.nombre}, Vía: ${perfil.jurisdiccion} - Etapa: ${caso.etapa_procesal || 'En trámite'})
 
 Documentos cargados en su carpeta individual (${documentos.length}):
 ${resumenDocs || 'Ningún archivo cargado aún.'}
@@ -528,7 +559,7 @@ Historial de notificaciones enviadas (${comunicados.length}):
 ${resumenComs || 'Sin comunicados registrados.'}
 
 Estructura tu respuesta en 3 bloques breves y accionables:
-1. **Estado de Acreditación Individual (Art. 35 Corte IDH)**: Qué está completo y qué documento falta recabar.
+1. **Estado de Acreditación Individual (${perfil.normaCorto})**: Qué está completo y qué documento falta recabar según las exigencias de ${perfil.organoEspecifico}.
 2. **Síntesis Fáctica y de Vulnerabilidad**: Resumen de las notas jurídicas y posibles afectaciones diferenciadas.
 3. **Próximos Pasos Recomendados con el Representado**: Acciones concretas de seguimiento.`;
 

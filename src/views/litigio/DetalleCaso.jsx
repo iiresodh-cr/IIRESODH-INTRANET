@@ -86,6 +86,11 @@ import FichaCliente, {
   ESTADOS_PAGO_CLIENTE
 } from './FichaCliente';
 import { ETAPAS_PROCESALES_LITIGIO } from './Casos';
+import {
+  obtenerPerfilJurisdiccional,
+  sincronizarEtapaConPerfil,
+  VIAS_INTERNACIONALES
+} from '../../utils/perfilesJurisdiccionales';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
 import {
   MODELOS_LITIGIO_IA,
@@ -108,39 +113,6 @@ export const CATEGORIAS_DOCUMENTOS_PROCESALES = [
   'Peritaje / Amicus Curiae',
   'Anexo Probatorio'
 ];
-
-const GUIA_ETAPAS_PROCESALES = {
-  '1. Preparación y Recolección': {
-    objetivo: 'Consolidación del padrón de víctimas (Art. 35 Corte IDH), recolección de poderes e identificaciones, sistematización probatoria y agotamiento de recursos internos.',
-    entregables: ['Poderes de representación firmados', 'Copias de documentos de identidad', 'Prueba documental de agotamiento de vía interna', 'Borrador de Petición Inicial / Demanda'],
-    promptIA: 'Evalúa si el expediente cuenta con los elementos necesarios en la Etapa 1 (Preparación y Recolección) y sugiere una lista de verificación de pruebas, poderes (Art. 35) y requisitos de admisibilidad antes de presentar la petición.'
-  },
-  '2. Presentación / Admisibilidad': {
-    objetivo: 'Examen de admisibilidad (Arts. 46 y 47 CADH / Protocolos Facultativos ONU): competencia, agotamiento de recursos internos o excepciones (Art. 46.2), plazo de 6 meses y caracterización preliminar.',
-    entregables: ['Cargo de presentación oficial', 'Observaciones sobre admisibilidad', 'Solicitud de trámite prioritario (Art. 29.2 Reglamento CIDH si aplica)'],
-    promptIA: 'Formula la estrategia jurídica para superar la Etapa 2 (Admisibilidad) de este caso, blindando el cumplimiento de los artículos 46 y 47 de la CADH y rebatiendo posibles excepciones preliminares del Estado.'
-  },
-  '3. Observaciones y Fondo': {
-    objetivo: 'Sustanciación del fondo de la controversia: presentación del Escrito de Solicitudes, Argumentos y Pruebas (ESAP) o alegatos de fondo sobre responsabilidad internacional del Estado.',
-    entregables: ['Escrito de Observaciones de Fondo / ESAP', 'Ofrecimiento de prueba pericial y declarantes', 'Anexos probatorios numerados correlativamente'],
-    promptIA: 'Desarrolla la estructura argumentativa de Fondo (Etapa 3) y del Escrito de Solicitudes, Argumentos y Pruebas (ESAP), detallando las violaciones convencionales y los estándares aplicables.'
-  },
-  '4. Audiencia / Alegatos Finales': {
-    objetivo: 'Comparecencia en audiencia pública o privada ante el órgano internacional, interrogatorio de declarantes/peritos y presentación de alegatos finales escritos.',
-    entregables: ['Guion de interrogatorio a víctimas y peritos', 'Alegatos orales de apertura y cierre', 'Escrito de Alegatos Finales y Costas'],
-    promptIA: 'Prepara el guion estratégico para Audiencia Pública y el esquema de Alegatos Finales Escritos (Etapa 4), incluyendo preguntas clave para víctimas/peritos y réplica al Estado.'
-  },
-  '5. Sentencia / Informe de Fondo': {
-    objetivo: 'Notificación, análisis e interpretación del Informe de Fondo (Art. 50 CADH) o Sentencia definitiva de la Corte / Comité Internacional.',
-    entregables: ['Análisis ejecutivo de puntos resolutivos', 'Circular explicativa en lenguaje claro para víctimas', 'Cálculo de plazos de cumplimiento ordenados al Estado'],
-    promptIA: 'Analiza las implicaciones procesales de la Etapa 5 (Sentencia / Informe de Fondo) para este caso y redacta los puntos clave que deben verificarse respecto de las obligaciones declaradas al Estado.'
-  },
-  '6. Supervisión y Reparaciones': {
-    objetivo: 'Seguimiento del cumplimiento efectivo de las medidas de reparación integral (Art. 63.1 CADH): indemnizaciones, restitución, rehabilitación, satisfacción y garantías de no repetición.',
-    entregables: ['Observaciones a los informes estatales de cumplimiento', 'Comprobantes de pago de indemnizaciones y costas', 'Solicitud de audiencia de supervisión'],
-    promptIA: 'Diseña una matriz de Supervisión de Cumplimiento de Sentencia y Reparaciones (Etapa 6) según el Art. 63.1 CADH para exigir al Estado el cumplimiento efectivo de cada medida.'
-  }
-};
 
 const DOC_TYPES = [
   'Cédula de Identidad', 
@@ -452,6 +424,11 @@ function ItemComunicadoMasivo({ c, casoId, clientes = [], onVerCliente }) {
 }
 
 export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole }) {
+  const [casoLocal, setCasoLocal] = useState(caso);
+  const perfilJurisdiccional = obtenerPerfilJurisdiccional(casoLocal);
+  const etapasActivas = perfilJurisdiccional.etapas;
+  const guiaEtapasActiva = perfilJurisdiccional.guiaEtapas;
+
   const [activeTab, setActiveTab] = useState(0);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -473,7 +450,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [correoPrincipal, setCorreoPrincipal] = useState('');
   const [codigoTelefonoPrincipal, setCodigoTelefonoPrincipal] = useState('+506');
   const [telefonoPrincipal, setTelefonoPrincipal] = useState('');
-  const [pais, setPais] = useState('Costa Rica');
+  const [pais, setPais] = useState(perfilJurisdiccional.pais.nombre || 'Costa Rica');
   const [direccion, setDireccion] = useState('');
   const [notas, setNotas] = useState('');
   const [calidadProcesalInput, setCalidadProcesalInput] = useState(CALIDADES_PROCESALES[0]);
@@ -484,11 +461,11 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
 
   // Etapa procesal interactiva + Historial de Hitos por Etapa (Pilar 1)
   const [etapaActualCaso, setEtapaActualCaso] = useState(
-    caso.etapa_procesal || '1. Preparación y Recolección'
+    sincronizarEtapaConPerfil(caso.etapa_procesal, perfilJurisdiccional)
   );
   const [historialEtapas, setHistorialEtapas] = useState(caso.historial_etapas || {});
   const [etapaInspeccionada, setEtapaInspeccionada] = useState(
-    caso.etapa_procesal || '1. Preparación y Recolección'
+    sincronizarEtapaConPerfil(caso.etapa_procesal, perfilJurisdiccional)
   );
   const [mostrarDetalleEtapa, setMostrarDetalleEtapa] = useState(true);
   const [hitoFechaInput, setHitoFechaInput] = useState('');
@@ -496,7 +473,17 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [hitoResumenInput, setHitoResumenInput] = useState('');
   const [guardandoHitoEtapa, setGuardandoHitoEtapa] = useState(false);
 
-  // Estados para padrón Art. 35 y Auditoría IA (Pilar 2 & 6)
+  // Modal de Escalamiento / Transición de Vía Interna Nacional a Instancia Internacional (CIDH / ONU)
+  const [openEscalarModal, setOpenEscalarModal] = useState(false);
+  const [fechaNotificacionSentenciaInterna, setFechaNotificacionSentenciaInterna] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+  const [organoInternacionalDestino, setOrganoInternacionalDestino] = useState('CIDH (Comisión)');
+  const [resolucionAgotamientoRef, setResolucionAgotamientoRef] = useState('');
+  const [cambiarAmbitoAInternacional, setCambiarAmbitoAInternacional] = useState(true);
+  const [procesandoEscalamiento, setProcesandoEscalamiento] = useState(false);
+
+  // Estados para padrón y Auditoría PIDA (Pilar 2 & 6)
   const [filtroAcreditacion, setFiltroAcreditacion] = useState('Todos');
   const [auditandoPadronIA, setAuditandoPadronIA] = useState(false);
   const [resultadoAuditoriaPadron, setResultadoAuditoriaPadron] = useState(null);
@@ -565,7 +552,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [clientesSeleccionadosIds, setClientesSeleccionadosIds] = useState([]);
   const [filtroDestinatarios, setFiltroDestinatarios] = useState('');
 
-  // Estados para Pestaña 6: Copiloto Jurídico Internacional PIDA
+  // Estados para Pestaña 6: Copiloto Jurídico PIDA
   const [modeloCopilotoIA, setModeloCopilotoIA] = useState('gemini-4-argon');
   const [consultaCopilotoIA, setConsultaCopilotoIA] = useState('');
   const [ejecutandoCopilotoIA, setEjecutandoCopilotoIA] = useState(false);
@@ -618,8 +605,10 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   };
 
   useEffect(() => {
+    setCasoLocal(caso);
+    const perf = obtenerPerfilJurisdiccional(caso);
     setLocalPlazos(caso.plazos || []);
-    const etapaInit = caso.etapa_procesal || '1. Preparación y Recolección';
+    const etapaInit = sincronizarEtapaConPerfil(caso.etapa_procesal, perf);
     const histInit = caso.historial_etapas || {};
     setEtapaActualCaso(etapaInit);
     setHistorialEtapas(histInit);
@@ -631,7 +620,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
     fetchClientes();
     fetchDocsComunes();
     fetchComunicados();
-  }, [caso.id, caso.plazos, caso.etapa_procesal, caso.historial_etapas]);
+  }, [caso]);
 
   const handleSeleccionarEtapaInspeccion = (etapa) => {
     setEtapaInspeccionada(etapa);
@@ -662,6 +651,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       setEtapaActualCaso(nuevaEtapa);
       setEtapaInspeccionada(nuevaEtapa);
       setHistorialEtapas(nuevoHistorial);
+      setCasoLocal((prev) => ({ ...prev, etapa_procesal: nuevaEtapa, historial_etapas: nuevoHistorial }));
       await updateDoc(doc(db, 'casos', caso.id), {
         etapa_procesal: nuevaEtapa,
         historial_etapas: nuevoHistorial
@@ -669,7 +659,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       await registrarLogAuditoria(
         currentUserEmail,
         'Cambio de Etapa Procesal',
-        `Se actualizó la etapa procesal del caso "${caso.nombre}" a [${nuevaEtapa}]`
+        `Se actualizó la etapa procesal del caso "${casoLocal.nombre}" a [${nuevaEtapa}]`
       );
     } catch (err) {
       setError('No se pudo actualizar la etapa procesal.');
@@ -692,6 +682,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         }
       };
       setHistorialEtapas(nuevoHistorial);
+      setCasoLocal((prev) => ({ ...prev, historial_etapas: nuevoHistorial }));
       await updateDoc(doc(db, 'casos', caso.id), {
         historial_etapas: nuevoHistorial
       });
@@ -699,6 +690,100 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       setError('No se pudo guardar el hito de la etapa procesal.');
     } finally {
       setGuardandoHitoEtapa(false);
+    }
+  };
+
+  const handleEscalarACIDH = async (e) => {
+    e.preventDefault();
+    if (!fechaNotificacionSentenciaInterna) return;
+    setProcesandoEscalamiento(true);
+    setError('');
+    try {
+      // Calcular fecha límite convencional de 6 meses (Art. 46.1.b CADH)
+      const fechaBase = new Date(fechaNotificacionSentenciaInterna + 'T00:00:00');
+      const fechaSeisMeses = new Date(fechaBase);
+      fechaSeisMeses.setMonth(fechaSeisMeses.getMonth() + 6);
+      const fechaFatal6M = fechaSeisMeses.toISOString().split('T')[0];
+
+      const plazoAgotamiento = {
+        id: 'plazo_sidh_6m_' + Date.now(),
+        descripcion: `🌐 Plazo Convencional de 6 Meses (${organoInternacionalDestino} - Art. 46.1.b CADH) desde notificación de sentencia definitiva interna (${fechaNotificacionSentenciaInterna})`,
+        fechaFatal: fechaFatal6M,
+        responsable: currentUserEmail || casoLocal.abogado_responsable || '',
+        prorroga: resolucionAgotamientoRef.trim()
+          ? `Sentencia que agotó vía interna: ${resolucionAgotamientoRef.trim()}`
+          : 'Término convencional improrrogable de 6 meses',
+        completado: false,
+        fechaPresentacion: '',
+        documentoProbatorioNombre: '',
+        documentoProbatorioUrl: '',
+        documentoProbatorioDescripcion: '',
+        documentoProbatorioFechaDocumento: '',
+        storage_path: ''
+      };
+
+      const nuevosPlazos = [...localPlazos, plazoAgotamiento];
+      const etapaDestino = cambiarAmbitoAInternacional
+        ? '1. Preparación y Recolección'
+        : etapasActivas[5];
+
+      const nuevoHistorial = {
+        ...historialEtapas,
+        [etapaDestino]: {
+          fecha_hito: fechaNotificacionSentenciaInterna,
+          resolucion_referencia: resolucionAgotamientoRef.trim() || 'Sentencia definitiva de última instancia interna',
+          observaciones: `Agotamiento de recursos internos en ${perfilJurisdiccional.pais.nombre}. Vencimiento de 6 meses para ${organoInternacionalDestino}: ${fechaFatal6M}.`,
+          actualizado_por: currentUserEmail,
+          actualizado_at: new Date().toISOString()
+        }
+      };
+
+      const camposUpdate = {
+        plazos: nuevosPlazos,
+        etapa_procesal: etapaDestino,
+        historial_etapas: nuevoHistorial,
+        fecha_agotamiento_interno: fechaNotificacionSentenciaInterna,
+        resolucion_agotamiento_interno: resolucionAgotamientoRef.trim()
+      };
+
+      if (cambiarAmbitoAInternacional) {
+        camposUpdate.ambito = 'Internacional';
+        camposUpdate.jurisdiccion_nacional_origen = casoLocal.jurisdiccion || '';
+        camposUpdate.jurisdiccion = organoInternacionalDestino;
+      }
+
+      await updateDoc(doc(db, 'casos', caso.id), camposUpdate);
+
+      await addDoc(collection(db, 'workspace_eventos'), {
+        titulo: `🚨 [6 MESES SIDH] ${casoLocal.nombre}: Presentación ante ${organoInternacionalDestino}`,
+        fecha: fechaFatal6M,
+        hora: '09:00',
+        tipo: 'audiencia',
+        descripcion: `Vencimiento del plazo convencional de 6 meses (Art. 46.1.b CADH) tras agotamiento de la vía interna en ${perfilJurisdiccional.pais.nombre} (notificado el ${fechaNotificacionSentenciaInterna}).`,
+        creadoPor: currentUserEmail || '',
+        casoId: caso.id,
+        createdAt: serverTimestamp()
+      });
+
+      await registrarLogAuditoria(
+        currentUserEmail,
+        'Transición a Instancia Internacional',
+        `Se registró agotamiento de vía interna en ${perfilJurisdiccional.pais.nombre} (${fechaNotificacionSentenciaInterna}) y se calculó el plazo fatal de 6 meses (${fechaFatal6M}) hacia [${organoInternacionalDestino}].`
+      );
+
+      setLocalPlazos(nuevosPlazos);
+      setHistorialEtapas(nuevoHistorial);
+      setEtapaActualCaso(etapaDestino);
+      setEtapaInspeccionada(etapaDestino);
+      setCasoLocal((prev) => ({
+        ...prev,
+        ...camposUpdate
+      }));
+      setOpenEscalarModal(false);
+    } catch (err) {
+      setError(`No se pudo completar la transición a instancia internacional: ${err.message}`);
+    } finally {
+      setProcesandoEscalamiento(false);
     }
   };
 
@@ -710,7 +795,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
     try {
       const datos = await extraerDatosIdentificacionIA({
         file,
-        nombreArchivo: file.name
+        nombreArchivo: file.name,
+        caso: casoLocal
       });
       if (datos.nombres) setNombres(datos.nombres);
       if (datos.apellidos) setApellidos(datos.apellidos);
@@ -727,7 +813,7 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       if (datos.es_identificacion_legible) setTieneIdInput(true);
       if (datos.es_poder_firmado) setTienePoderInput(true);
     } catch (err) {
-      setError(`Error en autocompletado OCR IA: ${err.message}`);
+      setError(`Error en autocompletado OCR PIDA: ${err.message}`);
     } finally {
       setAutocompletandoOcrCliente(false);
       e.target.value = null;
@@ -818,11 +904,11 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       'Tipo ID',
       'Número Identificación',
       'País Residencia',
-      'Calidad Procesal (SIDH)',
-      'Vulnerabilidad (Art. 29.2 CIDH)',
-      'Poder Verificado',
+      perfilJurisdiccional.esInternacional ? 'Calidad Procesal (SIDH)' : 'Calidad Procesal (Vía Interna)',
+      perfilJurisdiccional.esInternacional ? 'Vulnerabilidad (Art. 29.2 CIDH)' : 'Vulnerabilidad / Trámite Preferente',
+      `Poder Verificado (${perfilJurisdiccional.normaCorto})`,
       'ID Legible',
-      'Prueba Daño',
+      'Prueba / Sustento',
       'Correo Principal',
       'Teléfono',
       'Estado Pago',
@@ -858,7 +944,10 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Padron_Art35_${(caso.nombre || 'Caso').replace(/\s+/g, '_')}.csv`;
+    const prefijoArchivo = perfilJurisdiccional.esInternacional
+      ? 'Padron_SIDH_'
+      : `Padron_Nacional_${perfilJurisdiccional.pais.codigo}_`;
+    link.download = `${prefijoArchivo}${(casoLocal.nombre || 'Caso').replace(/\s+/g, '_')}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -933,10 +1022,10 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
     setAuditandoPadronIA(true);
     setError('');
     try {
-      const res = await auditarPadronArt35IA({ clientes, caso });
+      const res = await auditarPadronArt35IA({ clientes, caso: casoLocal });
       setResultadoAuditoriaPadron(res);
     } catch (err) {
-      setError(`Error en Auditoría IA del Padrón: ${err.message}`);
+      setError(`Error en Auditoría PIDA del Padrón: ${err.message}`);
     } finally {
       setAuditandoPadronIA(false);
     }
@@ -1066,12 +1155,12 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
       const res = await analizarPiezaProcesalIA({
         fileUrl: docItem.storage_path ? docItem.url : null,
         nombreArchivo: docItem.nombre,
-        contextoCaso: caso,
+        contextoCaso: casoLocal,
         usarPensamientoAvanzado: requiereArgon
       });
       setResultadoAnalisisDocIA({ ...res, docNombre: docItem.nombre });
     } catch (err) {
-      setError(`No se pudo analizar la pieza procesal con IA: ${err.message}`);
+      setError(`No se pudo analizar la pieza procesal con PIDA: ${err.message}`);
     } finally {
       setAnalizandoDocIAId(null);
     }
@@ -1220,14 +1309,14 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
     setError('');
     try {
       const res = await redactarComunicadoClaroIA({
-        caso,
+        caso: casoLocal,
         instruccion: instruccionComunicadoIA,
         tipoPlantilla: plantillaComunicadoIA
       });
       if (res.asunto) setAsuntoComunicado(res.asunto);
       if (res.cuerpo) setCuerpoComunicado(res.cuerpo);
     } catch (err) {
-      setError(`No se pudo generar el borrador con IA: ${err.message}`);
+      setError(`No se pudo generar el borrador con PIDA: ${err.message}`);
     } finally {
       setRedactandoComunicadoIA(false);
     }
@@ -1254,19 +1343,30 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
         .join('\n');
 
       const promptContextualizado = `EXPEDIENTE BAJO ANÁLISIS EN EL IIRESODH:
-- Nombre del Caso: ${caso.nombre}
-- Expediente Oficial: ${caso.expediente_oficial || 'En trámite'}
-- Jurisdicción / Instancia: ${caso.jurisdiccion || 'CIDH (Comisión)'}
-- Estado Demandado: ${caso.estado_demandado || 'Estado de Costa Rica'}
+- Nombre del Caso: ${casoLocal.nombre}
+- Expediente Oficial: ${casoLocal.expediente_oficial || 'En trámite'}
+- Ámbito Jurisdiccional: ${perfilJurisdiccional.esInternacional ? 'INTERNACIONAL (SIDH / ONU)' : `NACIONAL / JURISDICCIÓN INTERNA DE ${perfilJurisdiccional.pais.nombre.toUpperCase()}`}
+- País de Referencia: ${perfilJurisdiccional.pais.nombre}
+- Vía / Órgano Judicial: ${casoLocal.jurisdiccion || 'Por definir'}
+- Tribunales Competentes en ${perfilJurisdiccional.pais.nombre}: ${perfilJurisdiccional.pais.organoConstitucional} | ${perfilJurisdiccional.pais.organoContencioso} | ${perfilJurisdiccional.pais.organoLaboral}
+- Parte Demandada / Recurrida: ${casoLocal.estado_demandado || `Estado de ${perfilJurisdiccional.pais.nombre}`}
 - Etapa Procesal Actual: ${etapaActualCaso}
-- Derechos Invocados: ${Array.isArray(caso.derechos_invocados) ? caso.derechos_invocados.join(', ') : 'CADH Arts. 8 y 25'}
-- Descripción Fáctica: ${caso.descripcion || 'Sin descripción adicional'}
-- Padrón de Víctimas (Art. 35 Corte IDH): ${clientes.length} representados totales (${listosArt35} con Poder + ID completos; ${vulnerables} con condición de vulnerabilidad registrada para Art. 29.2 CIDH).
+- Normativa y Derechos Invocados: ${Array.isArray(casoLocal.derechos_invocados) ? casoLocal.derechos_invocados.join(', ') : 'Derechos fundamentales y bloque de constitucionalidad'}
+- Descripción Fáctica: ${casoLocal.descripcion || 'Sin descripción adicional'}
+- Padrón de Representados (${perfilJurisdiccional.normaTitulo}): ${clientes.length} representados totales (${listosArt35} con Poder + ID completos; ${vulnerables} con condición de vulnerabilidad registrada).
+- Requisito de Personería Aplicable: ${perfilJurisdiccional.esInternacional ? 'Art. 35 Reglamento Corte IDH / Art. 28 Reglamento CIDH' : perfilJurisdiccional.pais.requisitoPoderNacional}
 - Plazos Fatales Pendientes: ${plazosPend || 'Ninguno activo'}
 - Piezas Procesales en el Expediente:
 ${listaDocs || 'Sin documentos comunes aún.'}
 
-SOLICITUD JURÍDICA AL COPILOTO:
+REGLA DE RIGOR JURISDICCIONAL PARA PIDA:
+${
+  perfilJurisdiccional.esInternacional
+    ? 'Este caso se encuentra en instancia INTERNACIONAL. Aplica directamente los estándares de la CADH, Reglamentos de la CIDH y Corte IDH (incluyendo el Art. 35) o Tratados ONU.'
+    : `Este caso se encuentra en sede NACIONAL (${perfilJurisdiccional.pais.nombre} — ${casoLocal.jurisdiccion}). NO evalúes la admisibilidad ni la personería como si ya estuviera en el Art. 35 de la Corte IDH; analiza la legitimación activa, personería judicial, agotamiento de vía administrativa y requisitos procesales conforme al derecho interno de ${perfilJurisdiccional.pais.nombre}, integrando la CADH y la jurisprudencia de la Corte IDH por vía de Control de Convencionalidad interno.`
+}
+
+SOLICITUD JURÍDICA AL COPILOTO PIDA:
 ${promptBase.trim()}`;
 
       const res = await ejecutarConsultaJuridicaIA({
@@ -1281,7 +1381,7 @@ ${promptBase.trim()}`;
         fecha: new Date().toLocaleString('es-CR')
       });
     } catch (err) {
-      setError(`Error en Copiloto Jurídico IA: ${err.message}`);
+      setError(`Error en Copiloto Jurídico PIDA: ${err.message}`);
     } finally {
       setEjecutandoCopilotoIA(false);
     }
@@ -1598,35 +1698,49 @@ ${promptBase.trim()}`;
         Volver a todos los casos
       </Button>
 
-      {/* CABECERA INTERNACIONAL + PIPELINE DE 6 ETAPAS PROCESALES (PILAR 1) */}
+      {/* CABECERA ADAPTATIVA (NACIONAL LATAM / INTERNACIONAL SIDH-ONU) + PIPELINE DE 6 ETAPAS PROCESALES */}
       <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1.5, mb: 1.5 }}>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Chip
+              label={
+                perfilJurisdiccional.esInternacional
+                  ? `🌐 Internacional · ${perfilJurisdiccional.pais.bandera} ${perfilJurisdiccional.pais.nombre}`
+                  : `${perfilJurisdiccional.pais.bandera} Jurisdicción Nacional · ${perfilJurisdiccional.pais.nombre}`
+              }
+              size="small"
+              sx={{
+                fontWeight: 'bold',
+                bgcolor: perfilJurisdiccional.esInternacional ? '#eff6ff' : '#ecfdf5',
+                color: perfilJurisdiccional.esInternacional ? '#1e40af' : '#065f46',
+                border: perfilJurisdiccional.esInternacional ? '1px solid #bfdbfe' : '1px solid #a7f3d0'
+              }}
+            />
+            <Chip
               icon={<Globe size={14} />}
-              label={caso.jurisdiccion || 'CIDH (Comisión)'}
+              label={casoLocal.jurisdiccion || 'CIDH (Comisión)'}
               size="small"
               color="primary"
               sx={{ fontWeight: 'bold' }}
             />
-            {caso.expediente_oficial && (
+            {casoLocal.expediente_oficial && (
               <Chip
-                label={`Exp: ${caso.expediente_oficial}`}
+                label={`Exp: ${casoLocal.expediente_oficial}`}
                 size="small"
                 sx={{ fontWeight: 'bold', fontFamily: 'monospace', bgcolor: '#1e293b', color: '#ffffff' }}
               />
             )}
-            {caso.estado_demandado && (
+            {casoLocal.estado_demandado && (
               <Chip
-                label={`🏛️ Contra: ${caso.estado_demandado}`}
+                label={`🏛️ Contra: ${casoLocal.estado_demandado}`}
                 size="small"
                 variant="outlined"
                 sx={{ fontWeight: 'bold' }}
               />
             )}
-            {caso.abogado_responsable && (
+            {casoLocal.abogado_responsable && (
               <Chip
-                label={`⚖️ ${caso.abogado_responsable}`}
+                label={`⚖️ ${casoLocal.abogado_responsable}`}
                 size="small"
                 variant="outlined"
                 sx={{ fontWeight: 'medium' }}
@@ -1634,36 +1748,75 @@ ${promptBase.trim()}`;
             )}
           </Box>
 
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<Sparkles size={15} />}
-            onClick={() => setActiveTab(5)}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 'bold',
-              borderRadius: 2,
-              color: '#ffffff',
-              background: 'linear-gradient(90deg, #1e3a8a 0%, #4338ca 100%)',
-              '&:hover': {
-                background: 'linear-gradient(90deg, #172554 0%, #312e81 100%)'
-              }
-            }}
-          >
-            Abrir Copiloto PIDA
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {!perfilJurisdiccional.esInternacional && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="secondary"
+                startIcon={<Globe size={15} />}
+                onClick={() => setOpenEscalarModal(true)}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  borderRadius: 2,
+                  borderColor: '#818cf8',
+                  color: '#312e81',
+                  bgcolor: '#eef2ff',
+                  '&:hover': { bgcolor: '#e0e7ff', borderColor: '#4f46e5' }
+                }}
+              >
+                🌐 Agotamiento Vía Interna / Escalar a CIDH-ONU
+              </Button>
+            )}
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<Sparkles size={15} />}
+              onClick={() => setActiveTab(5)}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 'bold',
+                borderRadius: 2,
+                color: '#ffffff',
+                background: 'linear-gradient(90deg, #1e3a8a 0%, #4338ca 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, #172554 0%, #312e81 100%)'
+                }
+              }}
+            >
+              Abrir Copiloto PIDA
+            </Button>
+          </Box>
         </Box>
 
         <Typography variant="h4" fontWeight="bold" color="primary.main" gutterBottom sx={{ fontSize: { xs: '1.35rem', sm: '2rem' } }}>
-          {caso.nombre}
+          {casoLocal.nombre}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {caso.descripcion || 'Sin descripción del litigio.'}
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {casoLocal.descripcion || 'Sin descripción del litigio.'}
         </Typography>
 
-        {Array.isArray(caso.derechos_invocados) && caso.derechos_invocados.length > 0 && (
+        <Box sx={{ mb: 2, p: 1.25, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="caption" color="text.secondary">
+            <strong>Régimen Procesal y de Personería Activo:</strong> {perfilJurisdiccional.normaTitulo} —{' '}
+            {perfilJurisdiccional.esInternacional
+              ? 'Evaluación conforme a reglamentos internacionales (CIDH / Corte IDH / ONU).'
+              : `${perfilJurisdiccional.pais.requisitoPoderNacional}`}
+          </Typography>
+          {casoLocal.fecha_agotamiento_interno && (
+            <Chip
+              size="small"
+              color="warning"
+              label={`Vía interna agotada el: ${casoLocal.fecha_agotamiento_interno}`}
+              sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
+            />
+          )}
+        </Box>
+
+        {Array.isArray(casoLocal.derechos_invocados) && casoLocal.derechos_invocados.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
-            {caso.derechos_invocados.map((der) => (
+            {casoLocal.derechos_invocados.map((der) => (
               <Chip
                 key={der}
                 label={der}
@@ -1676,11 +1829,11 @@ ${promptBase.trim()}`;
 
         <Divider sx={{ my: 1.5 }} />
 
-        {/* Pipeline Procesal Interactivo con Historial de Hitos y Guía Internacional */}
+        {/* Pipeline Procesal Interactivo con Historial de Hitos y Guía Dinámica (Nacional / Internacional) */}
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
             <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
-              Línea de Tiempo Procesal (Haz clic en cualquier etapa para ver su hito, guía o activarla):
+              Línea de Tiempo Procesal ({perfilJurisdiccional.esInternacional ? 'Instancia Internacional' : `Vía Interna · ${perfilJurisdiccional.pais.nombre}`}) — Haz clic en una etapa para inspeccionar o activarla:
             </Typography>
             <Button
               size="small"
@@ -1693,8 +1846,8 @@ ${promptBase.trim()}`;
           </Box>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {ETAPAS_PROCESALES_LITIGIO.map((etapa, idx) => {
-              const idxActual = ETAPAS_PROCESALES_LITIGIO.indexOf(etapaActualCaso);
+            {etapasActivas.map((etapa, idx) => {
+              const idxActual = etapasActivas.indexOf(etapaActualCaso);
               const activa = etapaActualCaso === etapa;
               const completada = idx < idxActual;
               const inspeccionada = etapaInspeccionada === etapa;
@@ -1724,9 +1877,9 @@ ${promptBase.trim()}`;
 
           <Collapse in={mostrarDetalleEtapa}>
             {(() => {
-              const guia = GUIA_ETAPAS_PROCESALES[etapaInspeccionada] || GUIA_ETAPAS_PROCESALES['1. Preparación y Recolección'];
-              const idxInsp = ETAPAS_PROCESALES_LITIGIO.indexOf(etapaInspeccionada);
-              const idxAct = ETAPAS_PROCESALES_LITIGIO.indexOf(etapaActualCaso);
+              const guia = guiaEtapasActiva[etapaInspeccionada] || guiaEtapasActiva[etapasActivas[0]];
+              const idxInsp = etapasActivas.indexOf(etapaInspeccionada);
+              const idxAct = etapasActivas.indexOf(etapaActualCaso);
               const esEtapaActual = etapaInspeccionada === etapaActualCaso;
               const esEtapaCompletada = idxInsp < idxAct;
               const infoGuardada = historialEtapas[etapaInspeccionada];
@@ -1800,7 +1953,8 @@ ${promptBase.trim()}`;
                   </Box>
 
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                    <strong>Objetivo procesal internacional:</strong> {guia.objetivo}
+                    <strong>Objetivo procesal ({perfilJurisdiccional.esInternacional ? 'SIDH / ONU' : perfilJurisdiccional.pais.nombre}):</strong>{' '}
+                    {guia.objetivo}
                   </Typography>
 
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
@@ -1832,7 +1986,11 @@ ${promptBase.trim()}`;
                         label="Resolución / Escrito de Referencia"
                         size="small"
                         fullWidth
-                        placeholder="Ej: Informe Admisibilidad No. 48/26 o ESAP"
+                        placeholder={
+                          perfilJurisdiccional.esInternacional
+                            ? 'Ej: Informe Admisibilidad No. 48/26 o ESAP'
+                            : 'Ej: Auto Admisorio / Voto N° 2026-004120'
+                        }
                         value={hitoResolucionInput}
                         onChange={(e) => setHitoResolucionInput(e.target.value)}
                         sx={{ bgcolor: '#ffffff' }}
@@ -1893,7 +2051,7 @@ ${promptBase.trim()}`;
             }
           }}
         >
-          <Tab icon={<Users size={18} />} iconPosition="start" label={`Padrón de Víctimas (${clientes.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
+          <Tab icon={<Users size={18} />} iconPosition="start" label={`Padrón de Representados (${clientes.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
           <Tab icon={<FileText size={18} />} iconPosition="start" label={`Piezas y Anexos (${docsComunes.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
           <Tab icon={<CreditCard size={18} />} iconPosition="start" label="Control Financiero y Aportes" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
           <Tab 
@@ -1911,13 +2069,15 @@ ${promptBase.trim()}`;
         </Tabs>
       </Box>
 
-      {/* PESTAÑA 1: PADRÓN DE VÍCTIMAS Y ACREDITACIÓN ART. 35 CORTE IDH */}
+      {/* PESTAÑA 1: PADRÓN DE REPRESENTADOS Y ACREDITACIÓN ADAPTATIVA */}
       <TabPanel value={activeTab} index={0}>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 3 }}>
           <Box>
-            <Typography variant="h6" fontWeight="bold">Padrón Oficial de Víctimas y Representados (Art. 35 Corte IDH)</Typography>
+            <Typography variant="h6" fontWeight="bold">
+              {perfilJurisdiccional.pais.bandera} Padrón Oficial de Víctimas y Representados ({perfilJurisdiccional.normaTitulo})
+            </Typography>
             <Typography variant="caption" color="text.secondary">
-              Control de poderes, documentos de identidad, condiciones de vulnerabilidad (Art. 29.2 CIDH) y exportación oficial.
+              {perfilJurisdiccional.normaSubtitulo} · Control automático por PIDA de poderes, documentos de identidad y pruebas.
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -1929,7 +2089,7 @@ ${promptBase.trim()}`;
               onClick={handleAuditarPadronIA}
               sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', color: '#4338ca', borderColor: '#c7d2fe', bgcolor: '#eef2ff' }}
             >
-              {auditandoPadronIA ? 'Auditando con PIDA...' : '🛡️ Auditar Padrón con PIDA (Art. 35)'}
+              {auditandoPadronIA ? 'Auditando con PIDA...' : `🛡️ Auditar Padrón con PIDA (${perfilJurisdiccional.normaCorto})`}
             </Button>
             <Button
               variant="outlined"
@@ -1964,18 +2124,18 @@ ${promptBase.trim()}`;
           </Box>
         </Box>
 
-        {/* Panel de Resultado de Auditoría IA del Padrón */}
+        {/* Panel de Resultado de Auditoría PIDA del Padrón */}
         {resultadoAuditoriaPadron && (
           <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #c7d2fe', bgcolor: '#eef2ff', boxShadow: 'none' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <ShieldCheck size={18} color="#4338ca" />
                 <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
-                  Auditoría de Cumplimiento del Padrón (Art. 35 Reglamento Corte IDH)
+                  Auditoría de Cumplimiento del Padrón ({perfilJurisdiccional.normaTitulo})
                 </Typography>
                 <Chip
                   size="small"
-                  label="PIDA · Auditoría Art. 35"
+                  label={`PIDA · Auditoría ${perfilJurisdiccional.normaCorto}`}
                   sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
                 />
               </Box>
@@ -1985,10 +2145,10 @@ ${promptBase.trim()}`;
             </Box>
 
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
-              <Chip size="small" color="success" label={`Listos Art. 35: ${resultadoAuditoriaPadron.estadisticas.listosArt35}/${resultadoAuditoriaPadron.estadisticas.total} (${resultadoAuditoriaPadron.estadisticas.porcentajeListos}%)`} sx={{ fontWeight: 'bold' }} />
+              <Chip size="small" color="success" label={`Listos (${perfilJurisdiccional.normaCorto}): ${resultadoAuditoriaPadron.estadisticas.listosArt35}/${resultadoAuditoriaPadron.estadisticas.total} (${resultadoAuditoriaPadron.estadisticas.porcentajeListos}%)`} sx={{ fontWeight: 'bold' }} />
               <Chip size="small" color="warning" label={`Sin Poder: ${resultadoAuditoriaPadron.estadisticas.sinPoderCount}`} sx={{ fontWeight: 'bold' }} />
               <Chip size="small" color="warning" label={`Sin Cédula/ID: ${resultadoAuditoriaPadron.estadisticas.sinIdCount}`} sx={{ fontWeight: 'bold' }} />
-              <Chip size="small" color="secondary" label={`Vulnerables (Art. 29.2): ${resultadoAuditoriaPadron.estadisticas.vulnerablesCount}`} sx={{ fontWeight: 'bold' }} />
+              <Chip size="small" color="secondary" label={`Con Vulnerabilidad: ${resultadoAuditoriaPadron.estadisticas.vulnerablesCount}`} sx={{ fontWeight: 'bold' }} />
             </Box>
 
             <Box
@@ -2040,9 +2200,11 @@ ${promptBase.trim()}`;
               }}
             >
               <MenuItem value="Todos">Todos los Representados ({clientes.length})</MenuItem>
-              <MenuItem value="Listos Art. 35">🟢 Listos Art. 35 (Poder + ID)</MenuItem>
+              <MenuItem value="Listos Art. 35">🟢 Listos ({perfilJurisdiccional.normaCorto}: Poder + ID)</MenuItem>
               <MenuItem value="Pendientes Poder/ID">🟡 Pendientes de Poder o ID</MenuItem>
-              <MenuItem value="Con Vulnerabilidad">🛡️ Con Vulnerabilidad (Art. 29.2 CIDH)</MenuItem>
+              <MenuItem value="Con Vulnerabilidad">
+                🛡️ {perfilJurisdiccional.esInternacional ? 'Con Vulnerabilidad (Art. 29.2 CIDH)' : 'Con Vulnerabilidad / Trámite Preferente'}
+              </MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -2063,7 +2225,7 @@ ${promptBase.trim()}`;
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>Apellidos y Nombres</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Identificación / País</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Checklist Art. 35 (Clic para marcar)</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Semáforo PIDA ({perfilJurisdiccional.normaCorto})</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Contacto Principal</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Estado Pago</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Ficha</TableCell>
@@ -2098,28 +2260,28 @@ ${promptBase.trim()}`;
                           {clienteItem.identificacion}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {clienteItem.tipo_identificacion} · {clienteItem.pais || 'CR'}
+                          {clienteItem.tipo_identificacion} · {clienteItem.pais || perfilJurisdiccional.pais.codigo}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                           <Chip
                             size="small"
-                            label={clienteItem.tiene_poder ? '✓ Poder' : '⚠ Poder'}
+                            label={perfilJurisdiccional.requisitos.poder.chipLabel(Boolean(clienteItem.tiene_poder))}
                             color={clienteItem.tiene_poder ? 'success' : 'default'}
                             variant={clienteItem.tiene_poder ? 'filled' : 'outlined'}
                             sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
                           />
                           <Chip
                             size="small"
-                            label={clienteItem.tiene_documento_id ? '✓ ID' : '⚠ ID'}
+                            label={perfilJurisdiccional.requisitos.identidad.chipLabel(Boolean(clienteItem.tiene_documento_id))}
                             color={clienteItem.tiene_documento_id ? 'success' : 'default'}
                             variant={clienteItem.tiene_documento_id ? 'filled' : 'outlined'}
                             sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
                           />
                           <Chip
                             size="small"
-                            label={clienteItem.tiene_prueba_dano ? '✓ Daño' : 'Daño'}
+                            label={perfilJurisdiccional.requisitos.prueba.chipLabel(Boolean(clienteItem.tiene_prueba_dano))}
                             color={clienteItem.tiene_prueba_dano ? 'info' : 'default'}
                             variant={clienteItem.tiene_prueba_dano ? 'filled' : 'outlined'}
                             sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
@@ -2724,60 +2886,90 @@ ${promptBase.trim()}`;
         </Paper>
       </TabPanel>
 
-      {/* PESTAÑA 6: COPILOTO JURÍDICO INTERNACIONAL IA (GEMINI 4 ARGON / 3.8 FLASH / 3.5 FLASH-LITE) */}
+      {/* PESTAÑA 6: COPILOTO JURÍDICO PIDA ADAPTATIVO (NACIONAL LATAM / INTERNACIONAL SIDH-ONU) */}
       <TabPanel value={activeTab} index={5}>
         <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #c7d2fe', bgcolor: '#f8fafc', boxShadow: 'none' }}>
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 3 }}>
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
                 <Sparkles size={22} color="#4338ca" />
                 <Typography variant="h6" fontWeight="bold" color="#1e1b4b">
-                  PIDA — Copiloto Jurídico Internacional IIRESODH
+                  PIDA — Copiloto Jurídico {perfilJurisdiccional.esInternacional ? 'Internacional (SIDH / ONU)' : `Nacional (${perfilJurisdiccional.pais.bandera} ${perfilJurisdiccional.pais.nombre})`}
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                Sistema de Inteligencia Jurídica en el Sistema Interamericano (CIDH / Corte IDH) y ONU, conectado en tiempo real al contexto de este expediente.
+                {perfilJurisdiccional.esInternacional
+                  ? 'Sistema de Inteligencia Jurídica en el Sistema Interamericano (CIDH / Corte IDH) y Sistema Universal ONU, conectado en tiempo real al contexto de este expediente.'
+                  : `Sistema de Inteligencia Jurídica adaptado a la jurisdicción interna de ${perfilJurisdiccional.pais.nombre} (${casoLocal.jurisdiccion || 'Vía Interna'}), con Control de Convencionalidad integrado.`}
               </Typography>
             </Box>
 
             <Chip
-              label="🧠 PIDA · Razonamiento Jurídico Avanzado"
+              label={`🧠 PIDA · ${perfilJurisdiccional.esInternacional ? 'Modo Internacional SIDH/ONU' : `Modo Nacional ${perfilJurisdiccional.pais.codigo}`}`}
               color="primary"
               sx={{ fontWeight: 'bold', bgcolor: '#1e3a8a', color: '#ffffff' }}
             />
           </Box>
 
-          {/* Plantillas Jurídicas Interamericanas de 1 Clic */}
+          {/* Plantillas Jurídicas de 1 Clic Adaptativas según Jurisdicción */}
           <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}>
-            Generadores Estratégicos de 1 Clic (Contextualizados con los datos de "{caso.nombre}"):
+            Generadores Estratégicos de 1 Clic ({perfilJurisdiccional.esInternacional ? 'Estándares SIDH / ONU' : `Derecho Procesal de ${perfilJurisdiccional.pais.nombre} + Control de Convencionalidad`}):
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 1.5, mb: 3 }}>
-            {[
-              {
-                titulo: '🌎 Test de Admisibilidad (Arts. 46-47 CADH)',
-                prompt: 'Elabora un análisis exhaustivo de admisibilidad ante la CIDH (Arts. 46 y 47 CADH y Arts. 31-34 del Reglamento CIDH), evaluando agotamiento de recursos internos o las excepciones del Art. 46.2 CADH aplicables a este caso, plazo o situación continuada y caracterización (colorable claim).'
-              },
-              {
-                titulo: '🏛️ Estándares y Jurisprudencia Corte IDH',
-                prompt: 'Construye una matriz de estándares jurisprudenciales de la Corte IDH aplicables a los derechos invocados en este caso, citando casos contenciosos líderes (leading cases) y cómo subsumir los hechos del expediente en dichos estándares.'
-              },
-              {
-                titulo: '🚨 Solicitud de Medidas Cautelares (Art. 25 CIDH)',
-                prompt: 'Redacta la estructura argumentativa para una solicitud de Medidas Cautelares (Art. 25 Reglamento CIDH) o Medidas Provisionales (Art. 63.2 CADH), acreditando gravedad, urgencia e irreparabilidad del daño.'
-              },
-              {
-                titulo: '⚡ Tramitación Prioritaria (Art. 29.2 CIDH)',
-                prompt: 'Redacta un escrito fundamentado solicitando el adelanto de estudio / tramitación prioritaria conforme al Artículo 29.2 del Reglamento de la CIDH, destacando las condiciones de vulnerabilidad del padrón de víctimas.'
-              },
-              {
-                titulo: '💰 Pretensiones y Reparaciones (Art. 63.1 CADH)',
-                prompt: 'Diseña el pliego integral de reparaciones bajo el Art. 63.1 de la CADH para el ESAP o alegatos de fondo: restitución, rehabilitación, satisfacción, garantías de no repetición y criterios de daño material e inmaterial.'
-              },
-              {
-                titulo: '🤝 Ruta de Solución Amistosa (Art. 40 CIDH)',
-                prompt: 'Propón una hoja de ruta estratégica y cláusulas esenciales para negociar un Acuerdo de Solución Amistosa (Art. 40 Reglamento CIDH) con el Estado demandado garantizando supervisión internacional.'
-              }
-            ].map((item) => (
+            {(perfilJurisdiccional.esInternacional
+              ? [
+                  {
+                    titulo: '🌎 Test de Admisibilidad (Arts. 46-47 CADH)',
+                    prompt: 'Elabora un análisis exhaustivo de admisibilidad ante la CIDH (Arts. 46 y 47 CADH y Arts. 31-34 del Reglamento CIDH), evaluando agotamiento de recursos internos o las excepciones del Art. 46.2 CADH aplicables a este caso, plazo o situación continuada y caracterización (colorable claim).'
+                  },
+                  {
+                    titulo: '🏛️ Estándares y Jurisprudencia Corte IDH',
+                    prompt: 'Construye una matriz de estándares jurisprudenciales de la Corte IDH aplicables a los derechos invocados en este caso, citando casos contenciosos líderes (leading cases) y cómo subsumir los hechos del expediente en dichos estándares.'
+                  },
+                  {
+                    titulo: '🚨 Solicitud de Medidas Cautelares (Art. 25 CIDH)',
+                    prompt: 'Redacta la estructura argumentativa para una solicitud de Medidas Cautelares (Art. 25 Reglamento CIDH) o Medidas Provisionales (Art. 63.2 CADH), acreditando gravedad, urgencia e irreparabilidad del daño.'
+                  },
+                  {
+                    titulo: '⚡ Tramitación Prioritaria (Art. 29.2 CIDH)',
+                    prompt: 'Redacta un escrito fundamentado solicitando el adelanto de estudio / tramitación prioritaria conforme al Artículo 29.2 del Reglamento de la CIDH, destacando las condiciones de vulnerabilidad del padrón de víctimas.'
+                  },
+                  {
+                    titulo: '💰 Pretensiones y Reparaciones (Art. 63.1 CADH)',
+                    prompt: 'Diseña el pliego integral de reparaciones bajo el Art. 63.1 de la CADH para el ESAP o alegatos de fondo: restitución, rehabilitación, satisfacción, garantías de no repetición y criterios de daño material e inmaterial.'
+                  },
+                  {
+                    titulo: '🤝 Ruta de Solución Amistosa (Art. 40 CIDH)',
+                    prompt: 'Propón una hoja de ruta estratégica y cláusulas esenciales para negociar un Acuerdo de Solución Amistosa (Art. 40 Reglamento CIDH) con el Estado demandado garantizando supervisión internacional.'
+                  }
+                ]
+              : [
+                  {
+                    titulo: `⚖️ Legitimación y Admisibilidad (${perfilJurisdiccional.pais.codigo})`,
+                    prompt: `Elabora un examen riguroso de legitimación activa, personería judicial (${perfilJurisdiccional.pais.requisitoPoderNacional}), competencia, agotamiento de vía administrativa previa (si aplica) y plazos de prescripción o caducidad conforme al derecho procesal de ${perfilJurisdiccional.pais.nombre} para la vía "${casoLocal.jurisdiccion}".`
+                  },
+                  {
+                    titulo: `🏛️ Estructura de Demanda / Acción (${perfilJurisdiccional.pais.nombre})`,
+                    prompt: `Redacta la estructura formal y los agravios principales de la demanda o acción constitucional en ${perfilJurisdiccional.pais.nombre} ante ${perfilJurisdiccional.pais.organoConstitucional} o ${perfilJurisdiccional.pais.organoContencioso}, integrando las normas nacionales invocadas.`
+                  },
+                  {
+                    titulo: '🚨 Medida Cautelar / Suspensión del Acto',
+                    prompt: `Redacta una solicitud fundamentada de Medida Cautelar o Suspensión Provisional del acto impugnado conforme a la legislación procesal de ${perfilJurisdiccional.pais.nombre}, acreditando apariencia de buen derecho (fumus boni iuris), peligro en la demora (periculum in mora) y ponderación del interés público.`
+                  },
+                  {
+                    titulo: '🌎 Control de Convencionalidad en Sede Nacional',
+                    prompt: `Formula un capítulo de Control de Convencionalidad interno dirigido a los jueces nacionales de ${perfilJurisdiccional.pais.nombre}, explicando cómo el bloque de constitucionalidad y la jurisprudencia vinculante de la Corte IDH obligan a proteger los derechos reclamados en este expediente.`
+                  },
+                  {
+                    titulo: '💰 Pliego de Pretensiones, Daños y Costas',
+                    prompt: `Diseña el petitorio / pliego de pretensiones principales y subsidiarias para este litigio en ${perfilJurisdiccional.pais.nombre}, incluyendo nulidad de actuaciones, restablecimiento de derechos, liquidación de daños materiales/morales y condenatoria en costas.`
+                  },
+                  {
+                    titulo: '🌐 Hoja de Ruta de Agotamiento (Puente a CIDH)',
+                    prompt: `Evalúa qué recursos ordinarios y extraordinarios deben interponerse y agotarse en ${perfilJurisdiccional.pais.nombre} dentro de este proceso para dejar debidamente preparado el requisito del Art. 46.1.a de la CADH (o acreditar una excepción del Art. 46.2 CADH) en caso de que sea necesario escalar ulteriormente ante la CIDH.`
+                  }
+                ]
+            ).map((item) => (
               <Button
                 key={item.titulo}
                 variant="outlined"
@@ -2809,8 +3001,12 @@ ${promptBase.trim()}`;
               fullWidth
               multiline
               rows={3}
-              label="Consulta jurídica libre o instrucción de redacción procesal"
-              placeholder="Ej: Redacta los puntos petitorios para el Escrito de Solicitudes, Argumentos y Pruebas (ESAP) conforme al Art. 40 del Reglamento de la Corte IDH..."
+              label="Consulta jurídica libre o instrucción de redacción procesal para PIDA"
+              placeholder={
+                perfilJurisdiccional.esInternacional
+                  ? 'Ej: Redacta los puntos petitorios para el Escrito de Solicitudes, Argumentos y Pruebas (ESAP)...'
+                  : `Ej: Redacta los agravios de inconstitucionalidad / nulidad conforme a la legislación de ${perfilJurisdiccional.pais.nombre}...`
+              }
               value={consultaCopilotoIA}
               onChange={(e) => setConsultaCopilotoIA(e.target.value)}
               sx={{ bgcolor: '#ffffff' }}
@@ -2852,7 +3048,7 @@ ${promptBase.trim()}`;
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2.5, pb: 1.5, borderBottom: '2px solid #1e3a8a' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Chip
-                    label="🧠 PIDA · Dictamen Jurídico"
+                    label={`🧠 PIDA · Dictamen Jurídico (${perfilJurisdiccional.normaCorto})`}
                     color="primary"
                     size="small"
                     sx={{ fontWeight: 'bold', bgcolor: '#1e3a8a', color: '#ffffff' }}
@@ -2870,7 +3066,7 @@ ${promptBase.trim()}`;
                       await copiarDictamenConFormato({
                         markdown: respuestaCopilotoIA.text,
                         titulo: 'Dictamen Jurídico PIDA',
-                        caso
+                        caso: casoLocal
                       });
                       alert('✅ Dictamen copiado con formato enriquecido (listo para pegar en Word, Google Docs o Correo).');
                     }}
@@ -2891,7 +3087,7 @@ ${promptBase.trim()}`;
                         const docDrive = await guardarDictamenEnGoogleDrive({
                           markdown: respuestaCopilotoIA.text,
                           titulo: 'Dictamen Jurídico PIDA',
-                          caso,
+                          caso: casoLocal,
                           userEmail: currentUserEmail
                         });
                         setEnlaceDriveGuardado(docDrive);
@@ -2914,7 +3110,7 @@ ${promptBase.trim()}`;
                       descargarDictamenWord({
                         markdown: respuestaCopilotoIA.text,
                         titulo: 'Dictamen_Juridico_PIDA',
-                        caso
+                        caso: casoLocal
                       })
                     }
                     sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
@@ -2929,7 +3125,7 @@ ${promptBase.trim()}`;
                       descargarDictamenPDF({
                         markdown: respuestaCopilotoIA.text,
                         titulo: 'Dictamen Jurídico PIDA',
-                        caso
+                        caso: casoLocal
                       })
                     }
                     sx={{
@@ -2986,6 +3182,100 @@ ${promptBase.trim()}`;
         </Paper>
       </TabPanel>
 
+      {/* MODAL: PUENTE DE AGOTAMIENTO DE VÍA INTERNA Y ESCALAMIENTO A INSTANCIA INTERNACIONAL (CIDH / ONU) */}
+      <Dialog
+        open={openEscalarModal}
+        onClose={() => !procesandoEscalamiento && setOpenEscalarModal(false)}
+        fullWidth
+        maxWidth="sm"
+        slotProps={{
+          paper: {
+            component: 'form',
+            onSubmit: handleEscalarACIDH,
+            sx: { borderRadius: 3, m: { xs: 1.5, sm: 3 } }
+          }
+        }}
+      >
+        <DialogTitle fontWeight="bold">
+          🌐 Agotamiento de Vía Interna en {perfilJurisdiccional.pais.nombre} y Transición a CIDH / ONU
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Alert severity="info" sx={{ borderRadius: 2 }}>
+            Registra la notificación de la sentencia definitiva de última instancia en{' '}
+            <strong>{perfilJurisdiccional.pais.nombre}</strong>. El sistema calculará automáticamente el{' '}
+            <strong>Plazo Fatal Convencional de 6 Meses (Art. 46.1.b CADH)</strong>, lo agendará en el Calendario
+            Institucional y conservará íntegro el padrón de representados y sus poderes.
+          </Alert>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+            <TextField
+              label="Fecha Notificación Sentencia Firme"
+              type="date"
+              required
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={fechaNotificacionSentenciaInterna}
+              onChange={(e) => setFechaNotificacionSentenciaInterna(e.target.value)}
+            />
+
+            <FormControl fullWidth>
+              <InputLabel>Foro Internacional de Destino</InputLabel>
+              <Select
+                value={organoInternacionalDestino}
+                label="Foro Internacional de Destino"
+                onChange={(e) => setOrganoInternacionalDestino(e.target.value)}
+              >
+                {VIAS_INTERNACIONALES.map((via) => (
+                  <MenuItem key={via} value={via}>
+                    {via}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          <TextField
+            label="Resolución / Sentencia que Agotó la Jurisdicción Interna"
+            fullWidth
+            placeholder={`Ej: Sentencia definitiva de ${perfilJurisdiccional.pais.organoConstitucional} / Casación`}
+            value={resolucionAgotamientoRef}
+            onChange={(e) => setResolucionAgotamientoRef(e.target.value)}
+          />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={cambiarAmbitoAInternacional}
+                onChange={(e) => setCambiarAmbitoAInternacional(e.target.checked)}
+              />
+            }
+            label={
+              <Typography variant="body2" fontWeight="medium">
+                Cambiar inmediatamente el ámbito de este expediente a <strong>Internacional ({organoInternacionalDestino})</strong> y activar el estándar Art. 35 SIDH
+              </Typography>
+            }
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button
+            onClick={() => setOpenEscalarModal(false)}
+            color="inherit"
+            disabled={procesandoEscalamiento}
+            sx={{ textTransform: 'none' }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={procesandoEscalamiento}
+            sx={{ textTransform: 'none', fontWeight: 'bold' }}
+          >
+            {procesandoEscalamiento ? 'Calculando y Registrando...' : 'Registrar Agotamiento y Plazo de 6 Meses'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* MODAL DE AGREGAR CLIENTE EXTENDIDO + AUTOCOMPLETADO OCR PIDA */}
       <Dialog 
         open={openModal} 
@@ -3034,14 +3324,26 @@ ${promptBase.trim()}`;
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
             <FormControl fullWidth>
-              <InputLabel>Calidad Procesal (SIDH)</InputLabel>
-              <Select value={calidadProcesalInput} label="Calidad Procesal (SIDH)" onChange={(e) => setCalidadProcesalInput(e.target.value)}>
+              <InputLabel>
+                {perfilJurisdiccional.esInternacional ? 'Calidad Procesal (SIDH)' : 'Calidad Procesal (Actor / Accionante)'}
+              </InputLabel>
+              <Select
+                value={calidadProcesalInput}
+                label={perfilJurisdiccional.esInternacional ? 'Calidad Procesal (SIDH)' : 'Calidad Procesal (Actor / Accionante)'}
+                onChange={(e) => setCalidadProcesalInput(e.target.value)}
+              >
                 {CALIDADES_PROCESALES.map((cal) => <MenuItem key={cal} value={cal}>{cal}</MenuItem>)}
               </Select>
             </FormControl>
             <FormControl fullWidth>
-              <InputLabel>Vulnerabilidad (Art. 29.2 CIDH)</InputLabel>
-              <Select value={vulnerabilidadInput} label="Vulnerabilidad (Art. 29.2 CIDH)" onChange={(e) => setVulnerabilidadInput(e.target.value)}>
+              <InputLabel>
+                {perfilJurisdiccional.esInternacional ? 'Vulnerabilidad (Art. 29.2 CIDH)' : 'Vulnerabilidad / Trámite Preferente'}
+              </InputLabel>
+              <Select
+                value={vulnerabilidadInput}
+                label={perfilJurisdiccional.esInternacional ? 'Vulnerabilidad (Art. 29.2 CIDH)' : 'Vulnerabilidad / Trámite Preferente'}
+                onChange={(e) => setVulnerabilidadInput(e.target.value)}
+              >
                 {CONDICIONES_VULNERABILIDAD.map((cond) => <MenuItem key={cond} value={cond}>{cond}</MenuItem>)}
               </Select>
             </FormControl>
@@ -3080,7 +3382,7 @@ ${promptBase.trim()}`;
           </Box>
 
           <Alert severity="info" sx={{ mb: 2, py: 0.5, fontSize: '0.78rem' }}>
-            El Semáforo Art. 35 (Poder, Cédula/ID y Prueba de Daño) se activa en verde automáticamente al subir y verificar los documentos con PIDA.
+            El Semáforo de Acreditación ({perfilJurisdiccional.normaCorto}: Poder, Cédula/ID y Prueba) se activa en verde automáticamente al subir y verificar los documentos con PIDA.
           </Alert>
           
           <TextField label="Notas Jurídicas Iniciales" fullWidth multiline rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />

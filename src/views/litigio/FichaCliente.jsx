@@ -60,6 +60,7 @@ import {
   Edit
 } from 'lucide-react';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
+import { obtenerPerfilJurisdiccional } from '../../utils/perfilesJurisdiccionales';
 import {
   extraerDatosIdentificacionIA,
   sintetizarExpedienteRepresentadoIA,
@@ -525,14 +526,15 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-          // Verificación automática con IA (Gemini 3.8 Flash) al subir el archivo
+          // Verificación automática con PIDA al subir el archivo
           let analisisIA = null;
           let categoriaDetectada = '';
           let observacionesIA = '';
           try {
             analisisIA = await extraerDatosIdentificacionIA({
               file,
-              nombreArchivo: file.name
+              nombreArchivo: file.name,
+              caso: caso || {}
             });
             categoriaDetectada = analisisIA?.tipo_documento_detectado || '';
             observacionesIA = analisisIA?.observaciones_verificacion || '';
@@ -597,7 +599,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
           setUploading(false);
           setSuccess(
             analisisIA
-              ? `Archivo subido y verificado automáticamente por IA (${categoriaDetectada}): se actualizó el Semáforo Art. 35.`
+              ? `Archivo subido y verificado automáticamente por PIDA (${categoriaDetectada}): se actualizó el Semáforo de Acreditación (${obtenerPerfilJurisdiccional(caso || {}).normaCorto}).`
               : 'Archivo enlazado con éxito.'
           );
         } catch (err) {
@@ -616,7 +618,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
       }
       await deleteDoc(doc(db, 'casos', casoId, 'clientes', clienteId, 'documentos', docId));
 
-      // Recalcular automáticamente los indicadores del Semáforo Art. 35 según los documentos vigentes restantes
+      // Recalcular automáticamente los indicadores del Semáforo de Acreditación según los documentos vigentes restantes
       const restantes = documentos.filter((d) => d.id !== docId);
       const tienePoderRestante = restantes.some((d) => {
         const c = (d.categoria_ia || '').toLowerCase();
@@ -643,16 +645,16 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
       await registrarLogAuditoria(
         currentUserEmail,
         'Eliminación de Poder/Doc',
-        `Se eliminó el documento ID: ${docId} perteneciente a: ${apellidos}, ${nombres} y se actualizó el Semáforo Art. 35`
+        `Se eliminó el documento ID: ${docId} perteneciente a: ${apellidos}, ${nombres} y se actualizó el Semáforo de Acreditación`
       );
 
-      setSuccess('Documento removido y Semáforo Art. 35 actualizado automáticamente.');
+      setSuccess('Documento removido y Semáforo de Acreditación actualizado automáticamente.');
     } catch {
       setError('Error al eliminar archivo.');
     }
   };
 
-  // --- FUNCIONES IA MULTIMODAL (GEMINI 3.8 FLASH) ---
+  // --- FUNCIONES PIDA MULTIMODAL ---
   const handleVerificarDocIA = async (docItem) => {
     setVerificandoDocIAId(docItem.id);
     setResultadoDocIA(null);
@@ -661,11 +663,12 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
       const res = await extraerDatosIdentificacionIA({
         fileUrl: docItem.url,
         mimeType: docItem.tipo || 'application/pdf',
-        nombreArchivo: docItem.nombre
+        nombreArchivo: docItem.nombre,
+        caso: caso || {}
       });
       setResultadoDocIA({ ...res, docNombre: docItem.nombre });
     } catch (err) {
-      setError(`No se pudo analizar el documento con IA: ${err.message}`);
+      setError(`No se pudo analizar el documento con PIDA: ${err.message}`);
     } finally {
       setVerificandoDocIAId(null);
     }
@@ -772,6 +775,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
 
   const urlWhatsApp = obtenerUrlWhatsApp();
   const acreditacionCompleta = Boolean(cliente?.tiene_poder && cliente?.tiene_documento_id);
+  const perfilJurisdiccional = obtenerPerfilJurisdiccional(caso || {});
 
   return (
     <Box>
@@ -824,7 +828,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
         </Box>
       </Box>
 
-      {/* BARRA DE ACREDITACIÓN ART. 35 REGLAMENTO CORTE IDH */}
+      {/* BARRA DE ACREDITACIÓN ADAPTATIVA SEGÚN JURISDICCIÓN */}
       <Paper
         sx={{
           p: 2,
@@ -840,29 +844,29 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             <ShieldCheck size={20} color={acreditacionCompleta ? '#15803d' : '#a16207'} />
             <Box>
               <Typography variant="subtitle2" fontWeight="bold">
-                Semáforo de Acreditación Individual (Art. 35 Reglamento Corte IDH)
+                {perfilJurisdiccional.pais.bandera} Semáforo de Acreditación Individual ({perfilJurisdiccional.normaTitulo})
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Estado automático verificado por PIDA según los archivos vigentes en &ldquo;Documentos y Poderes&rdquo; (no editable manualmente):
+                {perfilJurisdiccional.normaSubtitulo} · Verificado automáticamente por PIDA según los archivos vigentes en &ldquo;Documentos y Poderes&rdquo;:
               </Typography>
             </Box>
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Chip
-              label={cliente?.tiene_poder ? '✅ Poder Legal Verificado' : '⚠️ Poder Legal Pendiente'}
+              label={perfilJurisdiccional.requisitos.poder.fichaLabel(Boolean(cliente?.tiene_poder))}
               color={cliente?.tiene_poder ? 'success' : 'warning'}
               variant={cliente?.tiene_poder ? 'filled' : 'outlined'}
               sx={{ fontWeight: 'bold' }}
             />
             <Chip
-              label={cliente?.tiene_documento_id ? '✅ Cédula / ID Legible' : '⚠️ Cédula / ID Pendiente'}
+              label={perfilJurisdiccional.requisitos.identidad.fichaLabel(Boolean(cliente?.tiene_documento_id))}
               color={cliente?.tiene_documento_id ? 'success' : 'warning'}
               variant={cliente?.tiene_documento_id ? 'filled' : 'outlined'}
               sx={{ fontWeight: 'bold' }}
             />
             <Chip
-              label={cliente?.tiene_prueba_dano ? '✅ Prueba de Daño' : '📂 Prueba de Daño en Recolección'}
+              label={perfilJurisdiccional.requisitos.prueba.fichaLabel(Boolean(cliente?.tiene_prueba_dano))}
               color={cliente?.tiene_prueba_dano ? 'success' : 'default'}
               variant={cliente?.tiene_prueba_dano ? 'filled' : 'outlined'}
               sx={{ fontWeight: 'bold' }}
@@ -887,7 +891,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Sparkles size={18} color="#4338ca" />
               <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
-                Dictamen Ejecutivo Individual PIDA (Estándar SIDH)
+                Dictamen Ejecutivo Individual PIDA ({perfilJurisdiccional.normaCorto})
               </Typography>
               <Chip
                 size="small"
@@ -1049,13 +1053,17 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               />
             </Box>
 
-            {/* Calidad Procesal y Vulnerabilidad (Art. 29.2 CIDH) */}
+            {/* Calidad Procesal y Vulnerabilidad */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
               <FormControl fullWidth>
-                <InputLabel>Calidad Procesal (SIDH)</InputLabel>
+                <InputLabel>
+                  {perfilJurisdiccional.esInternacional ? 'Calidad Procesal (SIDH)' : 'Calidad Procesal (Actor / Accionante)'}
+                </InputLabel>
                 <Select
                   value={calidadProcesal}
-                  label="Calidad Procesal (SIDH)"
+                  label={
+                    perfilJurisdiccional.esInternacional ? 'Calidad Procesal (SIDH)' : 'Calidad Procesal (Actor / Accionante)'
+                  }
                   onChange={(e) => setCalidadProcesal(e.target.value)}
                 >
                   {CALIDADES_PROCESALES.map((cal) => (
@@ -1067,10 +1075,18 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               </FormControl>
 
               <FormControl fullWidth>
-                <InputLabel>Vulnerabilidad (Art. 29.2 CIDH)</InputLabel>
+                <InputLabel>
+                  {perfilJurisdiccional.esInternacional
+                    ? 'Vulnerabilidad (Art. 29.2 CIDH)'
+                    : 'Vulnerabilidad / Trámite Preferente'}
+                </InputLabel>
                 <Select
                   value={condicionVulnerabilidad}
-                  label="Vulnerabilidad (Art. 29.2 CIDH)"
+                  label={
+                    perfilJurisdiccional.esInternacional
+                      ? 'Vulnerabilidad (Art. 29.2 CIDH)'
+                      : 'Vulnerabilidad / Trámite Preferente'
+                  }
                   onChange={(e) => setCondicionVulnerabilidad(e.target.value)}
                 >
                   {CONDICIONES_VULNERABILIDAD.map((cond) => (
@@ -1417,7 +1433,8 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
             <List>
               {documentos.length === 0 ? (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', py: 1 }}>
-                  Al subir un Poder, Cédula o Prueba de Daño aquí, <strong>PIDA</strong> lo verifica automáticamente y activa en verde el requisito correspondiente del Semáforo Art. 35.
+                  Al subir un Poder, Cédula o Prueba aquí, <strong>PIDA</strong> lo verifica automáticamente bajo el estándar{' '}
+                  <strong>{perfilJurisdiccional.normaCorto}</strong> y activa en verde el requisito correspondiente del Semáforo de Acreditación.
                 </Typography>
               ) : (
                 documentos.map((d) => (

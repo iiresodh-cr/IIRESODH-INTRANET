@@ -50,36 +50,36 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
+import {
+  PAISES_LATINOAMERICA,
+  VIAS_INTERNACIONALES,
+  VIAS_NACIONALES,
+  ETAPAS_INTERNACIONAL_SIDH,
+  obtenerPerfilJurisdiccional,
+  obtenerDatosPais,
+  sincronizarEtapaConPerfil
+} from '../../utils/perfilesJurisdiccionales';
 
 const ESTADOS_CASO = ['Activo', 'Suspendido', 'Cerrado', 'Archivado'];
 
 export const JURISDICCIONES_LITIGIO = [
-  'CIDH (Comisión)',
-  'Corte IDH (Tribunal)',
-  'ONU (Comités / Relatorías)',
+  ...VIAS_INTERNACIONALES,
+  ...VIAS_NACIONALES,
   'Sala Constitucional / Supremo',
-  'Contencioso Administrativo / Laboral',
-  'Solución Amistosa'
+  'Contencioso Administrativo / Laboral'
 ];
 
-export const ETAPAS_PROCESALES_LITIGIO = [
-  '1. Preparación y Recolección',
-  '2. Presentación / Admisibilidad',
-  '3. Observaciones y Fondo',
-  '4. Audiencia / Alegatos Finales',
-  '5. Sentencia / Informe de Fondo',
-  '6. Supervisión y Reparaciones'
-];
+export const ETAPAS_PROCESALES_LITIGIO = ETAPAS_INTERNACIONAL_SIDH;
 
 export const DERECHOS_CADH_SUGERIDOS = [
-  'Art. 1.1 (Obligación de Respetar)',
-  'Art. 2 (Deber de Adoptar Disposiciones)',
-  'Art. 5 (Integridad Personal)',
-  'Art. 8 (Garantías Judiciales)',
-  'Art. 21 (Propiedad Privada)',
-  'Art. 24 (Igualdad ante la Ley)',
-  'Art. 25 (Protección Judicial)',
-  'Art. 26 (DESCA)'
+  'Art. 1.1 CADH (Obligación de Respetar)',
+  'Art. 2 CADH (Deber de Adoptar Disposiciones)',
+  'Art. 5 CADH (Integridad Personal)',
+  'Art. 8 CADH (Garantías Judiciales)',
+  'Art. 21 CADH (Propiedad Privada)',
+  'Art. 24 CADH (Igualdad ante la Ley)',
+  'Art. 25 CADH (Protección Judicial)',
+  'Art. 26 CADH (DESCA)'
 ];
 
 export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
@@ -90,6 +90,8 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
 
   // Filtros de búsqueda ejecutiva
   const [busqueda, setBusqueda] = useState('');
+  const [filtroAmbito, setFiltroAmbito] = useState('Todos');
+  const [filtroPais, setFiltroPais] = useState('Todos');
   const [filtroJurisdiccion, setFiltroJurisdiccion] = useState('Todas');
   const [filtroEstado, setFiltroEstado] = useState('Todos');
 
@@ -98,14 +100,17 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [expedienteOficial, setExpedienteOficial] = useState('');
+  const [ambito, setAmbito] = useState('Internacional');
+  const [paisJurisdiccion, setPaisJurisdiccion] = useState('Costa Rica');
   const [jurisdiccion, setJurisdiccion] = useState('CIDH (Comisión)');
   const [estadoDemandado, setEstadoDemandado] = useState('Estado de Costa Rica');
   const [etapaProcesal, setEtapaProcesal] = useState('1. Preparación y Recolección');
   const [abogadoResponsable, setAbogadoResponsable] = useState('');
   const [derechosInvocados, setDerechosInvocados] = useState([
-    'Art. 8 (Garantías Judiciales)',
-    'Art. 25 (Protección Judicial)'
+    'Art. 8 CADH (Garantías Judiciales)',
+    'Art. 25 CADH (Protección Judicial)'
   ]);
+  const [nuevaNormaInput, setNuevaNormaInput] = useState('');
 
   // Estados para editar un caso
   const [openEditModal, setOpenEditModal] = useState(false);
@@ -114,13 +119,39 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
   const [editDescripcion, setEditDescripcion] = useState('');
   const [editEstado, setEditEstado] = useState('Activo');
   const [editExpedienteOficial, setEditExpedienteOficial] = useState('');
+  const [editAmbito, setEditAmbito] = useState('Internacional');
+  const [editPaisJurisdiccion, setEditPaisJurisdiccion] = useState('Costa Rica');
   const [editJurisdiccion, setEditJurisdiccion] = useState('CIDH (Comisión)');
   const [editEstadoDemandado, setEditEstadoDemandado] = useState('Estado de Costa Rica');
   const [editEtapaProcesal, setEditEtapaProcesal] = useState('1. Preparación y Recolección');
   const [editAbogadoResponsable, setEditAbogadoResponsable] = useState('');
   const [editDerechosInvocados, setEditDerechosInvocados] = useState([]);
+  const [editNuevaNormaInput, setEditNuevaNormaInput] = useState('');
 
   const esAdmin = userRole === 'Superadmin' || userRole === 'Admin';
+
+  // Perfiles dinámicos para el modal de creación y el de edición
+  const perfilCreacion = useMemo(
+    () =>
+      obtenerPerfilJurisdiccional({
+        ambito,
+        pais_jurisdiccion: paisJurisdiccion,
+        jurisdiccion,
+        estado_demandado: estadoDemandado
+      }),
+    [ambito, paisJurisdiccion, jurisdiccion, estadoDemandado]
+  );
+
+  const perfilEdicion = useMemo(
+    () =>
+      obtenerPerfilJurisdiccional({
+        ambito: editAmbito,
+        pais_jurisdiccion: editPaisJurisdiccion,
+        jurisdiccion: editJurisdiccion,
+        estado_demandado: editEstadoDemandado
+      }),
+    [editAmbito, editPaisJurisdiccion, editJurisdiccion, editEstadoDemandado]
+  );
 
   const fetchCasos = async () => {
     setLoading(true);
@@ -165,6 +196,62 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
     }
   };
 
+  const agregarNormaPersonalizada = (texto, actual, setter, clearInput) => {
+    const limpio = (texto || '').trim();
+    if (!limpio) return;
+    if (!actual.includes(limpio)) {
+      setter([...actual, limpio]);
+    }
+    clearInput('');
+  };
+
+  const handleCambiarAmbitoCreacion = (nuevoAmbito) => {
+    setAmbito(nuevoAmbito);
+    const datosP = obtenerDatosPais(paisJurisdiccion);
+    if (nuevoAmbito === 'Internacional') {
+      const nuevaVia = 'CIDH (Comisión)';
+      setJurisdiccion(nuevaVia);
+      const nuevoP = obtenerPerfilJurisdiccional({
+        ambito: 'Internacional',
+        pais_jurisdiccion: paisJurisdiccion,
+        jurisdiccion: nuevaVia
+      });
+      setEtapaProcesal(sincronizarEtapaConPerfil(etapaProcesal, nuevoP));
+      setDerechosInvocados(['Art. 8 CADH (Garantías Judiciales)', 'Art. 25 CADH (Protección Judicial)']);
+    } else {
+      const nuevaVia = VIAS_NACIONALES[0];
+      setJurisdiccion(nuevaVia);
+      const nuevoP = obtenerPerfilJurisdiccional({
+        ambito: 'Nacional',
+        pais_jurisdiccion: paisJurisdiccion,
+        jurisdiccion: nuevaVia
+      });
+      setEtapaProcesal(sincronizarEtapaConPerfil(etapaProcesal, nuevoP));
+      setDerechosInvocados((datosP.derechosNacionalesSugeridos || []).slice(0, 2));
+    }
+  };
+
+  const handleCambiarPaisCreacion = (nuevoPais) => {
+    setPaisJurisdiccion(nuevoPais);
+    if (!estadoDemandado || estadoDemandado.startsWith('Estado de ')) {
+      setEstadoDemandado(`Estado de ${nuevoPais}`);
+    }
+    if (ambito === 'Nacional') {
+      const datosP = obtenerDatosPais(nuevoPais);
+      setDerechosInvocados((datosP.derechosNacionalesSugeridos || []).slice(0, 2));
+    }
+  };
+
+  const handleCambiarViaCreacion = (nuevaVia) => {
+    setJurisdiccion(nuevaVia);
+    const nuevoP = obtenerPerfilJurisdiccional({
+      ambito,
+      pais_jurisdiccion: paisJurisdiccion,
+      jurisdiccion: nuevaVia
+    });
+    setEtapaProcesal(sincronizarEtapaConPerfil(etapaProcesal, nuevoP));
+  };
+
   const handleSincronizarStripe = async () => {
     setSincronizandoStripe(true);
     try {
@@ -193,8 +280,10 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
         nombre: nombre.trim(),
         descripcion: descripcion.trim(),
         expediente_oficial: expedienteOficial.trim(),
+        ambito,
+        pais_jurisdiccion: paisJurisdiccion,
         jurisdiccion,
-        estado_demandado: estadoDemandado.trim() || 'Estado de Costa Rica',
+        estado_demandado: estadoDemandado.trim() || `Estado de ${paisJurisdiccion}`,
         etapa_procesal: etapaProcesal,
         abogado_responsable: abogadoResponsable.trim() || currentUserEmail || 'Equipo Legal IIRESODH',
         derechos_invocados: derechosInvocados,
@@ -206,17 +295,20 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
       await registrarLogAuditoria(
         currentUserEmail,
         'Creación de Caso',
-        `Se creó el litigio: "${nombre.trim()}" (${jurisdiccion}) con ID asignado: ${docRef.id}`
+        `Se creó el litigio [${ambito} - ${paisJurisdiccion}]: "${nombre.trim()}" (${jurisdiccion}) con ID asignado: ${docRef.id}`
       );
 
       setNombre('');
       setDescripcion('');
       setExpedienteOficial('');
+      setAmbito('Internacional');
+      setPaisJurisdiccion('Costa Rica');
       setJurisdiccion('CIDH (Comisión)');
       setEstadoDemandado('Estado de Costa Rica');
       setEtapaProcesal('1. Preparación y Recolección');
       setAbogadoResponsable('');
-      setDerechosInvocados(['Art. 8 (Garantías Judiciales)', 'Art. 25 (Protección Judicial)']);
+      setDerechosInvocados(['Art. 8 CADH (Garantías Judiciales)', 'Art. 25 CADH (Protección Judicial)']);
+      setNuevaNormaInput('');
       setOpenModal(false);
       fetchCasos();
     } catch (err) {
@@ -225,16 +317,20 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
   };
 
   const handleOpenEdit = (caso) => {
+    const perfil = obtenerPerfilJurisdiccional(caso);
     setCasoAEditarId(caso.id);
     setEditNombre(caso.nombre || '');
     setEditDescripcion(caso.descripcion || '');
     setEditEstado(caso.estado || 'Activo');
     setEditExpedienteOficial(caso.expediente_oficial || '');
-    setEditJurisdiccion(caso.jurisdiccion || 'CIDH (Comisión)');
-    setEditEstadoDemandado(caso.estado_demandado || 'Estado de Costa Rica');
-    setEditEtapaProcesal(caso.etapa_procesal || '1. Preparación y Recolección');
+    setEditAmbito(perfil.ambito);
+    setEditPaisJurisdiccion(perfil.pais.nombre);
+    setEditJurisdiccion(caso.jurisdiccion || (perfil.esInternacional ? 'CIDH (Comisión)' : VIAS_NACIONALES[0]));
+    setEditEstadoDemandado(caso.estado_demandado || `Estado de ${perfil.pais.nombre}`);
+    setEditEtapaProcesal(sincronizarEtapaConPerfil(caso.etapa_procesal, perfil));
     setEditAbogadoResponsable(caso.abogado_responsable || '');
     setEditDerechosInvocados(Array.isArray(caso.derechos_invocados) ? caso.derechos_invocados : []);
+    setEditNuevaNormaInput('');
     setOpenEditModal(true);
   };
 
@@ -249,6 +345,8 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
         descripcion: editDescripcion.trim(),
         estado: editEstado,
         expediente_oficial: editExpedienteOficial.trim(),
+        ambito: editAmbito,
+        pais_jurisdiccion: editPaisJurisdiccion,
         jurisdiccion: editJurisdiccion,
         estado_demandado: editEstadoDemandado.trim(),
         etapa_procesal: editEtapaProcesal,
@@ -259,7 +357,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
       await registrarLogAuditoria(
         currentUserEmail,
         'Modificación de Caso',
-        `Se configuró el litigio ID: ${casoAEditarId}. Nombre: "${editNombre.trim()}", Jurisdicción: [${editJurisdiccion}], Etapa: [${editEtapaProcesal}], Estado: [${editEstado}]`
+        `Se configuró el litigio ID: ${casoAEditarId}. Nombre: "${editNombre.trim()}", Ámbito: [${editAmbito} - ${editPaisJurisdiccion}], Jurisdicción: [${editJurisdiccion}], Etapa: [${editEtapaProcesal}], Estado: [${editEstado}]`
       );
 
       setOpenEditModal(false);
@@ -366,12 +464,8 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
   // KPIs ejecutivos
   const metricas = useMemo(() => {
     const activos = casos.filter((c) => c.estado !== 'Archivado');
-    const internacionales = activos.filter(
-      (c) =>
-        (c.jurisdiccion || '').includes('CIDH') ||
-        (c.jurisdiccion || '').includes('Corte IDH') ||
-        (c.jurisdiccion || '').includes('ONU')
-    );
+    const internacionales = activos.filter((c) => obtenerPerfilJurisdiccional(c).esInternacional);
+    const nacionales = activos.length - internacionales.length;
     const totalRepresentados = activos.reduce((acc, c) => acc + (Number(c.totalClientes) || 0), 0);
     const conPlazosUrgentes = activos.filter((c) => {
       const sem = calcularSemaforoDePlazos(c.plazos);
@@ -381,6 +475,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
     return {
       totalActivos: activos.length,
       totalInternacionales: internacionales.length,
+      totalNacionales: nacionales,
       totalRepresentados,
       plazosUrgentes: conPlazosUrgentes.length
     };
@@ -389,23 +484,26 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
   // Filtrado de casos
   const casosFiltrados = useMemo(() => {
     return casos.filter((c) => {
+      const perfil = obtenerPerfilJurisdiccional(c);
       const q = busqueda.trim().toLowerCase();
       const coincideTexto =
         !q ||
         (c.nombre || '').toLowerCase().includes(q) ||
         (c.expediente_oficial || '').toLowerCase().includes(q) ||
         (c.estado_demandado || '').toLowerCase().includes(q) ||
+        (perfil.pais.nombre || '').toLowerCase().includes(q) ||
         (c.descripcion || '').toLowerCase().includes(q) ||
         (c.abogado_responsable || '').toLowerCase().includes(q);
 
+      const coincideAmbito = filtroAmbito === 'Todos' || perfil.ambito === filtroAmbito;
+      const coincidePais = filtroPais === 'Todos' || perfil.pais.nombre === filtroPais;
       const coincideJurisdiccion =
         filtroJurisdiccion === 'Todas' || (c.jurisdiccion || 'CIDH (Comisión)') === filtroJurisdiccion;
-
       const coincideEstado = filtroEstado === 'Todos' || c.estado === filtroEstado;
 
-      return coincideTexto && coincideJurisdiccion && coincideEstado;
+      return coincideTexto && coincideAmbito && coincidePais && coincideJurisdiccion && coincideEstado;
     });
-  }, [casos, busqueda, filtroJurisdiccion, filtroEstado]);
+  }, [casos, busqueda, filtroAmbito, filtroPais, filtroJurisdiccion, filtroEstado]);
 
   if (loading) {
     return (
@@ -439,7 +537,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
               Casos y Litigios Estratégicos
             </Typography>
             <Chip
-              label="SIDH / ONU + Gemini 4 Argon"
+              label="Latinoamérica + SIDH / ONU · PIDA"
               size="small"
               color="primary"
               variant="outlined"
@@ -447,7 +545,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
             />
           </Box>
           <Typography variant="body2" color="text.secondary">
-            Gestión integral de expedientes nacionales e internacionales (CIDH, Corte IDH, ONU), padrón Art. 35, control de plazos y copiloto jurídico IA.
+            Gestión adaptativa de litigios nacionales en toda Latinoamérica (Constitucional, Contencioso, Laboral, Penal) e instancias internacionales (CIDH, Corte IDH, ONU) asistida por PIDA.
           </Typography>
         </Box>
 
@@ -502,13 +600,13 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
 
         <Paper sx={{ p: 2, borderRadius: 2.5, border: '1px solid #e0e7ff', bgcolor: '#f8fafc', boxShadow: 'none' }}>
           <Typography variant="caption" fontWeight="bold" color="#4338ca" sx={{ textTransform: 'uppercase' }}>
-            Foros Internacionales
+            Foros Int. / Nacionales (LatAm)
           </Typography>
           <Typography variant="h5" fontWeight="bold" color="#312e81" sx={{ mt: 0.5 }}>
-            {metricas.totalInternacionales}
+            🌐 {metricas.totalInternacionales} · 🏛️ {metricas.totalNacionales}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            CIDH, Corte IDH y ONU
+            SIDH / ONU vs. Vías Internas LatAm
           </Typography>
         </Paper>
 
@@ -555,7 +653,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
         </Paper>
       </Box>
 
-      {/* Barra de Búsqueda y Filtros */}
+      {/* Barra de Búsqueda y Filtros Multi-Jurisdiccionales */}
       <Paper
         sx={{
           p: 2,
@@ -564,14 +662,14 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
           border: '1px solid #e2e8f0',
           boxShadow: 'none',
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr' },
-          gap: 2
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '2fr 1fr 1fr 1fr 1fr' },
+          gap: 1.5
         }}
       >
         <TextField
           size="small"
           fullWidth
-          placeholder="Buscar por nombre del caso, N° de expediente (ej. P-1452-24), Estado demandado o abogado..."
+          placeholder="Buscar por caso, expediente, país, Estado demandado o abogado..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           InputProps={{
@@ -584,13 +682,34 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
         />
 
         <FormControl size="small" fullWidth>
-          <InputLabel>Jurisdicción / Instancia</InputLabel>
+          <InputLabel>Ámbito</InputLabel>
+          <Select value={filtroAmbito} label="Ámbito" onChange={(e) => setFiltroAmbito(e.target.value)}>
+            <MenuItem value="Todos">Todos los Ámbitos</MenuItem>
+            <MenuItem value="Internacional">🌐 Internacional (SIDH/ONU)</MenuItem>
+            <MenuItem value="Nacional">🏛️ Nacional (Vía Interna)</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" fullWidth>
+          <InputLabel>País (LatAm)</InputLabel>
+          <Select value={filtroPais} label="País (LatAm)" onChange={(e) => setFiltroPais(e.target.value)}>
+            <MenuItem value="Todos">Todos los Países</MenuItem>
+            {PAISES_LATINOAMERICA.map((p) => (
+              <MenuItem key={p.codigo} value={p.nombre}>
+                {p.bandera} {p.nombre}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" fullWidth>
+          <InputLabel>Vía / Instancia</InputLabel>
           <Select
             value={filtroJurisdiccion}
-            label="Jurisdicción / Instancia"
+            label="Vía / Instancia"
             onChange={(e) => setFiltroJurisdiccion(e.target.value)}
           >
-            <MenuItem value="Todas">Todas las Jurisdicciones</MenuItem>
+            <MenuItem value="Todas">Todas las Instancias</MenuItem>
             {JURISDICCIONES_LITIGIO.map((j) => (
               <MenuItem key={j} value={j}>
                 {j}
@@ -600,9 +719,9 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
         </FormControl>
 
         <FormControl size="small" fullWidth>
-          <InputLabel>Estado del Proceso</InputLabel>
-          <Select value={filtroEstado} label="Estado del Proceso" onChange={(e) => setFiltroEstado(e.target.value)}>
-            <MenuItem value="Todos">Todos los Estados</MenuItem>
+          <InputLabel>Estado</InputLabel>
+          <Select value={filtroEstado} label="Estado" onChange={(e) => setFiltroEstado(e.target.value)}>
+            <MenuItem value="Todos">Todos</MenuItem>
             {ESTADOS_CASO.map((st) => (
               <MenuItem key={st} value={st}>
                 {st}
@@ -627,6 +746,8 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
           {casosFiltrados.map((caso) => {
             const semaforo = calcularSemaforoDePlazos(caso.plazos);
             const derechos = Array.isArray(caso.derechos_invocados) ? caso.derechos_invocados : [];
+            const perfilCaso = obtenerPerfilJurisdiccional(caso);
+            const etapaMostrada = sincronizarEtapaConPerfil(caso.etapa_procesal, perfilCaso);
 
             return (
               <Card
@@ -646,20 +767,34 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                 }}
               >
                 <CardContent sx={{ flexGrow: 1 }}>
-                  {/* Insignias superiores: Jurisdicción y Expediente Oficial */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-                    <Chip
-                      icon={<Globe size={13} />}
-                      label={caso.jurisdiccion || 'CIDH / Internacional'}
-                      size="small"
-                      sx={{
-                        fontWeight: 'bold',
-                        fontSize: '0.7rem',
-                        bgcolor: '#eff6ff',
-                        color: '#1e40af',
-                        border: '1px solid #bfdbfe'
-                      }}
-                    />
+                  {/* Insignias superiores: Ámbito + País + Jurisdicción y Expediente Oficial */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 0.75, mb: 1.5, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Chip
+                        label={
+                          perfilCaso.esInternacional
+                            ? `🌐 Int. · ${perfilCaso.pais.bandera} ${perfilCaso.pais.codigo}`
+                            : `${perfilCaso.pais.bandera} Nacional · ${perfilCaso.pais.nombre}`
+                        }
+                        size="small"
+                        sx={{
+                          fontWeight: 'bold',
+                          fontSize: '0.68rem',
+                          bgcolor: perfilCaso.esInternacional ? '#eff6ff' : '#ecfdf5',
+                          color: perfilCaso.esInternacional ? '#1e40af' : '#065f46',
+                          border: perfilCaso.esInternacional ? '1px solid #bfdbfe' : '1px solid #a7f3d0'
+                        }}
+                      />
+                      <Chip
+                        label={caso.jurisdiccion || 'CIDH (Comisión)'}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontWeight: 'bold',
+                          fontSize: '0.68rem'
+                        }}
+                      />
+                    </Box>
                     {caso.expediente_oficial && (
                       <Chip
                         label={caso.expediente_oficial}
@@ -683,10 +818,14 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                   </Box>
 
                   {caso.estado_demandado && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 'bold' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}>
                       🏛️ Contra: <span style={{ color: '#334155' }}>{caso.estado_demandado}</span>
                     </Typography>
                   )}
+
+                  <Typography variant="caption" sx={{ display: 'block', mb: 1, color: '#475569', fontSize: '0.72rem' }}>
+                    📋 Estándar de Acreditación: <strong>{perfilCaso.normaCorto}</strong>
+                  </Typography>
 
                   <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, mb: 1.5 }}>
                     {caso.descripcion || 'Sin descripción disponible.'}
@@ -702,18 +841,19 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                       border: '1px solid #e2e8f0',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      gap: 1
                     }}
                   >
                     <Typography variant="caption" color="text.secondary" fontWeight="bold">
                       Etapa:
                     </Typography>
-                    <Typography variant="caption" fontWeight="bold" color="primary.main">
-                      {caso.etapa_procesal || '1. Preparación y Recolección'}
+                    <Typography variant="caption" fontWeight="bold" color="primary.main" sx={{ textAlign: 'right' }}>
+                      {etapaMostrada}
                     </Typography>
                   </Box>
 
-                  {/* Derechos CADH invocados */}
+                  {/* Derechos invocados */}
                   {derechos.length > 0 && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
                       {derechos.slice(0, 3).map((d) => (
@@ -821,17 +961,61 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
         </Box>
       )}
 
-      {/* MODAL CREAR NUEVO CASO INTERNACIONAL */}
+      {/* MODAL CREAR NUEVO CASO (NACIONAL LATAM O INTERNACIONAL SIDH/ONU) */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
         slotProps={{ paper: { sx: { borderRadius: 3, m: { xs: 1.5, sm: 3 } } } }}
       >
-        <DialogTitle fontWeight="bold">Aperturar Nuevo Caso / Litigio Estratégico</DialogTitle>
+        <DialogTitle fontWeight="bold">
+          Aperturar Nuevo Caso / Litigio Estratégico (Nacional LatAm o Internacional)
+        </DialogTitle>
         <Box component="form" onSubmit={handleCreateCaso}>
           <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Selector de Ámbito y País de Jurisdicción */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>Ámbito de Litigio</InputLabel>
+                <Select
+                  value={ambito}
+                  label="Ámbito de Litigio"
+                  onChange={(e) => handleCambiarAmbitoCreacion(e.target.value)}
+                >
+                  <MenuItem value="Internacional">🌐 Internacional (SIDH: CIDH / Corte IDH / ONU)</MenuItem>
+                  <MenuItem value="Nacional">🏛️ Nacional / Local (Jurisdicción Interna LatAm)</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth>
+                <InputLabel>País de Jurisdicción (Latinoamérica)</InputLabel>
+                <Select
+                  value={paisJurisdiccion}
+                  label="País de Jurisdicción (Latinoamérica)"
+                  onChange={(e) => handleCambiarPaisCreacion(e.target.value)}
+                >
+                  {PAISES_LATINOAMERICA.map((p) => (
+                    <MenuItem key={p.codigo} value={p.nombre}>
+                      {p.bandera} {p.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Resumen del Perfil Jurisdiccional Activo */}
+            <Alert severity={ambito === 'Internacional' ? 'info' : 'success'} sx={{ py: 0.75, borderRadius: 2 }}>
+              <Typography variant="caption" sx={{ display: 'block', fontWeight: 'bold' }}>
+                {perfilCreacion.pais.bandera} Régimen Procesal Activo: {perfilCreacion.normaTitulo}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                {ambito === 'Internacional'
+                  ? 'El padrón, las etapas y PIDA evaluarán el expediente bajo los estándares del Sistema Interamericano (CADH / Art. 35 Corte IDH) o Sistema Universal.'
+                  : `Tribunales de referencia en ${perfilCreacion.pais.nombre}: ${perfilCreacion.pais.organoConstitucional} · ${perfilCreacion.pais.organoContencioso}. Requisito de personería: ${perfilCreacion.pais.requisitoPoderNacional}`}
+              </Typography>
+            </Alert>
+
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr' }, gap: 2 }}>
               <TextField
                 autoFocus
@@ -841,27 +1025,31 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                 required
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej. Grupo de los 63 vs. Costa Rica"
+                placeholder={
+                  ambito === 'Internacional'
+                    ? `Ej. Colectivo Docente vs. ${paisJurisdiccion}`
+                    : `Ej. Acción de Amparo / Contencioso - Colectivo vs. Ministerio (${paisJurisdiccion})`
+                }
               />
               <TextField
-                label="N° Expediente Oficial"
+                label="N° Expediente Oficial / Rol"
                 type="text"
                 fullWidth
                 value={expedienteOficial}
                 onChange={(e) => setExpedienteOficial(e.target.value)}
-                placeholder="Ej. P-1452-24"
+                placeholder={ambito === 'Internacional' ? 'Ej. P-1452-24' : 'Ej. 24-001542-0007-CO'}
               />
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
               <FormControl fullWidth>
-                <InputLabel>Órgano / Jurisdicción</InputLabel>
+                <InputLabel>{ambito === 'Internacional' ? 'Órgano Internacional' : 'Vía Procesal Nacional'}</InputLabel>
                 <Select
                   value={jurisdiccion}
-                  label="Órgano / Jurisdicción"
-                  onChange={(e) => setJurisdiccion(e.target.value)}
+                  label={ambito === 'Internacional' ? 'Órgano Internacional' : 'Vía Procesal Nacional'}
+                  onChange={(e) => handleCambiarViaCreacion(e.target.value)}
                 >
-                  {JURISDICCIONES_LITIGIO.map((j) => (
+                  {(ambito === 'Internacional' ? VIAS_INTERNACIONALES : VIAS_NACIONALES).map((j) => (
                     <MenuItem key={j} value={j}>
                       {j}
                     </MenuItem>
@@ -870,12 +1058,12 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
               </FormControl>
 
               <TextField
-                label="Estado / Entidad Demandada"
+                label={ambito === 'Internacional' ? 'Estado Demandado' : 'Entidad Pública / Parte Demandada'}
                 type="text"
                 fullWidth
                 value={estadoDemandado}
                 onChange={(e) => setEstadoDemandado(e.target.value)}
-                placeholder="Ej. Estado de Costa Rica"
+                placeholder={`Ej. Estado de ${paisJurisdiccion} / Ministerio / Institución`}
               />
             </Box>
 
@@ -887,7 +1075,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                   label="Etapa Procesal Inicial"
                   onChange={(e) => setEtapaProcesal(e.target.value)}
                 >
-                  {ETAPAS_PROCESALES_LITIGIO.map((et) => (
+                  {perfilCreacion.etapas.map((et) => (
                     <MenuItem key={et} value={et}>
                       {et}
                     </MenuItem>
@@ -907,10 +1095,19 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
 
             <Box>
               <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Derechos Invocados (CADH / Protocolo de San Salvador / PIDCP):
+                {ambito === 'Internacional'
+                  ? 'Derechos Convencionales Invocados (CADH / Protocolo de San Salvador / PIDCP):'
+                  : `Normativa Constitucional, Legal y Bloque de Constitucionalidad (${paisJurisdiccion}):`}
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                {DERECHOS_CADH_SUGERIDOS.map((der) => {
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
+                {Array.from(
+                  new Set([
+                    ...(ambito === 'Internacional'
+                      ? DERECHOS_CADH_SUGERIDOS
+                      : perfilCreacion.pais.derechosNacionalesSugeridos || []),
+                    ...derechosInvocados
+                  ])
+                ).map((der) => {
                   const sel = derechosInvocados.includes(der);
                   return (
                     <Chip
@@ -925,6 +1122,41 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                   );
                 })}
               </Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder="Agregar otro artículo constitucional, ley nacional o convenio (ej. Convenio 169 OIT)..."
+                  value={nuevaNormaInput}
+                  onChange={(e) => setNuevaNormaInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      agregarNormaPersonalizada(
+                        nuevaNormaInput,
+                        derechosInvocados,
+                        setDerechosInvocados,
+                        setNuevaNormaInput
+                      );
+                    }
+                  }}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() =>
+                    agregarNormaPersonalizada(
+                      nuevaNormaInput,
+                      derechosInvocados,
+                      setDerechosInvocados,
+                      setNuevaNormaInput
+                    )
+                  }
+                  sx={{ textTransform: 'none', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                >
+                  + Norma
+                </Button>
+              </Box>
             </Box>
 
             <TextField
@@ -935,7 +1167,11 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
               rows={3}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Resumen de los hechos violatorios, agotamiento de recursos internos y pretensiones..."
+              placeholder={
+                ambito === 'Internacional'
+                  ? 'Resumen de los hechos violatorios, agotamiento de recursos internos y pretensiones ante el órgano internacional...'
+                  : `Resumen de los hechos, acto administrativo o norma impugnada ante los tribunales de ${paisJurisdiccion} y pretensiones...`
+              }
             />
           </DialogContent>
           <DialogActions sx={{ p: 2.5 }}>
@@ -949,17 +1185,64 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
         </Box>
       </Dialog>
 
-      {/* MODAL EDICIÓN DE FICHA TÉCNICA */}
+      {/* MODAL EDICIÓN DE FICHA TÉCNICA MULTI-JURISDICCIONAL */}
       <Dialog
         open={openEditModal}
         onClose={() => setOpenEditModal(false)}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
         slotProps={{ paper: { sx: { borderRadius: 3, m: { xs: 1.5, sm: 3 } } } }}
       >
-        <DialogTitle fontWeight="bold">Configuración Técnica del Litigio</DialogTitle>
+        <DialogTitle fontWeight="bold">Configuración Técnica y Jurisdiccional del Litigio</DialogTitle>
         <Box component="form" onSubmit={handleUpdateCaso}>
           <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>Ámbito del Litigio</InputLabel>
+                <Select
+                  value={editAmbito}
+                  label="Ámbito del Litigio"
+                  onChange={(e) => {
+                    const nuevoAmb = e.target.value;
+                    setEditAmbito(nuevoAmb);
+                    const nuevaVia =
+                      nuevoAmb === 'Internacional' ? 'CIDH (Comisión)' : VIAS_NACIONALES[0];
+                    setEditJurisdiccion(nuevaVia);
+                    const nuevoP = obtenerPerfilJurisdiccional({
+                      ambito: nuevoAmb,
+                      pais_jurisdiccion: editPaisJurisdiccion,
+                      jurisdiccion: nuevaVia
+                    });
+                    setEditEtapaProcesal(sincronizarEtapaConPerfil(editEtapaProcesal, nuevoP));
+                  }}
+                >
+                  <MenuItem value="Internacional">🌐 Internacional (SIDH: CIDH / Corte IDH / ONU)</MenuItem>
+                  <MenuItem value="Nacional">🏛️ Nacional / Local (Jurisdicción Interna LatAm)</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth>
+                <InputLabel>País de Jurisdicción (Latinoamérica)</InputLabel>
+                <Select
+                  value={editPaisJurisdiccion}
+                  label="País de Jurisdicción (Latinoamérica)"
+                  onChange={(e) => setEditPaisJurisdiccion(e.target.value)}
+                >
+                  {PAISES_LATINOAMERICA.map((p) => (
+                    <MenuItem key={p.codigo} value={p.nombre}>
+                      {p.bandera} {p.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Alert severity={editAmbito === 'Internacional' ? 'info' : 'success'} sx={{ py: 0.5, borderRadius: 2 }}>
+              <Typography variant="caption" sx={{ display: 'block', fontWeight: 'bold' }}>
+                {perfilEdicion.pais.bandera} Estándar activo: {perfilEdicion.normaTitulo}
+              </Typography>
+            </Alert>
+
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr' }, gap: 2 }}>
               <TextField
                 label="Nombre del Caso"
@@ -975,23 +1258,39 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                 fullWidth
                 value={editExpedienteOficial}
                 onChange={(e) => setEditExpedienteOficial(e.target.value)}
-                placeholder="Ej. P-1452-24"
+                placeholder="Ej. P-1452-24 o 24-001542-0007-CO"
               />
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
               <FormControl fullWidth>
-                <InputLabel>Órgano / Jurisdicción</InputLabel>
+                <InputLabel>Órgano / Vía Procesal</InputLabel>
                 <Select
                   value={editJurisdiccion}
-                  label="Órgano / Jurisdicción"
-                  onChange={(e) => setEditJurisdiccion(e.target.value)}
+                  label="Órgano / Vía Procesal"
+                  onChange={(e) => {
+                    const nuevaVia = e.target.value;
+                    setEditJurisdiccion(nuevaVia);
+                    const nuevoP = obtenerPerfilJurisdiccional({
+                      ambito: editAmbito,
+                      pais_jurisdiccion: editPaisJurisdiccion,
+                      jurisdiccion: nuevaVia
+                    });
+                    setEditEtapaProcesal(sincronizarEtapaConPerfil(editEtapaProcesal, nuevoP));
+                  }}
                 >
-                  {JURISDICCIONES_LITIGIO.map((j) => (
-                    <MenuItem key={j} value={j}>
-                      {j}
-                    </MenuItem>
-                  ))}
+                  {Array.from(
+                    new Set([
+                      ...(editAmbito === 'Internacional' ? VIAS_INTERNACIONALES : VIAS_NACIONALES),
+                      editJurisdiccion
+                    ])
+                  )
+                    .filter(Boolean)
+                    .map((j) => (
+                      <MenuItem key={j} value={j}>
+                        {j}
+                      </MenuItem>
+                    ))}
                 </Select>
               </FormControl>
 
@@ -1012,11 +1311,13 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                   label="Etapa Procesal Actual"
                   onChange={(e) => setEditEtapaProcesal(e.target.value)}
                 >
-                  {ETAPAS_PROCESALES_LITIGIO.map((et) => (
-                    <MenuItem key={et} value={et}>
-                      {et}
-                    </MenuItem>
-                  ))}
+                  {Array.from(new Set([...perfilEdicion.etapas, editEtapaProcesal]))
+                    .filter(Boolean)
+                    .map((et) => (
+                      <MenuItem key={et} value={et}>
+                        {et}
+                      </MenuItem>
+                    ))}
                 </Select>
               </FormControl>
 
@@ -1046,10 +1347,19 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
 
             <Box>
               <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Derechos Invocados (CADH / Protocolo de San Salvador / PIDCP):
+                {editAmbito === 'Internacional'
+                  ? 'Derechos Invocados (CADH / Protocolo de San Salvador / PIDCP):'
+                  : `Normas Constitucionales y Legales Invocadas (${editPaisJurisdiccion}):`}
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                {DERECHOS_CADH_SUGERIDOS.map((der) => {
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
+                {Array.from(
+                  new Set([
+                    ...(editAmbito === 'Internacional'
+                      ? DERECHOS_CADH_SUGERIDOS
+                      : perfilEdicion.pais.derechosNacionalesSugeridos || []),
+                    ...editDerechosInvocados
+                  ])
+                ).map((der) => {
                   const sel = editDerechosInvocados.includes(der);
                   return (
                     <Chip
@@ -1063,6 +1373,41 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                     />
                   );
                 })}
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder="Agregar otra norma o artículo..."
+                  value={editNuevaNormaInput}
+                  onChange={(e) => setEditNuevaNormaInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      agregarNormaPersonalizada(
+                        editNuevaNormaInput,
+                        editDerechosInvocados,
+                        setEditDerechosInvocados,
+                        setEditNuevaNormaInput
+                      );
+                    }
+                  }}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() =>
+                    agregarNormaPersonalizada(
+                      editNuevaNormaInput,
+                      editDerechosInvocados,
+                      setEditDerechosInvocados,
+                      setEditNuevaNormaInput
+                    )
+                  }
+                  sx={{ textTransform: 'none', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                >
+                  + Norma
+                </Button>
               </Box>
             </Box>
 
