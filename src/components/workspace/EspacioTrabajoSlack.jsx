@@ -1418,15 +1418,20 @@ export default function EspacioTrabajoSlack({
         await addDoc(collection(db, 'workspace_tareas'), {
           titulo: tituloTarea,
           descripcion: `Creada mediante comando rápido /tarea desde #${obtenerTituloCanal(canalActivo)}`,
-          estado: 'por_hacer',
+          estado: 'pendiente',
           prioridad: 'media',
-          proyectoId: 'general',
-          proyectoNombre: 'Gestión General IIRESODH',
-          proyectoColor: '#1D3557',
+          proyectoId: 'litigios-cidh',
+          proyectoNombre: 'Litigios Estratégicos & CIDH',
+          proyectoColor: '#1a365d',
           responsables: [currentUserEmail],
+          revisorEmail: currentUserEmail,
+          revisorNombre: currentUserName,
           subtareas: [],
           enlacesDrive: [],
           canalId: canalActivoId,
+          canalNombre: obtenerTituloCanal(canalActivo),
+          esCanalPrivado: Boolean(canalActivo?.esPrivado || canalActivo?.tipo === 'dm'),
+          creadoPorEmail: currentUserEmail,
           creadoPor: currentUserEmail,
           creadoPorNombre: currentUserName,
           creadoEn: serverTimestamp(),
@@ -2607,6 +2612,7 @@ export default function EspacioTrabajoSlack({
               userRole={userRole}
               usuariosEquipo={usuariosEquipo}
               canalesDisponibles={canales}
+              canalActivoInicialId={canalActivo?.tipo !== 'dm' ? canalActivo?.id : 'general'}
               onAbrirDrivePreview={(item) => {
                 setDrivePreviewItem(item);
                 setSeccionActiva('drive');
