@@ -2120,7 +2120,7 @@ ${promptBase.trim()}`;
           p: { xs: 2, sm: 2.5 },
           pl: { xs: 2.5, sm: 3 },
           mb: 2.5,
-          borderRadius: 2.5,
+          borderRadius: '0 10px 10px 0',
           bgcolor: '#ffffff',
           border: '1px solid #e2e8f0',
           boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
@@ -2373,8 +2373,12 @@ ${promptBase.trim()}`;
                   key={etapa}
                   onClick={() => handleSeleccionarEtapaInspeccion(etapa)}
                   sx={{
-                    p: 0.85,
-                    borderRadius: 1.5,
+                    position: 'relative',
+                    px: 0.9,
+                    pt: 1.15,
+                    pb: 0.75,
+                    borderRadius: '0 0 6px 6px',
+                    overflow: 'hidden',
                     cursor: 'pointer',
                     bgcolor: inspeccionada
                       ? '#f1f5f9'
@@ -2387,14 +2391,14 @@ ${promptBase.trim()}`;
                       ? '1px solid #94a3b8'
                       : '1px solid #e2e8f0',
                     transition: 'all 0.15s ease',
-                    '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' }
-                  }}
-                >
-                  <Box
-                    sx={{
-                      height: 3.5,
-                      borderRadius: 1,
-                      mb: 0.5,
+                    '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: '3.5px',
                       bgcolor: activa
                         ? '#0f172a'
                         : completada
@@ -2402,8 +2406,9 @@ ${promptBase.trim()}`;
                           ? '#2563eb'
                           : '#0d9488'
                         : '#e2e8f0'
-                    }}
-                  />
+                    }
+                  }}
+                >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
                     <Typography
                       noWrap

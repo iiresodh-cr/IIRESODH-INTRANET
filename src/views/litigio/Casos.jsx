@@ -1285,7 +1285,7 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
                 onClick={(e) => toggleExpandCard(caso.id, e)}
                 sx={{
                   position: 'relative',
-                  borderRadius: esFilaLista ? 2 : 2.5,
+                  borderRadius: esFilaLista ? '0 8px 8px 0' : '0 10px 10px 0',
                   bgcolor: '#ffffff',
                   border: isExpanded ? '1px solid #94a3b8' : '1px solid #e2e8f0',
                   boxShadow: isExpanded

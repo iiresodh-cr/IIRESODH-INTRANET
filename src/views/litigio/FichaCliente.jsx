@@ -959,7 +959,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
           p: { xs: 2, sm: 2.5 },
           pl: { xs: 2.5, sm: 3 },
           mb: 2.5,
-          borderRadius: 2.5,
+          borderRadius: '0 10px 10px 0',
           bgcolor: '#ffffff',
           border: '1px solid #e2e8f0',
           boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
