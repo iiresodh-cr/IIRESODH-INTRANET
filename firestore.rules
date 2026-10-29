@@ -9,25 +9,32 @@ service cloud.firestore {
 
     // 2. Reconocimiento inmutable de la raíz del sistema
     function isSuperadmin() {
-      return isAuthenticated() && request.auth.token.email == 'webmaster@iiresodh.org';
+      return isAuthenticated() && (
+        request.auth.token.email == 'webmaster@iiresodh.org' ||
+        request.auth.token.email == 'durquilla@iiresodh.org'
+      );
     }
 
-    // 3. BLINDAJE CORPORATIVO: Comprueba si el email real del usuario es el ID de un documento autorizado
+    // 3. BLINDAJE CORPORATIVO: Comprueba si el email pertenece al dominio institucional o está en usuarios_autorizados
     function isAuthorized() {
       return isSuperadmin() || (
-        isAuthenticated() && 
-        exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.token.email))
+        isAuthenticated() && (
+          request.auth.token.email.matches('.*@(iiresodh\\.org|sipdh\\.com)$') ||
+          exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.token.email))
+        )
       );
     }
 
     // 4. EXTRACCIÓN TRANSACCIONAL: Obtiene el rol directamente del servidor de Google sin confiar en el cliente
     function getRole() {
-      return get(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.token.email)).data.rol;
+      return exists(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.token.email))
+        ? get(/databases/$(database)/documents/usuarios_autorizados/$(request.auth.token.email)).data.rol
+        : 'Admin';
     }
 
     // 5. Jerarquía de privilegios administrativos
     function isAdmin() {
-      return isSuperadmin() || (isAuthorized() && getRole() == 'Admin');
+      return isSuperadmin() || (isAuthorized() && (getRole() == 'Admin' || getRole() == 'Superadmin'));
     }
 
     // =================================================================
@@ -108,10 +115,14 @@ service cloud.firestore {
       }
     }
 
-    // Configuración institucional de credenciales de Meta API
+    // Configuración institucional de credenciales y estado de recepción de llamadas de Meta API
     match /whatsapp_config/{docId} {
-      allow read: if isAuthorized();
-      allow write: if isAdmin();
+      allow read, write: if isAuthorized();
+    }
+
+    // Registro en tiempo real de llamadas de voz entrantes/salientes de WhatsApp (WebRTC)
+    match /whatsapp_calls/{callId} {
+      allow read, write: if isAuthorized();
     }
 
     // =================================================================
