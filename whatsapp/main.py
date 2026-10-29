@@ -6,13 +6,18 @@ import requests
 from firebase_admin import initialize_app, firestore
 from firebase_functions import https_fn, options
 
-# 🚀 1. Inicialización de Firebase Admin SDK
-try:
-    initialize_app()
-except Exception:
-    pass
+# 🚀 1. Inicialización diferida (Lazy) de Firebase Admin SDK para evitar timeouts de carga
+_db_instance = None
 
-db = firestore.client()
+def get_db():
+    global _db_instance
+    if _db_instance is None:
+        try:
+            initialize_app()
+        except Exception:
+            pass
+        _db_instance = firestore.client()
+    return _db_instance
 
 DEFAULT_VERIFY_TOKEN = "mi_codigo_secreto_123"
 DEFAULT_TOKEN = "EAANXNDTIJbEBS28Th8KMTlVvF1rUVKVPKoCsrMaCaZAUFBRDq8DLuV4ZALBEut3wzxlc29pXqOHF0Uzem8SCJMIo9ZCV1tvPcL8XZCgKoFGrdn6bh19hqw2fCHbjK4SPPp1rQRGz2VZAoHII5V9oTQ8uA6ZBTy8KGbDCS6Fvs810D4xG3weVxh8ZAlkEsO9bwZDZD"
@@ -23,6 +28,7 @@ def obtener_credenciales_meta():
     Busca primero en variables de entorno y como fallback en Firestore (whatsapp_config/credenciales).
     Esto permite configurar las llaves desde la Intranet o por variables de entorno.
     """
+    db = get_db()
     token = os.environ.get("WHATSAPP_TOKEN")
     phone_id = os.environ.get("PHONE_NUMBER_ID")
     verify_token = os.environ.get("VERIFY_TOKEN", DEFAULT_VERIFY_TOKEN)
@@ -139,6 +145,7 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
     # 2. PROCESAMIENTO DE MENSAJES ENTRANTES (POST)
     # ==============================================================
     elif req.method == 'POST':
+        db = get_db()
         body = req.get_json(silent=True)
         if not body:
             return https_fn.Response("Payload vacío", status=400)
@@ -447,6 +454,7 @@ def enviar_mensaje(req: https_fn.Request) -> https_fn.Response:
 
     # Guardar en Firestore para sincronización multiusuario en tiempo real
     try:
+        db = get_db()
         doc_id = meta_msg_id or f"msg_{int(time.time() * 1000)}"
         chat_ref = db.collection("whatsapp_chats").document(telefono_limpio)
 
