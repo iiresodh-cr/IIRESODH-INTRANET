@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../../config/firebase';
 import {
   collection,
@@ -17,9 +17,6 @@ import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
-  CardActions,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -34,20 +31,27 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Paper
+  Paper,
+  Collapse,
+  Tooltip,
+  InputBase
 } from '@mui/material';
 import {
   Plus,
-  Gavel,
-  Calendar,
   Users,
   Edit,
   Trash2,
-  AlertTriangle,
   Search,
-  Globe,
   CreditCard,
-  ShieldCheck
+  ChevronDown,
+  ChevronUp,
+  ArrowUpRight,
+  SlidersHorizontal,
+  LayoutGrid,
+  List as ListIcon,
+  X,
+  Scale,
+  Clock
 } from 'lucide-react';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
 import {
@@ -88,12 +92,74 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
   const [error, setError] = useState('');
   const [sincronizandoStripe, setSincronizandoStripe] = useState(false);
 
-  // Filtros de búsqueda ejecutiva
+  // Filtros de búsqueda ejecutiva y estado de visualización minimalista
   const [busqueda, setBusqueda] = useState('');
   const [filtroAmbito, setFiltroAmbito] = useState('Todos');
   const [filtroPais, setFiltroPais] = useState('Todos');
   const [filtroJurisdiccion, setFiltroJurisdiccion] = useState('Todas');
   const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [filtroSoloUrgentes, setFiltroSoloUrgentes] = useState(false);
+  const [mostrarFiltrosAvanzados, setMostrarFiltrosAvanzados] = useState(false);
+  const [vistaModo, setVistaModo] = useState('compact'); // 'compact' (tarjetas mínimas) | 'list' (filas densas)
+  const [expandedCardIds, setExpandedCardIds] = useState({});
+  const searchInputRef = useRef(null);
+
+  const toggleExpandCard = (id, e) => {
+    if (e) e.stopPropagation();
+    setExpandedCardIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const hayTarjetasExpandidas = useMemo(
+    () => Object.values(expandedCardIds).some(Boolean),
+    [expandedCardIds]
+  );
+
+  const contraerTodasLasTarjetas = () => {
+    setExpandedCardIds({});
+  };
+
+  // Atajos de teclado ejecutivos: '/' para buscar, 'Escape' para contraer tarjetas o limpiar búsqueda
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      const isEditable =
+        tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable;
+
+      if (e.key === '/' && !isEditable && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === 'Escape') {
+        if (isEditable && document.activeElement === searchInputRef.current) {
+          if (busqueda) {
+            setBusqueda('');
+          } else {
+            searchInputRef.current?.blur();
+          }
+        } else if (!isEditable && hayTarjetasExpandidas) {
+          setExpandedCardIds({});
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [busqueda, hayTarjetasExpandidas]);
+
+  const hayFiltrosActivos =
+    Boolean(busqueda.trim()) ||
+    filtroAmbito !== 'Todos' ||
+    filtroPais !== 'Todos' ||
+    filtroJurisdiccion !== 'Todas' ||
+    filtroEstado !== 'Todos' ||
+    filtroSoloUrgentes;
+
+  const limpiarTodosLosFiltros = () => {
+    setBusqueda('');
+    setFiltroAmbito('Todos');
+    setFiltroPais('Todos');
+    setFiltroJurisdiccion('Todas');
+    setFiltroEstado('Todos');
+    setFiltroSoloUrgentes(false);
+  };
 
   // Estados para crear un nuevo caso
   const [openModal, setOpenModal] = useState(false);
@@ -395,21 +461,6 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Activo':
-        return 'success';
-      case 'Suspendido':
-        return 'warning';
-      case 'Cerrado':
-        return 'error';
-      case 'Archivado':
-        return 'default';
-      default:
-        return 'primary';
-    }
-  };
-
   const calcularSemaforoDePlazos = (plazos = []) => {
     const plazosActivos = plazos.filter((p) => !p.completado);
     if (plazosActivos.length === 0) return null;
@@ -501,461 +552,1562 @@ export default function Casos({ onSelectCaso, userRole, currentUserEmail }) {
         filtroJurisdiccion === 'Todas' || (c.jurisdiccion || 'CIDH (Comisión)') === filtroJurisdiccion;
       const coincideEstado = filtroEstado === 'Todos' || c.estado === filtroEstado;
 
-      return coincideTexto && coincideAmbito && coincidePais && coincideJurisdiccion && coincideEstado;
+      let coincideUrgente = true;
+      if (filtroSoloUrgentes) {
+        const sem = calcularSemaforoDePlazos(c.plazos);
+        coincideUrgente = Boolean(sem && sem.urgente);
+      }
+
+      return (
+        coincideTexto &&
+        coincideAmbito &&
+        coincidePais &&
+        coincideJurisdiccion &&
+        coincideEstado &&
+        coincideUrgente
+      );
     });
-  }, [casos, busqueda, filtroAmbito, filtroPais, filtroJurisdiccion, filtroEstado]);
+  }, [casos, busqueda, filtroAmbito, filtroPais, filtroJurisdiccion, filtroEstado, filtroSoloUrgentes]);
 
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
+        <CircularProgress size={28} sx={{ color: '#0f172a' }} />
       </Box>
     );
   }
 
   return (
-    <Box>
-      {/* Cabecera Ejecutiva */}
+    <Box sx={{ maxWidth: 1440, mx: 'auto', pb: 6 }}>
+      {/* ===================================================================== */}
+      {/* CABECERA EJECUTIVA MINIMALISTA + TELEMETRÍA INTEGRADA                 */}
+      {/* ===================================================================== */}
       <Box
         sx={{
           display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
+          flexDirection: { xs: 'column', lg: 'row' },
           justifyContent: 'space-between',
-          alignItems: { xs: 'stretch', md: 'center' },
+          alignItems: { xs: 'flex-start', lg: 'center' },
           gap: 2,
-          mb: 3
+          pb: 2.5,
+          mb: 2.5,
+          borderBottom: '1px solid #e2e8f0'
         }}
       >
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
             <Typography
-              variant="h4"
-              fontWeight="bold"
-              color="text.primary"
-              sx={{ fontSize: { xs: '1.4rem', sm: '2.125rem' } }}
+              variant="h5"
+              sx={{
+                fontWeight: 800,
+                color: '#0f172a',
+                letterSpacing: '-0.025em',
+                fontSize: { xs: '1.35rem', sm: '1.6rem' }
+              }}
             >
-              Casos y Litigios Estratégicos
+              Casos y Litigios
             </Typography>
-            <Chip
-              label="Latinoamérica + SIDH / ONU · PIDA"
-              size="small"
-              color="primary"
-              variant="outlined"
-              sx={{ fontWeight: 'bold' }}
-            />
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            Gestión adaptativa de litigios nacionales en toda Latinoamérica (Constitucional, Contencioso, Laboral, Penal) e instancias internacionales (CIDH, Corte IDH, ONU) asistida por PIDA.
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-          {esAdmin && (
-            <Button
-              variant="outlined"
-              startIcon={<CreditCard size={18} />}
-              disabled={sincronizandoStripe}
-              onClick={handleSincronizarStripe}
-              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+            <Box
+              sx={{
+                px: 1,
+                py: 0.25,
+                borderRadius: 1.5,
+                bgcolor: '#f1f5f9',
+                border: '1px solid #e2e8f0',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                color: '#475569',
+                letterSpacing: '0.01em'
+              }}
             >
-              {sincronizandoStripe ? 'Sincronizando Stripe...' : 'Sincronizar Pagos Stripe'}
-            </Button>
-          )}
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => setOpenModal(true)}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 'bold',
-              borderRadius: 2,
-              width: { xs: '100%', sm: 'auto' }
-            }}
+              LatAm · SIDH · ONU
+            </Box>
+          </Box>
+          <Typography
+            variant="body2"
+            sx={{ color: '#64748b', fontSize: '0.82rem', mt: 0.4, maxWidth: 680 }}
           >
-            Nuevo Caso
-          </Button>
+            Portafolio procesal multi-jurisdiccional asistido por PIDA. Haz clic en una tarjeta para desplegar su ficha técnica o abre el expediente directamente.
+          </Typography>
         </Box>
-      </Box>
 
-      {/* Tarjetas de KPIs Ejecutivos */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' },
-          gap: 2,
-          mb: 3
-        }}
-      >
-        <Paper sx={{ p: 2, borderRadius: 2.5, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-          <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
-            Expedientes Activos
-          </Typography>
-          <Typography variant="h5" fontWeight="bold" color="primary.main" sx={{ mt: 0.5 }}>
-            {metricas.totalActivos}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            De {casos.length} casos totales
-          </Typography>
-        </Paper>
-
-        <Paper sx={{ p: 2, borderRadius: 2.5, border: '1px solid #e0e7ff', bgcolor: '#f8fafc', boxShadow: 'none' }}>
-          <Typography variant="caption" fontWeight="bold" color="#4338ca" sx={{ textTransform: 'uppercase' }}>
-            Foros Int. / Nacionales (LatAm)
-          </Typography>
-          <Typography variant="h5" fontWeight="bold" color="#312e81" sx={{ mt: 0.5 }}>
-            🌐 {metricas.totalInternacionales} · 🏛️ {metricas.totalNacionales}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            SIDH / ONU vs. Vías Internas LatAm
-          </Typography>
-        </Paper>
-
-        <Paper sx={{ p: 2, borderRadius: 2.5, border: '1px solid #dcfce7', bgcolor: '#f0fdf4', boxShadow: 'none' }}>
-          <Typography variant="caption" fontWeight="bold" color="#15803d" sx={{ textTransform: 'uppercase' }}>
-            Víctimas / Representados
-          </Typography>
-          <Typography variant="h5" fontWeight="bold" color="#14532d" sx={{ mt: 0.5 }}>
-            {metricas.totalRepresentados}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Padrón acumulado activo
-          </Typography>
-        </Paper>
-
-        <Paper
+        {/* CINTA DE TELEMETRÍA COMPACTA + ACCIONES PRIMARIAS */}
+        <Box
           sx={{
-            p: 2,
-            borderRadius: 2.5,
-            border: metricas.plazosUrgentes > 0 ? '1px solid #fecaca' : '1px solid #e2e8f0',
-            bgcolor: metricas.plazosUrgentes > 0 ? '#fef2f2' : '#ffffff',
-            boxShadow: 'none'
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            flexWrap: 'wrap',
+            width: { xs: '100%', lg: 'auto' },
+            justifyContent: { xs: 'space-between', lg: 'flex-end' }
           }}
         >
-          <Typography
-            variant="caption"
-            fontWeight="bold"
-            color={metricas.plazosUrgentes > 0 ? 'error.main' : 'text.secondary'}
-            sx={{ textTransform: 'uppercase' }}
+          {/* Píldora de Métricas Interactivas (Reemplaza los 4 bloques gigantes) */}
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              bgcolor: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: 2,
+              px: 0.75,
+              py: 0.5,
+              gap: 0.5,
+              boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+              overflowX: 'auto'
+            }}
           >
-            Plazos Fatales Críticos
-          </Typography>
-          <Typography
-            variant="h5"
-            fontWeight="bold"
-            color={metricas.plazosUrgentes > 0 ? 'error.main' : 'text.primary'}
-            sx={{ mt: 0.5 }}
-          >
-            {metricas.plazosUrgentes}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Vencidos o próximos (≤ 5 días)
-          </Typography>
-        </Paper>
+            <Tooltip title="Ver todos los expedientes activos">
+              <Box
+                onClick={limpiarTodosLosFiltros}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.6,
+                  px: 1.25,
+                  py: 0.4,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  bgcolor: !hayFiltrosActivos ? '#f8fafc' : 'transparent',
+                  '&:hover': { bgcolor: '#f1f5f9' }
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {metricas.totalActivos}
+                </Typography>
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>
+                  activos
+                </Typography>
+              </Box>
+            </Tooltip>
+
+            <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
+
+            <Tooltip title="Filtrar casos internacionales (SIDH / ONU)">
+              <Box
+                onClick={() =>
+                  setFiltroAmbito((prev) => (prev === 'Internacional' ? 'Todos' : 'Internacional'))
+                }
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.6,
+                  px: 1.25,
+                  py: 0.4,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  bgcolor: filtroAmbito === 'Internacional' ? '#eff6ff' : 'transparent',
+                  '&:hover': { bgcolor: '#f1f5f9' }
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                    color: filtroAmbito === 'Internacional' ? '#1d4ed8' : '#0f172a',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {metricas.totalInternacionales}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: '0.72rem',
+                    fontWeight: 500,
+                    color: filtroAmbito === 'Internacional' ? '#1e40af' : '#64748b'
+                  }}
+                >
+                  int.
+                </Typography>
+              </Box>
+            </Tooltip>
+
+            <Tooltip title="Filtrar casos en jurisdicción nacional (LatAm)">
+              <Box
+                onClick={() =>
+                  setFiltroAmbito((prev) => (prev === 'Nacional' ? 'Todos' : 'Nacional'))
+                }
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.6,
+                  px: 1.25,
+                  py: 0.4,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  bgcolor: filtroAmbito === 'Nacional' ? '#ecfdf5' : 'transparent',
+                  '&:hover': { bgcolor: '#f1f5f9' }
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                    color: filtroAmbito === 'Nacional' ? '#047857' : '#0f172a',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {metricas.totalNacionales}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: '0.72rem',
+                    fontWeight: 500,
+                    color: filtroAmbito === 'Nacional' ? '#065f46' : '#64748b'
+                  }}
+                >
+                  nac.
+                </Typography>
+              </Box>
+            </Tooltip>
+
+            <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
+
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 0.6,
+                px: 1.25,
+                py: 0.4
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: '0.88rem',
+                  fontWeight: 800,
+                  color: '#0f172a',
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                {metricas.totalRepresentados}
+              </Typography>
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>
+                representados
+              </Typography>
+            </Box>
+
+            <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
+
+            <Tooltip title="Filtrar casos con plazos fatales críticos (≤ 5 días)">
+              <Box
+                onClick={() => setFiltroSoloUrgentes((prev) => !prev)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.6,
+                  px: 1.25,
+                  py: 0.4,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  bgcolor: filtroSoloUrgentes
+                    ? '#fef2f2'
+                    : metricas.plazosUrgentes > 0
+                    ? '#fff1f2'
+                    : 'transparent',
+                  '&:hover': { bgcolor: '#ffe4e6' }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    bgcolor: metricas.plazosUrgentes > 0 ? '#dc2626' : '#94a3b8'
+                  }}
+                />
+                <Typography
+                  sx={{
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                    color: metricas.plazosUrgentes > 0 ? '#dc2626' : '#64748b',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {metricas.plazosUrgentes}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    color: metricas.plazosUrgentes > 0 ? '#b91c1c' : '#64748b'
+                  }}
+                >
+                  urgentes
+                </Typography>
+              </Box>
+            </Tooltip>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {esAdmin && (
+              <Tooltip title="Sincronizar estado de pagos con Stripe">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<CreditCard size={15} />}
+                  disabled={sincronizandoStripe}
+                  onClick={handleSincronizarStripe}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.78rem',
+                    borderRadius: 1.75,
+                    borderColor: '#e2e8f0',
+                    color: '#334155',
+                    py: 0.65,
+                    px: 1.5,
+                    '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc' }
+                  }}
+                >
+                  {sincronizandoStripe ? 'Sincronizando...' : 'Stripe'}
+                </Button>
+              </Tooltip>
+            )}
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<Plus size={16} />}
+              onClick={() => setOpenModal(true)}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                borderRadius: 1.75,
+                bgcolor: '#0f172a',
+                color: '#ffffff',
+                py: 0.7,
+                px: 1.75,
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.12)',
+                '&:hover': { bgcolor: '#1e293b' }
+              }}
+            >
+              Nuevo Caso
+            </Button>
+          </Box>
+        </Box>
       </Box>
 
-      {/* Barra de Búsqueda y Filtros Multi-Jurisdiccionales */}
-      <Paper
+      {/* ===================================================================== */}
+      {/* BARRA DE COMANDO Y FILTROS SLEEK (ESTILO LINEAR / HARVEY)             */}
+      {/* ===================================================================== */}
+      <Box
         sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: 2.5,
-          border: '1px solid #e2e8f0',
-          boxShadow: 'none',
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '2fr 1fr 1fr 1fr 1fr' },
-          gap: 1.5
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1.25,
+          mb: 2.5
         }}
       >
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Buscar por caso, expediente, país, Estado demandado o abogado..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, color: 'text.secondary' }}>
-                <Search size={18} />
-              </Box>
-            )
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'stretch', md: 'center' },
+            justifyContent: 'space-between',
+            gap: 1.25
           }}
-        />
+        >
+          {/* Buscador limpio + Píldoras de Ámbito */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                bgcolor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: 2,
+                px: 1.5,
+                py: 0.5,
+                flexGrow: 1,
+                maxWidth: { xs: '100%', md: 420 },
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                '&:focus-within': {
+                  borderColor: '#0f172a',
+                  boxShadow: '0 0 0 3px rgba(15, 23, 42, 0.06)'
+                }
+              }}
+            >
+              <Search size={15} color="#94a3b8" />
+              <InputBase
+                inputRef={searchInputRef}
+                fullWidth
+                placeholder="Buscar por caso, rol, país, demandado o abogado..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                sx={{ ml: 1, fontSize: '0.82rem', color: '#0f172a' }}
+              />
+              {busqueda ? (
+                <IconButton size="small" onClick={() => setBusqueda('')} sx={{ p: 0.25 }}>
+                  <X size={14} />
+                </IconButton>
+              ) : (
+                <Box
+                  component="kbd"
+                  sx={{
+                    display: { xs: 'none', sm: 'inline-flex' },
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    px: 0.65,
+                    py: 0.1,
+                    borderRadius: 0.85,
+                    bgcolor: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    color: '#64748b',
+                    fontSize: '0.66rem',
+                    fontFamily: 'monospace',
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    userSelect: 'none'
+                  }}
+                >
+                  /
+                </Box>
+              )}
+            </Box>
 
-        <FormControl size="small" fullWidth>
-          <InputLabel>Ámbito</InputLabel>
-          <Select value={filtroAmbito} label="Ámbito" onChange={(e) => setFiltroAmbito(e.target.value)}>
-            <MenuItem value="Todos">Todos los Ámbitos</MenuItem>
-            <MenuItem value="Internacional">🌐 Internacional (SIDH/ONU)</MenuItem>
-            <MenuItem value="Nacional">🏛️ Nacional (Vía Interna)</MenuItem>
-          </Select>
-        </FormControl>
+            {/* Tabs rápidos de Ámbito */}
+            <Box
+              sx={{
+                display: 'inline-flex',
+                bgcolor: '#f1f5f9',
+                p: 0.35,
+                borderRadius: 1.75,
+                border: '1px solid #e2e8f0'
+              }}
+            >
+              {[
+                { key: 'Todos', label: 'Todos' },
+                { key: 'Internacional', label: 'SIDH / ONU' },
+                { key: 'Nacional', label: 'Nacional LatAm' }
+              ].map((tab) => {
+                const active = filtroAmbito === tab.key;
+                return (
+                  <Box
+                    key={tab.key}
+                    onClick={() => setFiltroAmbito(tab.key)}
+                    sx={{
+                      px: 1.25,
+                      py: 0.4,
+                      borderRadius: 1.35,
+                      fontSize: '0.75rem',
+                      fontWeight: active ? 700 : 500,
+                      color: active ? '#0f172a' : '#64748b',
+                      bgcolor: active ? '#ffffff' : 'transparent',
+                      boxShadow: active ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      userSelect: 'none'
+                    }}
+                  >
+                    {tab.label}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
 
-        <FormControl size="small" fullWidth>
-          <InputLabel>País (LatAm)</InputLabel>
-          <Select value={filtroPais} label="País (LatAm)" onChange={(e) => setFiltroPais(e.target.value)}>
-            <MenuItem value="Todos">Todos los Países</MenuItem>
-            {PAISES_LATINOAMERICA.map((p) => (
-              <MenuItem key={p.codigo} value={p.nombre}>
-                {p.bandera} {p.nombre}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+          {/* Controles derechos: Filtros desplegables + Selector de Vista */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {hayTarjetasExpandidas && (
+              <Button
+                size="small"
+                onClick={contraerTodasLasTarjetas}
+                startIcon={<ChevronUp size={13} />}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.74rem',
+                  color: '#475569',
+                  fontWeight: 600,
+                  bgcolor: '#f1f5f9',
+                  borderRadius: 1.5,
+                  px: 1.1,
+                  py: 0.4,
+                  '&:hover': { color: '#0f172a', bgcolor: '#e2e8f0' }
+                }}
+              >
+                Contraer abiertas
+              </Button>
+            )}
 
-        <FormControl size="small" fullWidth>
-          <InputLabel>Vía / Instancia</InputLabel>
-          <Select
-            value={filtroJurisdiccion}
-            label="Vía / Instancia"
-            onChange={(e) => setFiltroJurisdiccion(e.target.value)}
+            {hayFiltrosActivos && (
+              <Button
+                size="small"
+                onClick={limpiarTodosLosFiltros}
+                startIcon={<X size={13} />}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.74rem',
+                  color: '#64748b',
+                  fontWeight: 600,
+                  '&:hover': { color: '#0f172a', bgcolor: '#f1f5f9' }
+                }}
+              >
+                Limpiar ({casosFiltrados.length})
+              </Button>
+            )}
+
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setMostrarFiltrosAvanzados((prev) => !prev)}
+              startIcon={<SlidersHorizontal size={14} />}
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.76rem',
+                fontWeight: 600,
+                borderRadius: 1.75,
+                borderColor:
+                  filtroPais !== 'Todos' || filtroJurisdiccion !== 'Todas' || filtroEstado !== 'Todos'
+                    ? '#0f172a'
+                    : '#e2e8f0',
+                color: '#334155',
+                bgcolor: mostrarFiltrosAvanzados ? '#f8fafc' : '#ffffff',
+                py: 0.55,
+                px: 1.25
+              }}
+            >
+              Filtros
+              {(filtroPais !== 'Todos' ||
+                filtroJurisdiccion !== 'Todas' ||
+                filtroEstado !== 'Todos') && (
+                <Box
+                  component="span"
+                  sx={{
+                    ml: 0.75,
+                    px: 0.6,
+                    py: 0.05,
+                    borderRadius: 1,
+                    bgcolor: '#0f172a',
+                    color: '#fff',
+                    fontSize: '0.66rem',
+                    fontWeight: 700
+                  }}
+                >
+                  {[
+                    filtroPais !== 'Todos',
+                    filtroJurisdiccion !== 'Todas',
+                    filtroEstado !== 'Todos'
+                  ].filter(Boolean).length}
+                </Box>
+              )}
+            </Button>
+
+            {/* Conmutador Vista Tarjetas Mínimas vs Vista Lista */}
+            <Box
+              sx={{
+                display: 'inline-flex',
+                bgcolor: '#f1f5f9',
+                p: 0.3,
+                borderRadius: 1.75,
+                border: '1px solid #e2e8f0'
+              }}
+            >
+              <Tooltip title="Tarjetas Mínimas (Clic para expandir)">
+                <IconButton
+                  size="small"
+                  onClick={() => setVistaModo('compact')}
+                  sx={{
+                    p: 0.5,
+                    borderRadius: 1.25,
+                    bgcolor: vistaModo === 'compact' ? '#ffffff' : 'transparent',
+                    color: vistaModo === 'compact' ? '#0f172a' : '#64748b',
+                    boxShadow: vistaModo === 'compact' ? '0 1px 2px rgba(15,23,42,0.06)' : 'none'
+                  }}
+                >
+                  <LayoutGrid size={15} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Lista Ejecutiva Compacta">
+                <IconButton
+                  size="small"
+                  onClick={() => setVistaModo('list')}
+                  sx={{
+                    p: 0.5,
+                    borderRadius: 1.25,
+                    bgcolor: vistaModo === 'list' ? '#ffffff' : 'transparent',
+                    color: vistaModo === 'list' ? '#0f172a' : '#64748b',
+                    boxShadow: vistaModo === 'list' ? '0 1px 2px rgba(15,23,42,0.06)' : 'none'
+                  }}
+                >
+                  <ListIcon size={15} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Cajón colapsable de filtros adicionales (País, Instancia, Estado) */}
+        <Collapse in={mostrarFiltrosAvanzados}>
+          <Box
+            sx={{
+              p: 1.5,
+              bgcolor: '#f8fafc',
+              borderRadius: 2,
+              border: '1px solid #e2e8f0',
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+              gap: 1.5
+            }}
           >
-            <MenuItem value="Todas">Todas las Instancias</MenuItem>
-            {JURISDICCIONES_LITIGIO.map((j) => (
-              <MenuItem key={j} value={j}>
-                {j}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            <FormControl size="small" fullWidth sx={{ bgcolor: '#ffffff', borderRadius: 1.5 }}>
+              <InputLabel sx={{ fontSize: '0.8rem' }}>País (LatAm)</InputLabel>
+              <Select
+                value={filtroPais}
+                label="País (LatAm)"
+                onChange={(e) => setFiltroPais(e.target.value)}
+                sx={{ fontSize: '0.82rem' }}
+              >
+                <MenuItem value="Todos">Todos los Países</MenuItem>
+                {PAISES_LATINOAMERICA.map((p) => (
+                  <MenuItem key={p.codigo} value={p.nombre}>
+                    {p.bandera} {p.nombre}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-        <FormControl size="small" fullWidth>
-          <InputLabel>Estado</InputLabel>
-          <Select value={filtroEstado} label="Estado" onChange={(e) => setFiltroEstado(e.target.value)}>
-            <MenuItem value="Todos">Todos</MenuItem>
-            {ESTADOS_CASO.map((st) => (
-              <MenuItem key={st} value={st}>
-                {st}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Paper>
+            <FormControl size="small" fullWidth sx={{ bgcolor: '#ffffff', borderRadius: 1.5 }}>
+              <InputLabel sx={{ fontSize: '0.8rem' }}>Vía / Instancia</InputLabel>
+              <Select
+                value={filtroJurisdiccion}
+                label="Vía / Instancia"
+                onChange={(e) => setFiltroJurisdiccion(e.target.value)}
+                sx={{ fontSize: '0.82rem' }}
+              >
+                <MenuItem value="Todas">Todas las Instancias</MenuItem>
+                {JURISDICCIONES_LITIGIO.map((j) => (
+                  <MenuItem key={j} value={j}>
+                    {j}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" fullWidth sx={{ bgcolor: '#ffffff', borderRadius: 1.5 }}>
+              <InputLabel sx={{ fontSize: '0.8rem' }}>Estado</InputLabel>
+              <Select
+                value={filtroEstado}
+                label="Estado"
+                onChange={(e) => setFiltroEstado(e.target.value)}
+                sx={{ fontSize: '0.82rem' }}
+              >
+                <MenuItem value="Todos">Todos</MenuItem>
+                {ESTADOS_CASO.map((st) => (
+                  <MenuItem key={st} value={st}>
+                    {st}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </Collapse>
+      </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
 
+      {/* ===================================================================== */}
+      {/* LISTADO DE CASOS: TARJETAS MÍNIMAS CON REVELADO EN 1 CLIC             */}
+      {/* ===================================================================== */}
       {casosFiltrados.length === 0 ? (
-        <Alert severity="info" sx={{ borderRadius: 2 }}>
-          No se localizaron casos con los criterios seleccionados.
-        </Alert>
+        <Box
+          sx={{
+            textAlign: 'center',
+            py: 8,
+            px: 3,
+            bgcolor: '#ffffff',
+            borderRadius: 3,
+            border: '1px dashed #cbd5e1'
+          }}
+        >
+          <Scale size={28} color="#94a3b8" style={{ marginBottom: 8 }} />
+          <Typography variant="subtitle2" fontWeight={700} color="#334155">
+            No se encontraron expedientes con estos filtros
+          </Typography>
+          <Typography variant="caption" color="#64748b" sx={{ display: 'block', mt: 0.5, mb: 2 }}>
+            Ajusta los criterios de búsqueda o registra un nuevo litigio.
+          </Typography>
+          {hayFiltrosActivos && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={limpiarTodosLosFiltros}
+              sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 600 }}
+            >
+              Restablecer filtros
+            </Button>
+          )}
+        </Box>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns:
+              vistaModo === 'list'
+                ? '1fr'
+                : { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' },
+            gap: vistaModo === 'list' ? 1.25 : 2,
+            alignItems: 'start'
+          }}
+        >
           {casosFiltrados.map((caso) => {
             const semaforo = calcularSemaforoDePlazos(caso.plazos);
             const derechos = Array.isArray(caso.derechos_invocados) ? caso.derechos_invocados : [];
             const perfilCaso = obtenerPerfilJurisdiccional(caso);
             const etapaMostrada = sincronizarEtapaConPerfil(caso.etapa_procesal, perfilCaso);
+            const isExpanded = Boolean(expandedCardIds[caso.id]);
+            const etapaCorta = etapaMostrada.replace(/^\d+\.\s*/, '');
+
+            const etapasList =
+              Array.isArray(perfilCaso.etapas) && perfilCaso.etapas.length > 0
+                ? perfilCaso.etapas
+                : ETAPAS_PROCESALES_LITIGIO;
+            const etapaRawIdx = etapasList.indexOf(etapaMostrada);
+            const etapaIdx = etapaRawIdx >= 0 ? etapaRawIdx : 0;
+            const totalEtapas = etapasList.length || 1;
+            const esFilaLista = vistaModo === 'list';
 
             return (
-              <Card
+              <Paper
                 key={caso.id}
+                elevation={0}
+                onClick={(e) => toggleExpandCard(caso.id, e)}
                 sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  borderRadius: 3,
-                  boxShadow: '0px 4px 12px rgba(0,0,0,0.03)',
-                  border: '1px solid #e2e8f0',
-                  transition: 'all 0.2s ease',
+                  position: 'relative',
+                  borderRadius: esFilaLista ? 2 : 2.5,
+                  bgcolor: '#ffffff',
+                  border: isExpanded ? '1px solid #94a3b8' : '1px solid #e2e8f0',
+                  boxShadow: isExpanded
+                    ? '0 10px 25px -5px rgba(15, 23, 42, 0.08)'
+                    : '0 1px 2px rgba(15, 23, 42, 0.03)',
+                  transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                  cursor: 'pointer',
+                  overflow: 'hidden',
                   '&:hover': {
-                    borderColor: '#93c5fd',
-                    boxShadow: '0px 6px 16px rgba(30,64,175,0.08)'
+                    borderColor: '#94a3b8',
+                    boxShadow: '0 6px 16px -4px rgba(15, 23, 42, 0.07)'
+                  },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '3.5px',
+                    bgcolor: semaforo?.urgente
+                      ? '#ef4444'
+                      : perfilCaso.esInternacional
+                      ? '#2563eb'
+                      : '#0d9488'
                   }
                 }}
               >
-                <CardContent sx={{ flexGrow: 1 }}>
-                  {/* Insignias superiores: Ámbito + País + Jurisdicción y Expediente Oficial */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 0.75, mb: 1.5, flexWrap: 'wrap' }}>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <Chip
-                        label={
-                          perfilCaso.esInternacional
-                            ? `🌐 Int. · ${perfilCaso.pais.bandera} ${perfilCaso.pais.codigo}`
-                            : `${perfilCaso.pais.bandera} Nacional · ${perfilCaso.pais.nombre}`
-                        }
-                        size="small"
-                        sx={{
-                          fontWeight: 'bold',
-                          fontSize: '0.68rem',
-                          bgcolor: perfilCaso.esInternacional ? '#eff6ff' : '#ecfdf5',
-                          color: perfilCaso.esInternacional ? '#1e40af' : '#065f46',
-                          border: perfilCaso.esInternacional ? '1px solid #bfdbfe' : '1px solid #a7f3d0'
-                        }}
-                      />
-                      <Chip
-                        label={caso.jurisdiccion || 'CIDH (Comisión)'}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          fontWeight: 'bold',
-                          fontSize: '0.68rem'
-                        }}
-                      />
-                    </Box>
-                    {caso.expediente_oficial && (
-                      <Chip
-                        label={caso.expediente_oficial}
-                        size="small"
-                        sx={{
-                          fontWeight: 'bold',
-                          fontSize: '0.7rem',
-                          fontFamily: 'monospace',
-                          bgcolor: '#1e293b',
-                          color: '#ffffff'
-                        }}
-                      />
-                    )}
-                  </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, color: 'primary.main' }}>
-                    <Gavel size={22} />
-                    <Typography variant="h6" fontWeight="bold" component="div" sx={{ lineHeight: 1.25 }}>
-                      {caso.nombre}
-                    </Typography>
-                  </Box>
-
-                  {caso.estado_demandado && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}>
-                      🏛️ Contra: <span style={{ color: '#334155' }}>{caso.estado_demandado}</span>
-                    </Typography>
-                  )}
-
-                  <Typography variant="caption" sx={{ display: 'block', mb: 1, color: '#475569', fontSize: '0.72rem' }}>
-                    📋 Estándar de Acreditación: <strong>{perfilCaso.normaCorto}</strong>
-                  </Typography>
-
-                  <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, mb: 1.5 }}>
-                    {caso.descripcion || 'Sin descripción disponible.'}
-                  </Typography>
-
-                  {/* Etapa procesal */}
+                {/* ========================================================= */}
+                {/* VISTA MÍNIMA: FILA HORIZONTAL ('list') vs TARJETA ('compact') */}
+                {/* ========================================================= */}
+                {esFilaLista ? (
                   <Box
                     sx={{
-                      p: 1,
-                      mb: 1.5,
-                      bgcolor: '#f8fafc',
-                      borderRadius: 1.5,
-                      border: '1px solid #e2e8f0',
+                      px: 2.25,
+                      py: 1.35,
+                      pl: 2.75,
                       display: 'flex',
+                      flexDirection: { xs: 'column', md: 'row' },
+                      alignItems: { xs: 'flex-start', md: 'center' },
                       justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 1
+                      gap: 1.5
                     }}
                   >
-                    <Typography variant="caption" color="text.secondary" fontWeight="bold">
-                      Etapa:
-                    </Typography>
-                    <Typography variant="caption" fontWeight="bold" color="primary.main" sx={{ textAlign: 'right' }}>
-                      {etapaMostrada}
-                    </Typography>
-                  </Box>
+                    {/* Izquierda: Jurisdicción + Rol + Título + Demandado */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
+                        minWidth: 0,
+                        flex: 1,
+                        flexWrap: { xs: 'wrap', md: 'nowrap' }
+                      }}
+                    >
+                      <Box
+                        component="span"
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          px: 0.9,
+                          py: 0.2,
+                          borderRadius: 1,
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          bgcolor: perfilCaso.esInternacional ? '#eff6ff' : '#f0fdf4',
+                          color: perfilCaso.esInternacional ? '#1d4ed8' : '#0f766e'
+                        }}
+                      >
+                        {perfilCaso.pais.bandera} {caso.jurisdiccion || 'CIDH'}
+                      </Box>
 
-                  {/* Derechos invocados */}
-                  {derechos.length > 0 && (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
-                      {derechos.slice(0, 3).map((d) => (
-                        <Chip
-                          key={d}
-                          label={d}
-                          size="small"
-                          variant="outlined"
-                          sx={{ height: 20, fontSize: '0.65rem', fontWeight: 'medium' }}
-                        />
-                      ))}
-                      {derechos.length > 3 && (
-                        <Chip
-                          label={`+${derechos.length - 3}`}
-                          size="small"
-                          sx={{ height: 20, fontSize: '0.65rem', fontWeight: 'bold' }}
-                        />
+                      {caso.expediente_oficial && (
+                        <Box
+                          component="span"
+                          sx={{
+                            px: 0.75,
+                            py: 0.15,
+                            borderRadius: 1,
+                            fontSize: '0.67rem',
+                            fontWeight: 600,
+                            fontFamily: 'monospace',
+                            bgcolor: '#f1f5f9',
+                            color: '#334155',
+                            border: '1px solid #e2e8f0',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0
+                          }}
+                        >
+                          {caso.expediente_oficial}
+                        </Box>
+                      )}
+
+                      <Typography
+                        variant="subtitle2"
+                        noWrap
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectCaso(caso);
+                        }}
+                        sx={{
+                          fontWeight: 700,
+                          color: '#0f172a',
+                          fontSize: '0.9rem',
+                          letterSpacing: '-0.01em',
+                          minWidth: 0,
+                          '&:hover': {
+                            color: '#1d4ed8',
+                            textDecoration: 'underline',
+                            textUnderlineOffset: '3px'
+                          }
+                        }}
+                      >
+                        {caso.nombre}
+                      </Typography>
+
+                      {caso.estado_demandado && (
+                        <Typography
+                          variant="caption"
+                          noWrap
+                          sx={{
+                            color: '#64748b',
+                            fontSize: '0.74rem',
+                            flexShrink: 0,
+                            display: { xs: 'none', lg: 'inline' }
+                          }}
+                        >
+                          · vs. <strong style={{ color: '#475569' }}>{caso.estado_demandado}</strong>
+                        </Typography>
                       )}
                     </Box>
-                  )}
 
-                  <Divider sx={{ my: 1.5 }} />
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'text.secondary', fontSize: '0.85rem', mb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Users size={14} />
-                      <Typography variant="caption" sx={{ fontSize: '0.82rem' }}>
-                        Representados: <strong>{caso.totalClientes}</strong>
-                      </Typography>
-                    </Box>
-                    {caso.abogado_responsable && (
-                      <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 140 }}>
-                        ⚖️ {caso.abogado_responsable}
-                      </Typography>
-                    )}
-                  </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.85rem' }}>
-                    <Calendar size={14} color="#94a3b8" />
-                    <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                      Estado del proceso:
-                    </Typography>
-                    <Chip
-                      label={caso.estado}
-                      size="small"
-                      color={getStatusColor(caso.estado)}
-                      sx={{ fontWeight: 'bold', height: 20, fontSize: '0.75rem' }}
-                    />
-                  </Box>
-
-                  {semaforo && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5, fontSize: '0.85rem' }}>
-                      <AlertTriangle size={14} color={semaforo.textColor} />
-                      <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                        Vencimiento:
-                      </Typography>
-                      <Chip
-                        label={semaforo.label}
-                        size="small"
-                        sx={{
-                          fontWeight: 'bold',
-                          height: 20,
-                          fontSize: '0.75rem',
-                          bgcolor: semaforo.bcolor,
-                          color: semaforo.textColor
-                        }}
-                      />
-                    </Box>
-                  )}
-                </CardContent>
-
-                <CardActions sx={{ p: 2, pt: 0, gap: 1 }}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => onSelectCaso(caso)}
-                    sx={{ flexGrow: 1, textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
-                  >
-                    Abrir Expediente
-                  </Button>
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => handleOpenEdit(caso)}
-                    title="Configurar Ficha Técnica del Litigio"
-                    sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, p: 0.75 }}
-                  >
-                    <Edit size={16} />
-                  </IconButton>
-                  {esAdmin && (
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteCaso(caso.id, caso.nombre)}
-                      title="Eliminar Caso Completo"
-                      sx={{ border: '1px solid #fee2e2', bgcolor: '#fef2f2', borderRadius: 1.5, p: 0.75 }}
+                    {/* Derecha: Progreso Etapa + Representados + Semáforo + Abrir + Chevron */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        flexShrink: 0,
+                        width: { xs: '100%', md: 'auto' },
+                        justifyContent: { xs: 'space-between', md: 'flex-end' }
+                      }}
                     >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  )}
-                </CardActions>
-              </Card>
+                      {/* Indicador de Etapa Procesal con Micro-Progreso */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Box
+                          component="span"
+                          sx={{
+                            px: 0.65,
+                            py: 0.1,
+                            borderRadius: 0.85,
+                            bgcolor: '#f1f5f9',
+                            color: '#334155',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            fontVariantNumeric: 'tabular-nums'
+                          }}
+                        >
+                          {etapaIdx + 1}/{totalEtapas}
+                        </Box>
+                        <Typography
+                          variant="caption"
+                          noWrap
+                          sx={{
+                            fontSize: '0.73rem',
+                            fontWeight: 600,
+                            color: '#475569',
+                            maxWidth: 160
+                          }}
+                        >
+                          {etapaCorta}
+                        </Typography>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.4,
+                          fontSize: '0.74rem',
+                          color: '#64748b',
+                          fontVariantNumeric: 'tabular-nums'
+                        }}
+                      >
+                        <Users size={13} color="#64748b" />
+                        <strong style={{ color: '#0f172a' }}>{caso.totalClientes}</strong>
+                      </Box>
+
+                      {semaforo ? (
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            px: 0.85,
+                            py: 0.2,
+                            borderRadius: 1,
+                            fontSize: '0.67rem',
+                            fontWeight: 700,
+                            bgcolor: semaforo.bcolor,
+                            color: semaforo.textColor,
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          <Clock size={11} />
+                          {semaforo.label}
+                        </Box>
+                      ) : (
+                        <Box
+                          component="span"
+                          sx={{
+                            px: 0.8,
+                            py: 0.15,
+                            borderRadius: 1,
+                            fontSize: '0.67rem',
+                            fontWeight: 600,
+                            bgcolor: caso.estado === 'Activo' ? '#f0fdf4' : '#f1f5f9',
+                            color: caso.estado === 'Activo' ? '#15803d' : '#64748b'
+                          }}
+                        >
+                          {caso.estado}
+                        </Box>
+                      )}
+
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          size="small"
+                          onClick={() => onSelectCaso(caso)}
+                          endIcon={<ArrowUpRight size={13} />}
+                          sx={{
+                            textTransform: 'none',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            bgcolor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 1.5,
+                            px: 1.1,
+                            py: 0.25,
+                            minWidth: 'auto',
+                            '&:hover': {
+                              bgcolor: '#0f172a',
+                              color: '#ffffff',
+                              borderColor: '#0f172a'
+                            }
+                          }}
+                        >
+                          Abrir
+                        </Button>
+
+                        <Tooltip title={isExpanded ? 'Contraer ficha rápida' : 'Desplegar ficha rápida'}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => toggleExpandCard(caso.id, e)}
+                            sx={{
+                              p: 0.35,
+                              color: '#64748b',
+                              bgcolor: isExpanded ? '#f1f5f9' : 'transparent',
+                              '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' }
+                            }}
+                          >
+                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  </Box>
+                ) : (
+                  /* TARJETA MÍNIMA EN CUADRÍCULA ('compact') */
+                  <Box sx={{ p: 2, pl: 2.5 }}>
+                    {/* Fila Superior: Insignia Jurisdiccional + Rol Oficial + Semáforo de Plazo */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1,
+                        mb: 1
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            px: 0.9,
+                            py: 0.2,
+                            borderRadius: 1,
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            bgcolor: perfilCaso.esInternacional ? '#eff6ff' : '#f0fdf4',
+                            color: perfilCaso.esInternacional ? '#1d4ed8' : '#0f766e'
+                          }}
+                        >
+                          {perfilCaso.pais.bandera} {caso.jurisdiccion || 'CIDH'}
+                        </Box>
+
+                        {caso.expediente_oficial && (
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.8,
+                              py: 0.15,
+                              borderRadius: 1,
+                              fontSize: '0.67rem',
+                              fontWeight: 600,
+                              fontFamily: 'monospace',
+                              bgcolor: '#f1f5f9',
+                              color: '#334155',
+                              border: '1px solid #e2e8f0'
+                            }}
+                          >
+                            {caso.expediente_oficial}
+                          </Box>
+                        )}
+                      </Box>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        {semaforo ? (
+                          <Box
+                            component="span"
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              px: 0.85,
+                              py: 0.2,
+                              borderRadius: 1,
+                              fontSize: '0.67rem',
+                              fontWeight: 700,
+                              bgcolor: semaforo.bcolor,
+                              color: semaforo.textColor
+                            }}
+                          >
+                            <Clock size={11} />
+                            {semaforo.label}
+                          </Box>
+                        ) : (
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.8,
+                              py: 0.15,
+                              borderRadius: 1,
+                              fontSize: '0.67rem',
+                              fontWeight: 600,
+                              bgcolor: caso.estado === 'Activo' ? '#f0fdf4' : '#f1f5f9',
+                              color: caso.estado === 'Activo' ? '#15803d' : '#64748b'
+                            }}
+                          >
+                            {caso.estado}
+                          </Box>
+                        )}
+
+                        <Tooltip title={isExpanded ? 'Contraer ficha rápida' : 'Ver ficha rápida'}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => toggleExpandCard(caso.id, e)}
+                            sx={{
+                              p: 0.35,
+                              color: '#64748b',
+                              bgcolor: isExpanded ? '#f1f5f9' : 'transparent',
+                              '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' }
+                            }}
+                          >
+                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+
+                    {/* Título Principal del Caso + Contraparte */}
+                    <Box sx={{ mb: 1.35 }}>
+                      <Typography
+                        variant="subtitle1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectCaso(caso);
+                        }}
+                        sx={{
+                          fontWeight: 700,
+                          color: '#0f172a',
+                          fontSize: '0.96rem',
+                          lineHeight: 1.32,
+                          letterSpacing: '-0.01em',
+                          display: '-webkit-box',
+                          WebkitLineClamp: isExpanded ? 'unset' : 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          '&:hover': {
+                            color: '#1d4ed8',
+                            textDecoration: 'underline',
+                            textUnderlineOffset: '3px'
+                          }
+                        }}
+                      >
+                        {caso.nombre}
+                      </Typography>
+
+                      {caso.estado_demandado && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#64748b',
+                            fontSize: '0.75rem',
+                            display: 'block',
+                            mt: 0.25
+                          }}
+                        >
+                          Contra <strong style={{ color: '#475569' }}>{caso.estado_demandado}</strong>
+                        </Typography>
+                      )}
+                    </Box>
+
+                    {/* Pie Compacto Mínimo: Representados · Etapa con Progreso · Acción Directa */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1,
+                        pt: 1,
+                        borderTop: '1px solid #f1f5f9'
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          color: '#64748b',
+                          fontSize: '0.74rem',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <Tooltip title=" Personas representadas en el caso">
+                          <Box
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.4,
+                              whiteSpace: 'nowrap',
+                              fontVariantNumeric: 'tabular-nums'
+                            }}
+                          >
+                            <Users size={13} color="#64748b" />
+                            <strong style={{ color: '#0f172a' }}>{caso.totalClientes}</strong>
+                          </Box>
+                        </Tooltip>
+
+                        <Box sx={{ color: '#cbd5e1' }}>·</Box>
+
+                        {/* Píldora de Progreso de Etapa (Ej: 3/5 + Barra segmentada + Nombre) */}
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.6,
+                            minWidth: 0
+                          }}
+                        >
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.55,
+                              py: 0.05,
+                              borderRadius: 0.75,
+                              bgcolor: '#f1f5f9',
+                              color: '#334155',
+                              fontSize: '0.64rem',
+                              fontWeight: 700,
+                              fontVariantNumeric: 'tabular-nums',
+                              flexShrink: 0
+                            }}
+                          >
+                            {etapaIdx + 1}/{totalEtapas}
+                          </Box>
+
+                          <Box
+                            sx={{
+                              display: { xs: 'none', sm: 'inline-flex' },
+                              alignItems: 'center',
+                              gap: '2px',
+                              flexShrink: 0
+                            }}
+                          >
+                            {etapasList.map((stName, idx) => (
+                              <Box
+                                key={stName}
+                                sx={{
+                                  width: 6,
+                                  height: 3.5,
+                                  borderRadius: 0.5,
+                                  bgcolor:
+                                    idx <= etapaIdx
+                                      ? perfilCaso.esInternacional
+                                        ? '#2563eb'
+                                        : '#0d9488'
+                                      : '#e2e8f0'
+                                }}
+                              />
+                            ))}
+                          </Box>
+
+                          <Typography
+                            variant="caption"
+                            noWrap
+                            sx={{
+                              fontSize: '0.73rem',
+                              fontWeight: 600,
+                              color: '#475569'
+                            }}
+                          >
+                            {etapaCorta}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          size="small"
+                          onClick={() => onSelectCaso(caso)}
+                          endIcon={<ArrowUpRight size={13} />}
+                          sx={{
+                            textTransform: 'none',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            bgcolor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 1.5,
+                            px: 1.15,
+                            py: 0.25,
+                            minWidth: 'auto',
+                            '&:hover': {
+                              bgcolor: '#0f172a',
+                              color: '#ffffff',
+                              borderColor: '#0f172a'
+                            }
+                          }}
+                        >
+                          Abrir
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* ========================================================= */}
+                {/* CAJÓN DESPLEGABLE EN 1 CLIC (PROGRESSIVE DISCLOSURE)      */}
+                {/* ========================================================= */}
+                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                  <Box
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      px: 2.5,
+                      py: 2,
+                      bgcolor: '#f8fafc',
+                      borderTop: '1px solid #e2e8f0',
+                      cursor: 'default'
+                    }}
+                  >
+                    {/* Línea de Tiempo / Progreso de Etapas Procesales */}
+                    <Box sx={{ mb: 1.75 }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          mb: 0.6
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          Ruta Procesal ({etapaIdx + 1} de {totalEtapas})
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: '#0f172a' }}>
+                          {etapaMostrada}
+                        </Typography>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: `repeat(${totalEtapas}, 1fr)`,
+                          gap: 0.5
+                        }}
+                      >
+                        {etapasList.map((etName, idx) => {
+                          const isCompleted = idx < etapaIdx;
+                          const isCurrent = idx === etapaIdx;
+                          const cleanName = etName.replace(/^\d+\.\s*/, '');
+                          return (
+                            <Tooltip key={etName} title={etName}>
+                              <Box sx={{ minWidth: 0 }}>
+                                <Box
+                                  sx={{
+                                    height: 4,
+                                    borderRadius: 1,
+                                    mb: 0.4,
+                                    bgcolor: isCurrent
+                                      ? '#0f172a'
+                                      : isCompleted
+                                      ? perfilCaso.esInternacional
+                                        ? '#3b82f6'
+                                        : '#14b8a6'
+                                      : '#e2e8f0'
+                                  }}
+                                />
+                                <Typography
+                                  noWrap
+                                  sx={{
+                                    fontSize: '0.62rem',
+                                    fontWeight: isCurrent ? 700 : 500,
+                                    color: isCurrent
+                                      ? '#0f172a'
+                                      : isCompleted
+                                      ? '#475569'
+                                      : '#94a3b8'
+                                  }}
+                                >
+                                  {cleanName}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+
+                    {/* Síntesis Fáctica */}
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'block',
+                        fontWeight: 700,
+                        color: '#475569',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        fontSize: '0.65rem',
+                        mb: 0.4
+                      }}
+                    >
+                      Síntesis Fáctica y Objeto
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: '#334155',
+                        fontSize: '0.8rem',
+                        lineHeight: 1.55,
+                        mb: 1.5
+                      }}
+                    >
+                      {caso.descripcion || 'Sin descripción registrada en la ficha del expediente.'}
+                    </Typography>
+
+                    {/* Metadatos Técnicos en Cuadrícula Limpia */}
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                        gap: 1,
+                        p: 1.25,
+                        bgcolor: '#ffffff',
+                        borderRadius: 1.75,
+                        border: '1px solid #e2e8f0',
+                        mb: 1.5
+                      }}
+                    >
+                      <Box>
+                        <Typography sx={{ fontSize: '0.66rem', color: '#64748b', fontWeight: 600 }}>
+                          Estándar Procesal
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.76rem', color: '#0f172a', fontWeight: 700 }}>
+                          {perfilCaso.normaCorto}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.66rem', color: '#64748b', fontWeight: 600 }}>
+                          Responsable Legal
+                        </Typography>
+                        <Typography
+                          noWrap
+                          sx={{ fontSize: '0.76rem', color: '#0f172a', fontWeight: 600 }}
+                        >
+                          {caso.abogado_responsable || 'Equipo Legal IIRESODH'}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {/* Normativa / Derechos Invocados */}
+                    {derechos.length > 0 && (
+                      <Box sx={{ mb: 1.75 }}>
+                        <Typography
+                          sx={{
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            mb: 0.6
+                          }}
+                        >
+                          Normativa Invocada
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {derechos.map((d) => (
+                            <Box
+                              key={d}
+                              component="span"
+                              sx={{
+                                px: 0.85,
+                                py: 0.25,
+                                bgcolor: '#ffffff',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: 1,
+                                fontSize: '0.68rem',
+                                fontWeight: 500,
+                                color: '#334155'
+                              }}
+                            >
+                              {d}
+                            </Box>
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* Barra de Acciones del Cajón Expandido */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 1,
+                        pt: 0.5
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<Edit size={13} />}
+                          onClick={() => handleOpenEdit(caso)}
+                          sx={{
+                            textTransform: 'none',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            borderColor: '#cbd5e1',
+                            color: '#334155',
+                            bgcolor: '#ffffff',
+                            borderRadius: 1.5,
+                            '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' }
+                          }}
+                        >
+                          Editar Ficha
+                        </Button>
+
+                        {esAdmin && (
+                          <Tooltip title="Eliminar litigio permanentemente">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteCaso(caso.id, caso.nombre)}
+                              sx={{
+                                p: 0.6,
+                                color: '#94a3b8',
+                                border: '1px solid transparent',
+                                borderRadius: 1.5,
+                                '&:hover': {
+                                  color: '#dc2626',
+                                  bgcolor: '#fef2f2',
+                                  borderColor: '#fecaca'
+                                }
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+
+                      <Button
+                        size="small"
+                        variant="contained"
+                        endIcon={<ArrowUpRight size={15} />}
+                        onClick={() => onSelectCaso(caso)}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '0.76rem',
+                          fontWeight: 700,
+                          bgcolor: '#0f172a',
+                          color: '#ffffff',
+                          borderRadius: 1.5,
+                          px: 2,
+                          '&:hover': { bgcolor: '#1e293b' }
+                        }}
+                      >
+                        Entrar al Expediente Completo
+                      </Button>
+                    </Box>
+                  </Box>
+                </Collapse>
+              </Paper>
             );
           })}
         </Box>
