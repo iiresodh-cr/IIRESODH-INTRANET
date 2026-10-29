@@ -23,22 +23,18 @@ import {
   Typography,
   Paper,
   TextField,
-  Card,
-  CardContent,
   CircularProgress,
   Alert,
   Divider,
   List,
-  ListItem,
-  ListItemText,
   LinearProgress,
-  Chip,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   IconButton,
-  Collapse
+  Collapse,
+  Tooltip
 } from '@mui/material';
 import {
   ArrowLeft,
@@ -50,14 +46,12 @@ import {
   File,
   Plus,
   Trash2,
-  Eye,
-  CheckCircle,
-  AlertTriangle,
   Mail,
   Sparkles,
-  ShieldCheck,
   MessageCircle,
-  Edit
+  Edit,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
 import { obtenerPerfilJurisdiccional } from '../../utils/perfilesJurisdiccionales';
@@ -140,90 +134,164 @@ function ItemNotificacion({ item }) {
   const [expanded, setExpanded] = useState(false);
 
   const cfg = (() => {
-    if (item.estado === 'Abierto') return { color: 'success', icon: <Eye size={14} />, label: 'Abierto' };
-    if (item.estado === 'Entregado') return { color: 'info', icon: <CheckCircle size={14} />, label: 'Entregado' };
-    if (item.estado === 'Rebotado') return { color: 'error', icon: <AlertTriangle size={14} />, label: 'Rebotado' };
-    return { color: 'default', icon: <Mail size={14} />, label: 'Enviado' };
+    if (item.estado === 'Abierto' || item.abierto_at) {
+      return { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Abierto' };
+    }
+    if (item.estado === 'Entregado' || item.entregado_at) {
+      return { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Entregado' };
+    }
+    if (item.estado === 'Rebotado' || item.rebotado_at) {
+      return { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Rebotado' };
+    }
+    return { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', label: 'Enviado' };
   })();
 
+  const fechaRef = item.abierto_at || item.entregado_at || item.ultima_actualizacion || '';
+
   return (
-    <Box sx={{ mb: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Typography variant="body2" fontWeight="bold" color="text.primary" sx={{ maxWidth: '70%' }}>
-          {item.asunto}
-        </Typography>
-        <Chip size="small" color={cfg.color} label={cfg.label} sx={{ fontWeight: 'bold', fontSize: '0.7rem', height: 20 }} />
+    <Paper
+      elevation={0}
+      onClick={() => setExpanded((prev) => !prev)}
+      sx={{
+        mb: 1,
+        borderRadius: 2,
+        bgcolor: '#ffffff',
+        border: expanded ? '1px solid #94a3b8' : '1px solid #e2e8f0',
+        cursor: 'pointer',
+        overflow: 'hidden',
+        transition: 'all 0.15s ease',
+        '&:hover': { borderColor: '#94a3b8', bgcolor: '#fcfdfe' }
+      }}
+    >
+      {/* Fila mínima siempre visible */}
+      <Box
+        sx={{
+          px: 1.5,
+          py: 1.1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1
+        }}
+      >
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{ fontWeight: 700, color: '#0f172a', fontSize: '0.8rem' }}
+          >
+            {item.asunto}
+          </Typography>
+          {fechaRef && (
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{ color: '#64748b', fontSize: '0.68rem', display: 'block' }}
+            >
+              {fechaRef}
+            </Typography>
+          )}
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+          <Box
+            component="span"
+            sx={{
+              px: 0.75,
+              py: 0.15,
+              borderRadius: 1,
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              bgcolor: cfg.bg,
+              color: cfg.color,
+              border: `1px solid ${cfg.border}`
+            }}
+          >
+            {cfg.label}
+          </Box>
+          <IconButton size="small" sx={{ p: 0.25, color: '#64748b' }}>
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </IconButton>
+        </Box>
       </Box>
 
-      <Button
-        size="small"
-        variant="text"
-        onClick={() => setExpanded(!expanded)}
-        sx={{ textTransform: 'none', fontSize: '0.72rem', p: 0, minWidth: 0, mb: 0.5, fontWeight: 'bold', color: 'primary.main' }}
-      >
-        {expanded ? 'Ocultar contenido del mensaje' : 'Ver contenido del mensaje'}
-      </Button>
-
-      <Collapse in={expanded}>
-        <Typography
-          variant="caption"
-          color="text.secondary"
+      {/* Cajón desplegable en 1 clic */}
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <Box
+          onClick={(e) => e.stopPropagation()}
           sx={{
-            display: 'block',
-            my: 1,
-            whiteSpace: 'pre-wrap',
-            bgcolor: '#ffffff',
-            p: 1,
-            borderRadius: 1,
-            border: '1px solid #e2e8f0'
+            px: 1.5,
+            py: 1.25,
+            bgcolor: '#f8fafc',
+            borderTop: '1px solid #e2e8f0',
+            cursor: 'default'
           }}
         >
-          {item.cuerpo}
-        </Typography>
-      </Collapse>
-
-      {item.pdf_url && (
-        <Box sx={{ mt: 0.5 }}>
-          <Button
-            component="a"
-            href={item.pdf_url}
-            target="_blank"
-            rel="noopener"
-            variant="text"
-            size="small"
-            startIcon={<File size={12} />}
-            sx={{ textTransform: 'none', fontWeight: 'bold', fontSize: '0.7rem', p: 0, justifyContent: 'flex-start' }}
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              whiteSpace: 'pre-wrap',
+              bgcolor: '#ffffff',
+              p: 1.25,
+              borderRadius: 1.5,
+              border: '1px solid #e2e8f0',
+              color: '#334155',
+              fontSize: '0.76rem',
+              lineHeight: 1.55,
+              mb: 1
+            }}
           >
-            Descargar Anexo: {item.pdf_nombre || 'Documento Adjunto'}
-          </Button>
-        </Box>
-      )}
-
-      <Divider sx={{ my: 1, borderStyle: 'dashed' }} />
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {item.entregado_at && (
-          <Typography variant="caption" color="text.secondary">
-            Recibido: <strong>{item.entregado_at}</strong>
+            {item.cuerpo}
           </Typography>
-        )}
-        {item.abierto_at && (
-          <Typography variant="caption" color="success.main">
-            Abierto: <strong>{item.abierto_at}</strong>
-          </Typography>
-        )}
-        {item.rebotado_at && (
-          <Typography variant="caption" color="error.main">
-            Rebote: <strong>{item.rebotado_at}</strong>
-            {item.causa_rebote && (
-              <span style={{ display: 'block', fontStyle: 'italic', fontSize: '0.65rem', marginTop: '2px' }}>
-                {item.causa_rebote}
-              </span>
+
+          {item.pdf_url && (
+            <Button
+              component="a"
+              href={item.pdf_url}
+              target="_blank"
+              rel="noopener"
+              variant="outlined"
+              size="small"
+              startIcon={<File size={12} />}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.7rem',
+                borderRadius: 1.25,
+                py: 0.25,
+                px: 1,
+                mb: 1,
+                bgcolor: '#ffffff',
+                borderColor: '#cbd5e1',
+                color: '#0f172a'
+              }}
+            >
+              {item.pdf_nombre || 'Ver Anexo PDF'}
+            </Button>
+          )}
+
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+            {item.entregado_at && (
+              <Typography variant="caption" sx={{ fontSize: '0.68rem', color: '#475569' }}>
+                Recibido: <strong>{item.entregado_at}</strong>
+              </Typography>
             )}
-          </Typography>
-        )}
-      </Box>
-    </Box>
+            {item.abierto_at && (
+              <Typography variant="caption" sx={{ fontSize: '0.68rem', color: '#15803d' }}>
+                Leído: <strong>{item.abierto_at}</strong>
+              </Typography>
+            )}
+            {item.rebotado_at && (
+              <Typography variant="caption" sx={{ fontSize: '0.68rem', color: '#b91c1c' }}>
+                Rebote: <strong>{item.rebotado_at}</strong>
+                {item.causa_rebote ? ` (${item.causa_rebote})` : ''}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      </Collapse>
+    </Paper>
   );
 }
 
@@ -275,6 +343,13 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
   const [resultadoDocIA, setResultadoDocIA] = useState(null);
   const [generandoResumenIA, setGenerandoResumenIA] = useState(false);
   const [resumenEjecutivoIA, setResumenEjecutivoIA] = useState(null);
+  const [mostrarContactoSecundario, setMostrarContactoSecundario] = useState(false);
+  const [mostrarPanelFinanciero, setMostrarPanelFinanciero] = useState(false);
+  const [expandedNoteIds, setExpandedNoteIds] = useState({});
+
+  const toggleExpandNota = (notaId) => {
+    setExpandedNoteIds((prev) => ({ ...prev, [notaId]: !prev[notaId] }));
+  };
 
   const clienteRef = doc(db, 'casos', casoId, 'clientes', clienteId);
 
@@ -768,7 +843,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
+        <CircularProgress size={28} sx={{ color: '#0f172a' }} />
       </Box>
     );
   }
@@ -776,15 +851,55 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
   const urlWhatsApp = obtenerUrlWhatsApp();
   const acreditacionCompleta = Boolean(cliente?.tiene_poder && cliente?.tiene_documento_id);
   const perfilJurisdiccional = obtenerPerfilJurisdiccional(caso || {});
+  const nombreCompleto = `${nombres || ''} ${apellidos || ''}`.trim() || 'Representado';
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2.5 }}>
-        <Button startIcon={<ArrowLeft size={16} />} onClick={onVolver} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
-          Volver al Expediente General
-        </Button>
+    <Box sx={{ maxWidth: 1440, mx: 'auto', pb: 6 }}>
+      {/* =================================================================== */}
+      {/* BARRA DE NAVEGACIÓN SUPERIOR + ACCIONES EJECUTIVAS                  */}
+      {/* =================================================================== */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          mb: 2
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            size="small"
+            startIcon={<ArrowLeft size={15} />}
+            onClick={onVolver}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              color: '#475569',
+              bgcolor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: 1.5,
+              px: 1.25,
+              py: 0.4,
+              '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' }
+            }}
+          >
+            Volver al Expediente
+          </Button>
+          {caso?.nombre && (
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{ color: '#64748b', fontSize: '0.75rem', maxWidth: { xs: 220, md: 480 } }}
+            >
+              / {caso.nombre}
+            </Typography>
+          )}
+        </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           {urlWhatsApp && (
             <Button
               component="a"
@@ -792,85 +907,236 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               target="_blank"
               rel="noopener noreferrer"
               variant="outlined"
-              color="success"
               size="small"
-              startIcon={<MessageCircle size={16} />}
-              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+              startIcon={<MessageCircle size={15} />}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.76rem',
+                borderRadius: 1.75,
+                borderColor: '#bbf7d0',
+                bgcolor: '#f0fdf4',
+                color: '#15803d',
+                py: 0.55,
+                px: 1.4,
+                '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' }
+              }}
             >
-              Contactar por WhatsApp
+              WhatsApp
             </Button>
           )}
           <Button
             variant="contained"
             size="small"
-            startIcon={<Sparkles size={16} />}
+            startIcon={<Sparkles size={15} />}
             disabled={generandoResumenIA}
             onClick={handleGenerarResumenIA}
             sx={{
               textTransform: 'none',
-              fontWeight: 'bold',
-              borderRadius: 2,
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              borderRadius: 1.75,
+              bgcolor: '#0f172a',
               color: '#ffffff',
-              background: 'linear-gradient(90deg, #1e3a8a 0%, #4338ca 100%)',
-              '&:hover': {
-                background: 'linear-gradient(90deg, #172554 0%, #312e81 100%)'
-              },
-              '&.Mui-disabled': {
-                background: '#e2e8f0',
-                bgcolor: '#e2e8f0',
-                color: '#475569',
-                border: '1px solid #cbd5e1'
-              }
+              py: 0.6,
+              px: 1.6,
+              boxShadow: '0 1px 2px rgba(15, 23, 42, 0.12)',
+              '&:hover': { bgcolor: '#1e293b' }
             }}
           >
-            {generandoResumenIA ? 'Generando Síntesis con PIDA...' : '✨ Síntesis Ejecutiva PIDA del Representado'}
+            {generandoResumenIA ? 'Sintetizando...' : 'Síntesis Ejecutiva PIDA'}
           </Button>
         </Box>
       </Box>
 
-      {/* BARRA DE ACREDITACIÓN ADAPTATIVA SEGÚN JURISDICCIÓN */}
+      {/* =================================================================== */}
+      {/* CABECERA EJECUTIVA UNIFICADA DEL REPRESENTADO + SEMÁFORO COMPACTO   */}
+      {/* =================================================================== */}
       <Paper
+        elevation={0}
         sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: 3,
-          border: acreditacionCompleta ? '1px solid #86efac' : '1px solid #fde047',
-          bgcolor: acreditacionCompleta ? '#f0fdf4' : '#fefce8',
-          boxShadow: 'none'
+          position: 'relative',
+          p: { xs: 2, sm: 2.5 },
+          pl: { xs: 2.5, sm: 3 },
+          mb: 2.5,
+          borderRadius: 2.5,
+          bgcolor: '#ffffff',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: '4px',
+            bgcolor: acreditacionCompleta ? '#10b981' : '#f59e0b'
+          }
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ShieldCheck size={20} color={acreditacionCompleta ? '#15803d' : '#a16207'} />
-            <Box>
-              <Typography variant="subtitle2" fontWeight="bold">
-                {perfilJurisdiccional.pais.bandera} Semáforo de Acreditación Individual ({perfilJurisdiccional.normaTitulo})
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', lg: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'flex-start', lg: 'center' },
+            gap: 2
+          }}
+        >
+          {/* Identidad principal */}
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 800,
+                  color: '#0f172a',
+                  letterSpacing: '-0.02em',
+                  fontSize: { xs: '1.15rem', sm: '1.35rem' }
+                }}
+              >
+                {nombreCompleto}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {perfilJurisdiccional.normaSubtitulo} · Verificado automáticamente por PIDA según los archivos vigentes en &ldquo;Documentos y Poderes&rdquo;:
-              </Typography>
+
+              {identificacion && (
+                <Box
+                  component="span"
+                  sx={{
+                    px: 0.85,
+                    py: 0.15,
+                    borderRadius: 1,
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    fontFamily: 'monospace',
+                    bgcolor: '#f1f5f9',
+                    color: '#334155',
+                    border: '1px solid #e2e8f0'
+                  }}
+                >
+                  {tipoIdentificacion}: {identificacion}
+                </Box>
+              )}
+
+              <Box
+                component="span"
+                sx={{
+                  px: 0.85,
+                  py: 0.15,
+                  borderRadius: 1,
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  bgcolor: '#eff6ff',
+                  color: '#1d4ed8'
+                }}
+              >
+                {calidadProcesal}
+              </Box>
+
+              {condicionVulnerabilidad && condicionVulnerabilidad !== 'Ninguna' && (
+                <Box
+                  component="span"
+                  sx={{
+                    px: 0.85,
+                    py: 0.15,
+                    borderRadius: 1,
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    bgcolor: '#faf5ff',
+                    color: '#7e22ce',
+                    border: '1px solid #e9d5ff'
+                  }}
+                >
+                  🛡️ {condicionVulnerabilidad}
+                </Box>
+              )}
             </Box>
+
+            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.76rem' }}>
+              {perfilJurisdiccional.pais.bandera} Estándar de Acreditación:{' '}
+              <strong style={{ color: '#334155' }}>{perfilJurisdiccional.normaTitulo}</strong> ·{' '}
+              {correoPrincipal || 'Sin correo'} · {codigoTelefonoPrincipal} {telefonoPrincipal || 'Sin teléfono'}
+            </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Chip
-              label={perfilJurisdiccional.requisitos.poder.fichaLabel(Boolean(cliente?.tiene_poder))}
-              color={cliente?.tiene_poder ? 'success' : 'warning'}
-              variant={cliente?.tiene_poder ? 'filled' : 'outlined'}
-              sx={{ fontWeight: 'bold' }}
-            />
-            <Chip
-              label={perfilJurisdiccional.requisitos.identidad.fichaLabel(Boolean(cliente?.tiene_documento_id))}
-              color={cliente?.tiene_documento_id ? 'success' : 'warning'}
-              variant={cliente?.tiene_documento_id ? 'filled' : 'outlined'}
-              sx={{ fontWeight: 'bold' }}
-            />
-            <Chip
-              label={perfilJurisdiccional.requisitos.prueba.fichaLabel(Boolean(cliente?.tiene_prueba_dano))}
-              color={cliente?.tiene_prueba_dano ? 'success' : 'default'}
-              variant={cliente?.tiene_prueba_dano ? 'filled' : 'outlined'}
-              sx={{ fontWeight: 'bold' }}
-            />
+          {/* Cinta de Telemetría y Acreditación en 1 Clic */}
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 0.75,
+              p: 0.6,
+              bgcolor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: 2
+            }}
+          >
+            <Tooltip title="Clic para conmutar estado de Poder / Personería">
+              <Box
+                onClick={() => handleToggleAcreditacion('tiene_poder')}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  px: 1,
+                  py: 0.35,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  bgcolor: cliente?.tiene_poder ? '#f0fdf4' : '#fffbeb',
+                  color: cliente?.tiene_poder ? '#15803d' : '#b45309',
+                  border: cliente?.tiene_poder ? '1px solid #bbf7d0' : '1px solid #fde68a'
+                }}
+              >
+                {perfilJurisdiccional.requisitos.poder.fichaLabel(Boolean(cliente?.tiene_poder))}
+              </Box>
+            </Tooltip>
+
+            <Tooltip title="Clic para conmutar estado de Documento de Identidad">
+              <Box
+                onClick={() => handleToggleAcreditacion('tiene_documento_id')}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  px: 1,
+                  py: 0.35,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  bgcolor: cliente?.tiene_documento_id ? '#f0fdf4' : '#fffbeb',
+                  color: cliente?.tiene_documento_id ? '#15803d' : '#b45309',
+                  border: cliente?.tiene_documento_id ? '1px solid #bbf7d0' : '1px solid #fde68a'
+                }}
+              >
+                {perfilJurisdiccional.requisitos.identidad.fichaLabel(Boolean(cliente?.tiene_documento_id))}
+              </Box>
+            </Tooltip>
+
+            <Tooltip title="Clic para conmutar estado de Prueba / Daño">
+              <Box
+                onClick={() => handleToggleAcreditacion('tiene_prueba_dano')}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  px: 1,
+                  py: 0.35,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  bgcolor: cliente?.tiene_prueba_dano ? '#f0fdf4' : '#ffffff',
+                  color: cliente?.tiene_prueba_dano ? '#15803d' : '#64748b',
+                  border: cliente?.tiene_prueba_dano ? '1px solid #bbf7d0' : '1px solid #e2e8f0'
+                }}
+              >
+                {perfilJurisdiccional.requisitos.prueba.fichaLabel(Boolean(cliente?.tiene_prueba_dano))}
+              </Box>
+            </Tooltip>
           </Box>
         </Box>
       </Paper>
@@ -878,28 +1144,32 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
       {/* PANEL DESPLEGABLE DE SÍNTESIS EJECUTIVA PIDA */}
       {resumenEjecutivoIA && (
         <Paper
+          elevation={0}
           sx={{
             p: 2.5,
-            mb: 3,
-            borderRadius: 3,
-            border: '1px solid #c7d2fe',
-            bgcolor: '#eef2ff',
-            boxShadow: 'none'
+            mb: 2.5,
+            borderRadius: 2.5,
+            border: '1px solid #cbd5e1',
+            bgcolor: '#f8fafc'
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 1,
+              mb: 1.5
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Sparkles size={18} color="#4338ca" />
-              <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
+              <Sparkles size={17} color="#0f172a" />
+              <Typography variant="subtitle2" fontWeight={800} color="#0f172a">
                 Dictamen Ejecutivo Individual PIDA ({perfilJurisdiccional.normaCorto})
               </Typography>
-              <Chip
-                size="small"
-                label="PIDA · Síntesis Individual"
-                sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
-              />
             </Box>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
               <Button
                 size="small"
                 variant="outlined"
@@ -911,14 +1181,21 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                   });
                   alert('✅ Síntesis ejecutiva copiada con formato.');
                 }}
-                sx={{ textTransform: 'none', fontWeight: 'bold', bgcolor: '#ffffff' }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.74rem',
+                  bgcolor: '#ffffff',
+                  borderColor: '#cbd5e1',
+                  color: '#0f172a',
+                  borderRadius: 1.5
+                }}
               >
-                📋 Copiar con Formato
+                Copiar
               </Button>
               <Button
                 size="small"
                 variant="outlined"
-                color="secondary"
                 onClick={async () => {
                   try {
                     const docDrive = await guardarDictamenEnGoogleDrive({
@@ -932,9 +1209,17 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                     setError(`No se pudo guardar en Google Drive: ${e.message}`);
                   }
                 }}
-                sx={{ textTransform: 'none', fontWeight: 'bold', bgcolor: '#ffffff' }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.74rem',
+                  bgcolor: '#ffffff',
+                  borderColor: '#cbd5e1',
+                  color: '#0f172a',
+                  borderRadius: 1.5
+                }}
               >
-                ☁️ Agregar a Mi Drive
+                Drive
               </Button>
               <Button
                 size="small"
@@ -946,9 +1231,17 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                     caso: caso || {}
                   })
                 }
-                sx={{ textTransform: 'none', fontWeight: 'bold', bgcolor: '#ffffff' }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.74rem',
+                  bgcolor: '#ffffff',
+                  borderColor: '#cbd5e1',
+                  color: '#0f172a',
+                  borderRadius: 1.5
+                }}
               >
-                📝 Word (.doc)
+                Word
               </Button>
               <Button
                 size="small"
@@ -960,23 +1253,37 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                     caso: caso || {}
                   })
                 }
-                sx={{ textTransform: 'none', fontWeight: 'bold', bgcolor: '#ffffff' }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.74rem',
+                  bgcolor: '#ffffff',
+                  borderColor: '#cbd5e1',
+                  color: '#0f172a',
+                  borderRadius: 1.5
+                }}
               >
-                📄 PDF
+                PDF
               </Button>
               <Button
                 size="small"
                 variant="contained"
                 onClick={handleGuardarResumenComoNota}
-                sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.74rem',
+                  bgcolor: '#0f172a',
+                  borderRadius: 1.5
+                }}
               >
-                Guardar en Bitácora Jurídica
+                Guardar en Bitácora
               </Button>
               <Button
                 size="small"
                 color="inherit"
                 onClick={() => setResumenEjecutivoIA(null)}
-                sx={{ textTransform: 'none' }}
+                sx={{ textTransform: 'none', fontSize: '0.74rem' }}
               >
                 Cerrar
               </Button>
@@ -985,12 +1292,12 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
           <Box
             sx={{
               bgcolor: '#ffffff',
-              p: 2.5,
+              p: 2.25,
               borderRadius: 2,
-              border: '1px solid #e0e7ff',
+              border: '1px solid #e2e8f0',
               fontFamily: '"Georgia", "Times New Roman", serif',
-              fontSize: '0.94rem',
-              lineHeight: 1.7
+              fontSize: '0.92rem',
+              lineHeight: 1.68
             }}
             dangerouslySetInnerHTML={{
               __html: convertirMarkdownAHtmlJuridico(resumenEjecutivoIA.resumen)
@@ -1000,37 +1307,97 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
       )}
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+        <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setSuccess('')}>
           {success}
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 2fr' }, gap: { xs: 2, sm: 3 } }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 } }}>
+      {/* =================================================================== */}
+      {/* CUADRÍCULA DE TRABAJO DE 2 COLUMNAS                                 */}
+      {/* =================================================================== */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: '7fr 5fr' },
+          gap: 2.5,
+          alignItems: 'start'
+        }}
+      >
+        {/* COLUMNA IZQUIERDA: FICHA DEL REPRESENTADO + BITÁCORA JURÍDICA */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
           <Paper
             component="form"
             onSubmit={handleUpdateDatos}
-            sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 2.5,
+              border: '1px solid #e2e8f0',
+              bgcolor: '#ffffff'
+            }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5, color: 'primary.main' }}>
-              <User size={20} />
-              <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                Datos del Representado, Calidad Procesal & Contacto
-              </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 2,
+                pb: 1.25,
+                borderBottom: '1px solid #f1f5f9'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <User size={17} color="#0f172a" />
+                <Typography variant="subtitle1" fontWeight={800} color="#0f172a" sx={{ fontSize: '0.95rem' }}>
+                  Ficha de Identidad, Rol Procesal y Contacto
+                </Typography>
+              </Box>
+              <Button
+                type="submit"
+                size="small"
+                variant="contained"
+                startIcon={<Save size={14} />}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  borderRadius: 1.5,
+                  bgcolor: '#0f172a',
+                  py: 0.5,
+                  px: 1.5,
+                  '&:hover': { bgcolor: '#1e293b' }
+                }}
+              >
+                Guardar
+              </Button>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
-              <TextField label="Nombres" fullWidth value={nombres} onChange={(e) => setNombres(e.target.value)} required />
-              <TextField label="Apellidos" fullWidth value={apellidos} onChange={(e) => setApellidos(e.target.value)} required />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, mb: 1.5 }}>
+              <TextField
+                size="small"
+                label="Nombres"
+                fullWidth
+                value={nombres}
+                onChange={(e) => setNombres(e.target.value)}
+                required
+              />
+              <TextField
+                size="small"
+                label="Apellidos"
+                fullWidth
+                value={apellidos}
+                onChange={(e) => setApellidos(e.target.value)}
+                required
+              />
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
-              <FormControl fullWidth>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, mb: 1.5 }}>
+              <FormControl size="small" fullWidth>
                 <InputLabel>Tipo Identificación</InputLabel>
                 <Select
                   value={tipoIdentificacion}
@@ -1045,6 +1412,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                 </Select>
               </FormControl>
               <TextField
+                size="small"
                 label="Número de Identificación"
                 fullWidth
                 value={identificacion}
@@ -1053,16 +1421,19 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               />
             </Box>
 
-            {/* Calidad Procesal y Vulnerabilidad */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
-              <FormControl fullWidth>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, mb: 1.5 }}>
+              <FormControl size="small" fullWidth>
                 <InputLabel>
-                  {perfilJurisdiccional.esInternacional ? 'Calidad Procesal (SIDH)' : 'Calidad Procesal (Actor / Accionante)'}
+                  {perfilJurisdiccional.esInternacional
+                    ? 'Calidad Procesal (SIDH)'
+                    : 'Calidad Procesal (Actor / Accionante)'}
                 </InputLabel>
                 <Select
                   value={calidadProcesal}
                   label={
-                    perfilJurisdiccional.esInternacional ? 'Calidad Procesal (SIDH)' : 'Calidad Procesal (Actor / Accionante)'
+                    perfilJurisdiccional.esInternacional
+                      ? 'Calidad Procesal (SIDH)'
+                      : 'Calidad Procesal (Actor / Accionante)'
                   }
                   onChange={(e) => setCalidadProcesal(e.target.value)}
                 >
@@ -1074,7 +1445,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                 </Select>
               </FormControl>
 
-              <FormControl fullWidth>
+              <FormControl size="small" fullWidth>
                 <InputLabel>
                   {perfilJurisdiccional.esInternacional
                     ? 'Vulnerabilidad (Art. 29.2 CIDH)'
@@ -1098,8 +1469,8 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               </FormControl>
             </Box>
 
-            <Box sx={{ mb: 2.5 }}>
-              <FormControl fullWidth>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, mb: 1.5 }}>
+              <FormControl size="small" fullWidth>
                 <InputLabel>País de Residencia</InputLabel>
                 <Select
                   value={pais}
@@ -1120,23 +1491,9 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                   ))}
                 </Select>
               </FormControl>
-            </Box>
 
-            <Box sx={{ mb: 2.5 }}>
               <TextField
-                label="Dirección Física Completa"
-                fullWidth
-                multiline
-                rows={2}
-                value={direccion}
-                onChange={(e) => setDireccion(e.target.value)}
-              />
-            </Box>
-
-            <Divider sx={{ my: 2.5 }}>Direcciones de Correo</Divider>
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
-              <TextField
+                size="small"
                 label="Email Principal"
                 type="email"
                 fullWidth
@@ -1144,23 +1501,14 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                 onChange={(e) => setCorreoPrincipal(e.target.value)}
                 required
               />
-              <TextField
-                label="Email Secundario"
-                type="email"
-                fullWidth
-                value={correoSecundario}
-                onChange={(e) => setCorreoSecundario(e.target.value)}
-              />
             </Box>
 
-            <Divider sx={{ my: 2.5 }}>Números Telefónicos Internacionales</Divider>
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '140px 1fr' }, gap: 2, mb: 2.5 }}>
-              <FormControl fullWidth>
-                <InputLabel>Cód. Principal</InputLabel>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '130px 1fr' }, gap: 1.5, mb: 1.5 }}>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Cód. País</InputLabel>
                 <Select
                   value={codigoTelefonoPrincipal}
-                  label="Cód. Principal"
+                  label="Cód. País"
                   onChange={(e) => setCodigoTelefonoPrincipal(e.target.value)}
                 >
                   {COUNTRIES.map((c) => (
@@ -1169,6 +1517,7 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                 </Select>
               </FormControl>
               <TextField
+                size="small"
                 label="Teléfono Principal"
                 fullWidth
                 value={telefonoPrincipal}
@@ -1176,76 +1525,170 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               />
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '140px 1fr' }, gap: 2, mb: 3 }}>
-              <FormControl fullWidth>
-                <InputLabel>Cód. Secundario</InputLabel>
-                <Select
-                  value={codigoTelefonoSecundario}
-                  label="Cód. Secundario"
-                  onChange={(e) => setCodigoTelefonoSecundario(e.target.value)}
-                >
-                  {COUNTRIES.map((c) => (
-                    <MenuItem key={c.code} value={c.phone}>{`${c.code} (${c.phone})`}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="Teléfono Secundario"
-                fullWidth
-                value={telefonoSecundario}
-                onChange={(e) => setTelefonoSecundario(e.target.value)}
-              />
-            </Box>
+            {/* Revelado Progresivo de Contacto Secundario y Dirección */}
+            <Box sx={{ pt: 0.5 }}>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setMostrarContactoSecundario((prev) => !prev)}
+                endIcon={mostrarContactoSecundario ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: '#475569',
+                  p: 0.5
+                }}
+              >
+                {mostrarContactoSecundario
+                  ? 'Ocultar dirección física y contacto secundario'
+                  : 'Dirección física y contacto secundario'}
+              </Button>
 
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={<Save size={16} />}
-              sx={{ width: { xs: '100%', sm: 'auto' }, textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
-            >
-              Guardar Cambios del Expediente
-            </Button>
+              <Collapse in={mostrarContactoSecundario} timeout="auto">
+                <Box sx={{ pt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <TextField
+                    size="small"
+                    label="Dirección Física Completa"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={direccion}
+                    onChange={(e) => setDireccion(e.target.value)}
+                  />
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 130px 1fr' }, gap: 1.5 }}>
+                    <TextField
+                      size="small"
+                      label="Email Secundario"
+                      type="email"
+                      fullWidth
+                      value={correoSecundario}
+                      onChange={(e) => setCorreoSecundario(e.target.value)}
+                    />
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>Cód. Sec.</InputLabel>
+                      <Select
+                        value={codigoTelefonoSecundario}
+                        label="Cód. Sec."
+                        onChange={(e) => setCodigoTelefonoSecundario(e.target.value)}
+                      >
+                        {COUNTRIES.map((c) => (
+                          <MenuItem key={c.code} value={c.phone}>{`${c.code} (${c.phone})`}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      size="small"
+                      label="Teléfono Secundario"
+                      fullWidth
+                      value={telefonoSecundario}
+                      onChange={(e) => setTelefonoSecundario(e.target.value)}
+                    />
+                  </Box>
+                </Box>
+              </Collapse>
+            </Box>
           </Paper>
 
           {/* BITÁCORA DE NOTAS JURÍDICAS CON AUTORÍA */}
-          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: 'primary.main' }}>
-              <StickyNote size={20} />
-              <Typography variant="h6" fontWeight="bold">
-                Notas del Caso e Historial Jurídico
-              </Typography>
+          <Paper
+            elevation={0}
+            sx={{ p: 2.5, borderRadius: 2.5, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                mb: 1.75
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <StickyNote size={17} color="#0f172a" />
+                <Typography variant="subtitle1" fontWeight={800} color="#0f172a" sx={{ fontSize: '0.95rem' }}>
+                  Bitácora Jurídica Individual
+                </Typography>
+                <Box
+                  component="span"
+                  sx={{
+                    px: 0.7,
+                    py: 0.1,
+                    borderRadius: 1,
+                    bgcolor: '#f1f5f9',
+                    color: '#475569',
+                    fontSize: '0.68rem',
+                    fontWeight: 700
+                  }}
+                >
+                  {notes.length}
+                </Box>
+              </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
               <TextField
-                label="Escribe una actualización jurídica..."
+                size="small"
+                placeholder="Registrar anotación o seguimiento jurídico..."
                 fullWidth
                 multiline
                 rows={2}
                 value={nuevaNota}
                 onChange={(e) => setNuevaNota(e.target.value)}
               />
-              <Button variant="outlined" onClick={handleAddNota} sx={{ minWidth: 48 }}>
-                <Plus size={20} />
+              <Button
+                variant="contained"
+                onClick={handleAddNota}
+                disabled={!nuevaNota.trim()}
+                sx={{
+                  minWidth: 44,
+                  bgcolor: '#0f172a',
+                  borderRadius: 1.5,
+                  '&:hover': { bgcolor: '#1e293b' }
+                }}
+              >
+                <Plus size={18} />
               </Button>
             </Box>
 
-            <List sx={{ maxHeight: 320, overflow: 'auto' }}>
+            <List sx={{ maxHeight: 340, overflow: 'auto', p: 0 }}>
               {notes.length === 0 ? (
-                <Typography variant="body2" color="text.disabled">
-                  No hay notas registradas.
+                <Typography variant="caption" color="#64748b" sx={{ display: 'block', py: 1 }}>
+                  No hay anotaciones registradas en este expediente individual.
                 </Typography>
               ) : (
-                notes.map((n) => (
-                  <Card key={n.id} sx={{ mb: 1.5, boxShadow: 'none', bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                    <CardContent sx={{ p: '12px !important' }}>
+                notes.map((n) => {
+                  const esNotaLarga = (n.texto || '').length > 180;
+                  const isNotaExpanded = Boolean(expandedNoteIds[n.id]);
+                  return (
+                    <Box
+                      key={n.id}
+                      onClick={() => esNotaLarga && toggleExpandNota(n.id)}
+                      sx={{
+                        mb: 1.25,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        cursor: esNotaLarga ? 'pointer' : 'default',
+                        transition: 'border-color 0.15s ease',
+                        '&:hover': esNotaLarga ? { borderColor: '#cbd5e1' } : {}
+                      }}
+                    >
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
                         <Box
                           sx={{
                             flexGrow: 1,
-                            fontSize: '0.875rem',
+                            fontSize: '0.82rem',
                             color: '#1e293b',
-                            lineHeight: 1.6,
+                            lineHeight: 1.55,
+                            ...(esNotaLarga && !isNotaExpanded
+                              ? {
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden'
+                                }
+                              : {}),
                             '& p': { margin: '0 0 6px 0' },
                             '& p:last-child': { marginBottom: 0 }
                           }}
@@ -1253,156 +1696,119 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                             __html: convertirMarkdownAHtmlJuridico(n.texto || '')
                           }}
                         />
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <IconButton size="small" onClick={() => handleEditNota(n)} title="Editar nota">
-                            <Edit size={14} />
+                        <Box
+                          sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <IconButton size="small" onClick={() => handleEditNota(n)} sx={{ p: 0.4 }}>
+                            <Edit size={13} />
                           </IconButton>
-                          <IconButton size="small" color="error" onClick={() => handleDeleteNota(n.id)} title="Eliminar nota">
-                            <Trash2 size={14} />
+                          <IconButton size="small" color="error" onClick={() => handleDeleteNota(n.id)} sx={{ p: 0.4 }}>
+                            <Trash2 size={13} />
                           </IconButton>
                         </Box>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                        <Typography variant="caption" color="primary.main" fontWeight="bold">
-                          👤 {n.autor_nombre || n.autor_email || 'Equipo Legal'}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.75 }}>
+                        <Typography variant="caption" sx={{ color: '#475569', fontWeight: 700, fontSize: '0.68rem' }}>
+                          {n.autor_nombre || n.autor_email || 'Equipo Legal'}
                         </Typography>
-                        <Typography variant="caption" color="text.disabled">
-                          {n.fecha?.toDate ? n.fecha.toDate().toLocaleString() : 'Reciente'}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {esNotaLarga && (
+                            <Typography
+                              variant="caption"
+                              sx={{ color: '#4338ca', fontWeight: 700, fontSize: '0.68rem' }}
+                            >
+                              {isNotaExpanded ? 'Contraer ▴' : 'Ver nota completa ▾'}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.68rem' }}>
+                            {n.fecha?.toDate ? n.fecha.toDate().toLocaleString() : 'Reciente'}
+                          </Typography>
+                        </Box>
                       </Box>
-                    </CardContent>
-                  </Card>
-                ))
+                    </Box>
+                  );
+                })
               )}
             </List>
           </Paper>
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 } }}>
-          {/* CONTROL FINANCIERO Y APORTES (PILAR 4) */}
-          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'primary.main' }}>
-                <CreditCard size={20} />
-                <Typography variant="h6" fontWeight="bold">
-                  Control Financiero y Aportes
+        {/* COLUMNA DERECHA: DOCUMENTOS & PODERES · FINANZAS COLAPSABLE · NOTIFICACIONES */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          {/* DOCUMENTOS Y PODERES + VERIFICADOR OCR PIDA */}
+          <Paper
+            elevation={0}
+            sx={{ p: 2.5, borderRadius: 2.5, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1,
+                mb: 1.75
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <File size={17} color="#0f172a" />
+                <Typography variant="subtitle1" fontWeight={800} color="#0f172a" sx={{ fontSize: '0.95rem' }}>
+                  Documentos y Poderes
                 </Typography>
+                <Box
+                  component="span"
+                  sx={{
+                    px: 0.7,
+                    py: 0.1,
+                    borderRadius: 1,
+                    bgcolor: '#f1f5f9',
+                    color: '#475569',
+                    fontSize: '0.68rem',
+                    fontWeight: 700
+                  }}
+                >
+                  {documentos.length}
+                </Box>
               </Box>
-              <Chip
-                label={estadoPago}
-                color={
-                  estadoPago === 'Pagado'
-                    ? 'success'
-                    : estadoPago === 'Abono Parcial'
-                    ? 'info'
-                    : estadoPago === 'Exonerado / Pro Bono'
-                    ? 'secondary'
-                    : 'warning'
-                }
+
+              <Button
+                variant="contained"
+                component="label"
                 size="small"
-                sx={{ fontWeight: 'bold' }}
-              />
+                startIcon={<Upload size={14} />}
+                disabled={uploading}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                  borderRadius: 1.5,
+                  bgcolor: '#0f172a',
+                  py: 0.5,
+                  px: 1.4,
+                  '&:hover': { bgcolor: '#1e293b' }
+                }}
+              >
+                {uploading ? 'Subiendo...' : 'Subir Archivo'}
+                <input type="file" accept="application/pdf,image/*" hidden onChange={handleUploadFile} />
+              </Button>
             </Box>
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 1.5 }}>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Estado de Pago</InputLabel>
-                <Select value={estadoPago} label="Estado de Pago" onChange={(e) => setEstadoPago(e.target.value)}>
-                  {ESTADOS_PAGO_CLIENTE.map((st) => (
-                    <MenuItem key={st} value={st}>
-                      {st}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" fullWidth>
-                <InputLabel>Vía de Pago</InputLabel>
-                <Select value={metodoPago} label="Vía de Pago" onChange={(e) => setMetodoPago(e.target.value)}>
-                  <MenuItem value="Transferencia / SINPE">Transferencia / SINPE</MenuItem>
-                  <MenuItem value="Stripe">Stripe (Tarjeta)</MenuItem>
-                  <MenuItem value="Depósito Bancario">Depósito Bancario</MenuItem>
-                  <MenuItem value="Exoneración Pro Bono">Exoneración Pro Bono</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1.5, mb: 1.5 }}>
-              <TextField
-                size="small"
-                label="Monto Aportado"
-                type="number"
-                value={montoPagado}
-                onChange={(e) => setMontoPagado(e.target.value)}
-              />
-              <FormControl size="small" fullWidth>
-                <InputLabel>Moneda</InputLabel>
-                <Select value={monedaPago} label="Moneda" onChange={(e) => setMonedaPago(e.target.value)}>
-                  <MenuItem value="USD">USD ($)</MenuItem>
-                  <MenuItem value="CRC">CRC (₡)</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-
-            <TextField
-              size="small"
-              fullWidth
-              label="N° Comprobante / Referencia"
-              value={referenciaPago}
-              onChange={(e) => setReferenciaPago(e.target.value)}
-              sx={{ mb: 1.5 }}
-            />
-
-            <Button
-              fullWidth
-              variant="outlined"
-              size="small"
-              disabled={guardandoPago}
-              onClick={handleGuardarPago}
-              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
-            >
-              {guardandoPago ? 'Guardando...' : 'Actualizar Estado Financiero'}
-            </Button>
-          </Paper>
-
-          {/* DOCUMENTOS Y PODERES + VERIFICADOR OCR IA */}
-          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: 'primary.main' }}>
-              <File size={20} />
-              <Typography variant="h6" fontWeight="bold">
-                Documentos y Poderes
-              </Typography>
-            </Box>
-
-            <Button
-              variant="outlined"
-              component="label"
-              fullWidth
-              startIcon={<Upload size={16} />}
-              disabled={uploading}
-              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
-            >
-              {uploading ? 'Subiendo...' : 'Subir Poder / Cédula PDF o Imagen'}
-              <input type="file" accept="application/pdf,image/*" hidden onChange={handleUploadFile} />
-            </Button>
 
             {uploading && (
-              <Box sx={{ p: 1 }}>
+              <Box sx={{ mb: 1.5 }}>
                 <LinearProgress variant="determinate" value={uploadProgress} />
               </Box>
             )}
 
-            {/* Resultado de Verificación OCR PIDA */}
             {resultadoDocIA && (
-              <Box sx={{ mt: 2, p: 2, bgcolor: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 2 }}>
-                <Typography variant="caption" fontWeight="bold" color="#065f46" sx={{ display: 'block', mb: 0.5 }}>
+              <Box sx={{ mb: 1.5, p: 1.5, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2 }}>
+                <Typography variant="caption" fontWeight={700} color="#15803d" sx={{ display: 'block', mb: 0.4 }}>
                   ✨ Verificación OCR PIDA ({resultadoDocIA.tipo_documento_detectado})
                 </Typography>
-                <Typography variant="caption" color="text.primary" sx={{ display: 'block', mb: 1 }}>
+                <Typography variant="caption" color="#334155" sx={{ display: 'block', mb: 0.75 }}>
                   {resultadoDocIA.observaciones_verificacion}
                 </Typography>
                 {resultadoDocIA.identificacion && (
-                  <Typography variant="caption" sx={{ display: 'block', fontFamily: 'monospace', mb: 1 }}>
+                  <Typography variant="caption" sx={{ display: 'block', fontFamily: 'monospace', mb: 0.75 }}>
                     ID Detectado: <strong>{resultadoDocIA.identificacion}</strong>
                   </Typography>
                 )}
@@ -1412,15 +1818,15 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
                     variant="contained"
                     color="success"
                     onClick={handleAplicarVerificacionIA}
-                    sx={{ textTransform: 'none', fontSize: '0.72rem', fontWeight: 'bold' }}
+                    sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 700, py: 0.25 }}
                   >
-                    ✓ Aplicar Acreditación
+                    Aplicar Acreditación
                   </Button>
                   <Button
                     size="small"
                     color="inherit"
                     onClick={() => setResultadoDocIA(null)}
-                    sx={{ textTransform: 'none', fontSize: '0.72rem' }}
+                    sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25 }}
                   >
                     Cerrar
                   </Button>
@@ -1428,105 +1834,290 @@ export default function FichaCliente({ casoId, clienteId, onVolver, currentUserE
               </Box>
             )}
 
-            <Divider sx={{ my: 1.5 }} />
-
-            <List>
+            <List sx={{ p: 0 }}>
               {documentos.length === 0 ? (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', py: 1 }}>
-                  Al subir un Poder, Cédula o Prueba aquí, <strong>PIDA</strong> lo verifica automáticamente bajo el estándar{' '}
-                  <strong>{perfilJurisdiccional.normaCorto}</strong> y activa en verde el requisito correspondiente del Semáforo de Acreditación.
+                <Typography variant="caption" color="#64748b" sx={{ display: 'block', py: 1 }}>
+                  Sube un Poder, Cédula o Prueba para que <strong>PIDA</strong> lo verifique automáticamente bajo el estándar{' '}
+                  <strong>{perfilJurisdiccional.normaCorto}</strong>.
                 </Typography>
               ) : (
                 documentos.map((d) => (
-                  <ListItem
+                  <Box
                     key={d.id}
-                    disablePadding
                     sx={{
                       mb: 1,
-                      p: 1,
+                      p: 1.25,
                       bgcolor: '#f8fafc',
                       border: '1px solid #e2e8f0',
                       borderRadius: 2,
                       display: 'flex',
                       flexDirection: 'column',
-                      alignItems: 'stretch',
                       gap: 0.5
                     }}
                   >
-                    <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', width: '100%' }}>
-                      <Button
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                      <Box
                         component="a"
                         href={d.url}
                         target="_blank"
-                        variant="text"
-                        color="inherit"
-                        startIcon={<File size={16} />}
-                        sx={{ flexGrow: 1, justifyContent: 'flex-start', p: 0.5, overflow: 'hidden', textTransform: 'none' }}
+                        rel="noopener noreferrer"
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.75,
+                          minWidth: 0,
+                          flex: 1,
+                          textDecoration: 'none',
+                          color: '#0f172a',
+                          '&:hover': { color: '#1d4ed8' }
+                        }}
                       >
-                        <ListItemText
-                          primary={d.nombre}
-                          secondary={d.fecha_subida ? new Date(d.fecha_subida).toLocaleDateString() : ''}
-                          primaryTypographyProps={{ noWrap: true, fontSize: '0.82rem', fontWeight: 'bold' }}
-                        />
-                      </Button>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        disabled={verificandoDocIAId === d.id}
-                        onClick={() => handleVerificarDocIA(d)}
-                        title="Re-verificar documento con PIDA"
-                        sx={{ border: '1px solid #e0e7ff', bgcolor: '#eef2ff' }}
-                      >
-                        {verificandoDocIAId === d.id ? <CircularProgress size={14} /> : <Sparkles size={15} />}
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeleteFile(d.id, d.storage_path)}
-                        sx={{ border: '1px solid #fee2e2', bgcolor: '#fef2f2' }}
-                      >
-                        <Trash2 size={15} />
-                      </IconButton>
+                        <File size={15} />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography noWrap sx={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                            {d.nombre}
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.67rem', color: '#64748b' }}>
+                            {d.fecha_subida ? new Date(d.fecha_subida).toLocaleDateString() : ''}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                        <Tooltip title="Re-verificar documento con PIDA">
+                          <IconButton
+                            size="small"
+                            disabled={verificandoDocIAId === d.id}
+                            onClick={() => handleVerificarDocIA(d)}
+                            sx={{ p: 0.5, color: '#475569', bgcolor: '#ffffff', border: '1px solid #e2e8f0' }}
+                          >
+                            {verificandoDocIAId === d.id ? <CircularProgress size={13} /> : <Sparkles size={14} />}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar documento">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteFile(d.id, d.storage_path)}
+                            sx={{
+                              p: 0.5,
+                              color: '#94a3b8',
+                              '&:hover': { color: '#dc2626', bgcolor: '#fef2f2' }
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </Box>
 
                     {(d.categoria_ia || d.observaciones_ia) && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', pl: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', pt: 0.25 }}>
                         {d.categoria_ia && (
-                          <Chip
-                            size="small"
-                            color="success"
-                            label={`✓ PIDA: ${d.categoria_ia}`}
-                            sx={{ height: 20, fontSize: '0.68rem', fontWeight: 'bold' }}
-                          />
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.7,
+                              py: 0.1,
+                              borderRadius: 0.85,
+                              bgcolor: '#f0fdf4',
+                              color: '#15803d',
+                              border: '1px solid #bbf7d0',
+                              fontSize: '0.65rem',
+                              fontWeight: 700
+                            }}
+                          >
+                            ✓ PIDA: {d.categoria_ia}
+                          </Box>
                         )}
                         {d.observaciones_ia && (
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: '#64748b' }}>
                             {d.observaciones_ia}
                           </Typography>
                         )}
                       </Box>
                     )}
-                  </ListItem>
+                  </Box>
                 ))
               )}
             </List>
           </Paper>
 
-          {/* HISTORIAL DE NOTIFICACIONES */}
-          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: 'primary.main' }}>
-              <Mail size={20} />
-              <Typography variant="h6" fontWeight="bold">
+          {/* CONTROL FINANCIERO Y APORTES (TARJETA COMPACTA CON DESPLIEGUE EN 1 CLIC) */}
+          <Paper
+            elevation={0}
+            sx={{ borderRadius: 2.5, border: '1px solid #e2e8f0', bgcolor: '#ffffff', overflow: 'hidden' }}
+          >
+            <Box
+              onClick={() => setMostrarPanelFinanciero((prev) => !prev)}
+              sx={{
+                p: 2,
+                px: 2.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                '&:hover': { bgcolor: '#f8fafc' }
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CreditCard size={17} color="#0f172a" />
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={800} color="#0f172a" sx={{ fontSize: '0.9rem' }}>
+                    Control Financiero y Aportes
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.72rem' }}>
+                    {monedaPago} {Number(montoPagado || 0).toLocaleString()} · {metodoPago}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box
+                  component="span"
+                  sx={{
+                    px: 0.85,
+                    py: 0.2,
+                    borderRadius: 1,
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    bgcolor:
+                      estadoPago === 'Pagado'
+                        ? '#f0fdf4'
+                        : estadoPago === 'Exonerado / Pro Bono'
+                        ? '#faf5ff'
+                        : '#fffbeb',
+                    color:
+                      estadoPago === 'Pagado'
+                        ? '#15803d'
+                        : estadoPago === 'Exonerado / Pro Bono'
+                        ? '#7e22ce'
+                        : '#b45309'
+                  }}
+                >
+                  {estadoPago}
+                </Box>
+                <IconButton size="small" sx={{ p: 0.25, color: '#64748b' }}>
+                  {mostrarPanelFinanciero ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </IconButton>
+              </Box>
+            </Box>
+
+            <Collapse in={mostrarPanelFinanciero} timeout="auto">
+              <Box sx={{ p: 2, px: 2.5, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, mb: 1.25 }}>
+                  <FormControl size="small" fullWidth sx={{ bgcolor: '#ffffff' }}>
+                    <InputLabel>Estado de Pago</InputLabel>
+                    <Select
+                      value={estadoPago}
+                      label="Estado de Pago"
+                      onChange={(e) => setEstadoPago(e.target.value)}
+                    >
+                      {ESTADOS_PAGO_CLIENTE.map((st) => (
+                        <MenuItem key={st} value={st}>
+                          {st}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl size="small" fullWidth sx={{ bgcolor: '#ffffff' }}>
+                    <InputLabel>Vía de Pago</InputLabel>
+                    <Select
+                      value={metodoPago}
+                      label="Vía de Pago"
+                      onChange={(e) => setMetodoPago(e.target.value)}
+                    >
+                      <MenuItem value="Transferencia / SINPE">Transferencia / SINPE</MenuItem>
+                      <MenuItem value="Stripe">Stripe (Tarjeta)</MenuItem>
+                      <MenuItem value="Depósito Bancario">Depósito Bancario</MenuItem>
+                      <MenuItem value="Exoneración Pro Bono">Exoneración Pro Bono</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1.25, mb: 1.25 }}>
+                  <TextField
+                    size="small"
+                    label="Monto Aportado"
+                    type="number"
+                    value={montoPagado}
+                    onChange={(e) => setMontoPagado(e.target.value)}
+                    sx={{ bgcolor: '#ffffff' }}
+                  />
+                  <FormControl size="small" fullWidth sx={{ bgcolor: '#ffffff' }}>
+                    <InputLabel>Moneda</InputLabel>
+                    <Select
+                      value={monedaPago}
+                      label="Moneda"
+                      onChange={(e) => setMonedaPago(e.target.value)}
+                    >
+                      <MenuItem value="USD">USD ($)</MenuItem>
+                      <MenuItem value="CRC">CRC (₡)</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="N° Comprobante / Referencia"
+                  value={referenciaPago}
+                  onChange={(e) => setReferenciaPago(e.target.value)}
+                  sx={{ mb: 1.25, bgcolor: '#ffffff' }}
+                />
+
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="small"
+                  disabled={guardandoPago}
+                  onClick={handleGuardarPago}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    borderRadius: 1.5,
+                    bgcolor: '#0f172a',
+                    '&:hover': { bgcolor: '#1e293b' }
+                  }}
+                >
+                  {guardandoPago ? 'Guardando...' : 'Actualizar Registro Financiero'}
+                </Button>
+              </Box>
+            </Collapse>
+          </Paper>
+
+          {/* HISTORIAL DE NOTIFICACIONES (ELEMENTOS MÍNIMOS EXPANDIBLES EN 1 CLIC) */}
+          <Paper
+            elevation={0}
+            sx={{ p: 2.5, borderRadius: 2.5, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75 }}>
+              <Mail size={17} color="#0f172a" />
+              <Typography variant="subtitle1" fontWeight={800} color="#0f172a" sx={{ fontSize: '0.95rem' }}>
                 Historial de Notificaciones
               </Typography>
+              <Box
+                component="span"
+                sx={{
+                  px: 0.7,
+                  py: 0.1,
+                  borderRadius: 1,
+                  bgcolor: '#f1f5f9',
+                  color: '#475569',
+                  fontSize: '0.68rem',
+                  fontWeight: 700
+                }}
+              >
+                {historialComunicados.length}
+              </Box>
             </Box>
 
             {loadingHistorial ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                <CircularProgress size={24} />
+                <CircularProgress size={22} />
               </Box>
             ) : historialComunicados.length === 0 ? (
-              <Typography variant="body2" color="text.disabled">
+              <Typography variant="caption" color="#64748b">
                 No se registran notificaciones para este representado.
               </Typography>
             ) : (

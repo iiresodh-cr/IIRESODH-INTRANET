@@ -24,8 +24,6 @@ import {
   Box, 
   Button, 
   Typography, 
-  Tabs, 
-  Tab, 
   Paper, 
   Table, 
   TableBody, 
@@ -49,8 +47,6 @@ import {
   MenuItem, 
   LinearProgress, 
   List, 
-  ListItem, 
-  ListItemText,
   TablePagination,
   Radio,
   RadioGroup,
@@ -58,7 +54,8 @@ import {
   FormLabel,
   Checkbox,
   Collapse,
-  Grid
+  Tooltip,
+  InputBase
 } from '@mui/material';
 import { 
   ArrowLeft, 
@@ -66,7 +63,6 @@ import {
   FileText, 
   CreditCard, 
   Plus, 
-  Eye, 
   Upload, 
   File, 
   Trash2,
@@ -78,7 +74,11 @@ import {
   Download,
   ShieldCheck,
   Globe,
-  FolderOpen
+  FolderOpen,
+  ChevronDown,
+  ChevronUp,
+  ArrowUpRight,
+  X
 } from 'lucide-react';
 import FichaCliente, {
   CALIDADES_PROCESALES,
@@ -93,7 +93,6 @@ import {
 } from '../../utils/perfilesJurisdiccionales';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
 import {
-  MODELOS_LITIGIO_IA,
   ejecutarConsultaJuridicaIA,
   analizarPiezaProcesalIA,
   extraerDatosIdentificacionIA,
@@ -247,179 +246,323 @@ function ItemComunicadoMasivo({ c, casoId, clientes = [], onVerCliente }) {
   const conteoRebotados = telemetryRows.filter(r => r.estado === 'Rebotado' || r.rebotado_at).length;
 
   return (
-    <ListItem disablePadding sx={{ mb: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0', display: 'block' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="subtitle1" fontWeight="bold" color="primary.main">{c.asunto}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {`Remitente: ${c.from || 'contacto@iiresodh.org'} | Enviado por: ${c.enviado_por} | Fecha: ${c.fecha_envio ? new Date(c.fecha_envio).toLocaleString() : ''} | Cobertura: ${c.tipo_cobertura === 'todos' ? 'Todos los representados' : 'Segmentación selectiva'} (${c.destinatarios_conteo || 0} correos)`}
+    <Paper
+      elevation={0}
+      onClick={() => setExpanded((prev) => !prev)}
+      sx={{
+        mb: 1.25,
+        borderRadius: 2,
+        bgcolor: '#ffffff',
+        border: expanded ? '1px solid #94a3b8' : '1px solid #e2e8f0',
+        cursor: 'pointer',
+        overflow: 'hidden',
+        transition: 'all 0.16s ease',
+        '&:hover': { borderColor: '#94a3b8', bgcolor: '#fcfdfe' }
+      }}
+    >
+      {/* Fila mínima siempre visible */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1.35,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1.5,
+          flexWrap: 'wrap'
+        }}
+      >
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="subtitle2"
+            noWrap
+            sx={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}
+          >
+            {c.asunto}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.72rem' }}>
+            {c.fecha_envio ? new Date(c.fecha_envio).toLocaleString() : ''} ·{' '}
+            {c.tipo_cobertura === 'todos' ? 'Todos los representados' : 'Segmentado'} (
+            <strong style={{ color: '#334155' }}>{c.destinatarios_conteo || 0}</strong> correos) · Por{' '}
+            {c.enviado_por || 'IIRESODH'}
           </Typography>
         </Box>
-        {deliveryState && (
-          <Chip
-            size="small"
-            label={
-              deliveryState === 'SUCCESS'
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+          {deliveryState && (
+            <Box
+              component="span"
+              sx={{
+                px: 0.85,
+                py: 0.2,
+                borderRadius: 1,
+                fontSize: '0.67rem',
+                fontWeight: 700,
+                bgcolor:
+                  deliveryState === 'SUCCESS'
+                    ? '#f0fdf4'
+                    : deliveryState === 'PROCESSING'
+                    ? '#eff6ff'
+                    : '#fffbeb',
+                color:
+                  deliveryState === 'SUCCESS'
+                    ? '#15803d'
+                    : deliveryState === 'PROCESSING'
+                    ? '#1d4ed8'
+                    : '#b45309'
+              }}
+            >
+              {deliveryState === 'SUCCESS'
                 ? 'Despachado'
                 : deliveryState === 'PROCESSING'
-                  ? 'Procesando envío...'
-                  : 'Revisión requerida'
-            }
-            color={
-              deliveryState === 'SUCCESS'
-                ? 'success'
-                : deliveryState === 'PROCESSING'
-                  ? 'info'
-                  : 'warning'
-            }
-            variant="outlined"
-            sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
-          />
-        )}
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap', mb: 0.5 }}>
-        <Button
-          size="small"
-          variant="text"
-          onClick={() => setExpanded(!expanded)}
-          sx={{ textTransform: 'none', fontSize: '0.75rem', p: 0, minWidth: 0, fontWeight: 'bold', color: 'primary.main' }}
-        >
-          {expanded ? "Ocultar contenido del mensaje" : "Ver contenido del mensaje"}
-        </Button>
-
-        <Button
-          size="small"
-          variant="text"
-          onClick={handleToggleTelemetry}
-          sx={{ textTransform: 'none', fontSize: '0.75rem', p: 0, minWidth: 0, fontWeight: 'bold', color: '#0f766e' }}
-        >
-          {showTelemetry
-            ? "Ocultar estado por destinatario (Entregados / Abiertos)"
-            : "Ver estado por destinatario (Entregados / Abiertos)"}
-        </Button>
-      </Box>
-
-      <Collapse in={expanded}>
-        <Typography variant="body2" sx={{ my: 1, whiteSpace: 'pre-wrap', color: 'text.primary', bgcolor: '#ffffff', p: 1.5, borderRadius: 1, border: '1px solid #e2e8f0' }}>
-          {c.cuerpo}
-        </Typography>
-      </Collapse>
-
-      <Collapse in={showTelemetry}>
-        <Box sx={{ my: 1.5, p: 1.5, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Typography variant="caption" fontWeight="bold" color="text.primary">
-                Prueba de Entrega y Lectura:
-              </Typography>
-              <Chip size="small" label={`Recibidos: ${conteoEntregados}/${telemetryRows.length}`} color="info" variant="outlined" sx={{ fontWeight: 'bold', fontSize: '0.7rem', height: 22 }} />
-              <Chip size="small" label={`Abiertos: ${conteoAbiertos}/${telemetryRows.length}`} color="success" variant="outlined" sx={{ fontWeight: 'bold', fontSize: '0.7rem', height: 22 }} />
-              {conteoRebotados > 0 && (
-                <Chip size="small" label={`Rebotes: ${conteoRebotados}`} color="error" variant="outlined" sx={{ fontWeight: 'bold', fontSize: '0.7rem', height: 22 }} />
-              )}
+                ? 'Procesando'
+                : 'Revisión'}
             </Box>
+          )}
+
+          <IconButton size="small" sx={{ p: 0.35, color: '#64748b' }}>
+            {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </IconButton>
+        </Box>
+      </Box>
+
+      {/* Cajón desplegable en 1 clic */}
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <Box
+          onClick={(e) => e.stopPropagation()}
+          sx={{
+            px: 2,
+            py: 1.75,
+            bgcolor: '#f8fafc',
+            borderTop: '1px solid #e2e8f0',
+            cursor: 'default'
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{
+              whiteSpace: 'pre-wrap',
+              color: '#334155',
+              bgcolor: '#ffffff',
+              p: 1.5,
+              borderRadius: 1.5,
+              border: '1px solid #e2e8f0',
+              fontSize: '0.8rem',
+              lineHeight: 1.55,
+              mb: 1.25
+            }}
+          >
+            {c.cuerpo}
+          </Typography>
+
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1
+            }}
+          >
             <Button
               size="small"
               variant="outlined"
-              onClick={cargarTelemetriaDestinatarios}
-              disabled={loadingTelemetry}
-              sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, px: 1 }}
+              onClick={handleToggleTelemetry}
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.73rem',
+                fontWeight: 700,
+                borderRadius: 1.5,
+                bgcolor: '#ffffff',
+                borderColor: '#cbd5e1',
+                color: '#0f172a'
+              }}
             >
-              {loadingTelemetry ? 'Actualizando...' : 'Actualizar estado'}
+              {showTelemetry
+                ? 'Ocultar telemetría de entrega y lectura'
+                : 'Ver telemetría por destinatario (Entregados / Abiertos)'}
             </Button>
+
+            {c.pdf_url && (
+              <Button
+                component="a"
+                href={c.pdf_url}
+                target="_blank"
+                rel="noopener"
+                variant="outlined"
+                size="small"
+                startIcon={<File size={13} />}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.73rem',
+                  borderRadius: 1.5,
+                  bgcolor: '#ffffff',
+                  borderColor: '#cbd5e1',
+                  color: '#0f172a'
+                }}
+              >
+                {c.pdf_nombre || 'Ver Anexo PDF'}
+              </Button>
+            )}
           </Box>
 
-          {loadingTelemetry ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-              <CircularProgress size={22} />
-            </Box>
-          ) : telemetryRows.length === 0 ? (
-            <Typography variant="caption" color="text.secondary">
-              No se localizaron registros individuales para este comunicado.
-            </Typography>
-          ) : (
-            <TableContainer sx={{ maxHeight: 280 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Representado</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Correo</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Estado</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Recibido (Entrega)</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem', bgcolor: '#f8fafc' }}>Abierto (Lectura)</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {telemetryRows.map((row, idx) => {
-                    const chipColor =
-                      row.estado === 'Abierto' || row.abierto_at
-                        ? 'success'
-                        : row.estado === 'Entregado' || row.entregado_at
-                          ? 'info'
-                          : row.estado === 'Rebotado' || row.rebotado_at
-                            ? 'error'
-                            : 'default';
-                    const chipLabel =
-                      row.estado === 'Abierto' || row.abierto_at
-                        ? 'Abierto'
-                        : row.estado === 'Entregado' || row.entregado_at
-                          ? 'Entregado'
-                          : row.estado === 'Rebotado' || row.rebotado_at
-                            ? 'Rebotado'
-                            : 'Enviado';
-                    return (
-                      <TableRow key={row.clienteId || idx} hover>
-                        <TableCell sx={{ fontSize: '0.75rem', fontWeight: 'medium' }}>
-                          {onVerCliente && row.clienteId ? (
-                            <Button
-                              variant="text"
-                              size="small"
-                              onClick={() => onVerCliente(row.clienteId)}
-                              sx={{ textTransform: 'none', p: 0, minWidth: 0, fontSize: '0.75rem', fontWeight: 'bold' }}
-                            >
-                              {row.nombre || 'Ver ficha'}
-                            </Button>
-                          ) : (
-                            row.nombre
-                          )}
+          <Collapse in={showTelemetry}>
+            <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 1,
+                  mb: 1.25
+                }}
+              >
+                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Typography variant="caption" fontWeight={700} color="#0f172a">
+                    Telemetría de Entrega:
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={`Recibidos: ${conteoEntregados}/${telemetryRows.length}`}
+                    color="info"
+                    variant="outlined"
+                    sx={{ fontWeight: 700, fontSize: '0.68rem', height: 20 }}
+                  />
+                  <Chip
+                    size="small"
+                    label={`Abiertos: ${conteoAbiertos}/${telemetryRows.length}`}
+                    color="success"
+                    variant="outlined"
+                    sx={{ fontWeight: 700, fontSize: '0.68rem', height: 20 }}
+                  />
+                  {conteoRebotados > 0 && (
+                    <Chip
+                      size="small"
+                      label={`Rebotes: ${conteoRebotados}`}
+                      color="error"
+                      variant="outlined"
+                      sx={{ fontWeight: 700, fontSize: '0.68rem', height: 20 }}
+                    />
+                  )}
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={cargarTelemetriaDestinatarios}
+                  disabled={loadingTelemetry}
+                  sx={{ textTransform: 'none', fontSize: '0.68rem', py: 0.2, px: 1, borderRadius: 1.25 }}
+                >
+                  {loadingTelemetry ? 'Actualizando...' : 'Actualizar'}
+                </Button>
+              </Box>
+
+              {loadingTelemetry ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={20} />
+                </Box>
+              ) : telemetryRows.length === 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  No se localizaron registros individuales para este comunicado.
+                </Typography>
+              ) : (
+                <TableContainer sx={{ maxHeight: 260 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: '#f8fafc' }}>
+                          Representado
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{row.email}</TableCell>
-                        <TableCell>
-                          <Chip size="small" color={chipColor} label={chipLabel} sx={{ fontWeight: 'bold', fontSize: '0.68rem', height: 20 }} />
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: '#f8fafc' }}>
+                          Correo
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
-                          {row.entregado_at || '—'}
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: '#f8fafc' }}>
+                          Estado
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.72rem', color: row.abierto_at ? 'success.main' : 'text.secondary', fontWeight: row.abierto_at ? 'bold' : 'normal' }}>
-                          {row.abierto_at || (row.rebotado_at ? `Rebote: ${row.rebotado_at}` : '—')}
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: '#f8fafc' }}>
+                          Recibido
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: '#f8fafc' }}>
+                          Abierto
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                    </TableHead>
+                    <TableBody>
+                      {telemetryRows.map((row, idx) => {
+                        const chipColor =
+                          row.estado === 'Abierto' || row.abierto_at
+                            ? 'success'
+                            : row.estado === 'Entregado' || row.entregado_at
+                            ? 'info'
+                            : row.estado === 'Rebotado' || row.rebotado_at
+                            ? 'error'
+                            : 'default';
+                        const chipLabel =
+                          row.estado === 'Abierto' || row.abierto_at
+                            ? 'Abierto'
+                            : row.estado === 'Entregado' || row.entregado_at
+                            ? 'Entregado'
+                            : row.estado === 'Rebotado' || row.rebotado_at
+                            ? 'Rebotado'
+                            : 'Enviado';
+                        return (
+                          <TableRow key={row.clienteId || idx} hover>
+                            <TableCell sx={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                              {onVerCliente && row.clienteId ? (
+                                <Button
+                                  variant="text"
+                                  size="small"
+                                  onClick={() => onVerCliente(row.clienteId)}
+                                  sx={{
+                                    textTransform: 'none',
+                                    p: 0,
+                                    minWidth: 0,
+                                    fontSize: '0.74rem',
+                                    fontWeight: 700
+                                  }}
+                                >
+                                  {row.nombre || 'Ver ficha'}
+                                </Button>
+                              ) : (
+                                row.nombre
+                              )}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>
+                              {row.email}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                color={chipColor}
+                                label={chipLabel}
+                                sx={{ fontWeight: 700, fontSize: '0.66rem', height: 19 }}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
+                              {row.entregado_at || '—'}
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                fontSize: '0.7rem',
+                                color: row.abierto_at ? 'success.main' : 'text.secondary',
+                                fontWeight: row.abierto_at ? 700 : 400
+                              }}
+                            >
+                              {row.abierto_at || (row.rebotado_at ? `Rebote: ${row.rebotado_at}` : '—')}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Box>
+          </Collapse>
         </Box>
       </Collapse>
-
-      <Divider sx={{ my: 1 }} />
-      {c.pdf_url && (
-        <Button
-          component="a"
-          href={c.pdf_url}
-          target="_blank"
-          rel="noopener"
-          variant="text"
-          size="small"
-          startIcon={<File size={14} />}
-          sx={{ textTransform: 'none', fontWeight: 'bold', p: 0 }}
-        >
-          {c.pdf_nombre || 'Ver Documento Adjunto (PDF)'}
-        </Button>
-      )}
-    </ListItem>
+    </Paper>
   );
 }
 
@@ -440,6 +583,12 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [uploadProgressDoc, setUploadProgressDoc] = useState(0);
+  const [expandedDocIds, setExpandedDocIds] = useState({});
+
+  const toggleExpandDoc = (id, e) => {
+    if (e) e.stopPropagation();
+    setExpandedDocIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   // Estados del formulario del representado
   const [openModal, setOpenModal] = useState(false);
@@ -467,7 +616,8 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [etapaInspeccionada, setEtapaInspeccionada] = useState(
     sincronizarEtapaConPerfil(caso.etapa_procesal, perfilJurisdiccional)
   );
-  const [mostrarDetalleEtapa, setMostrarDetalleEtapa] = useState(true);
+  const [mostrarDetalleEtapa, setMostrarDetalleEtapa] = useState(false);
+  const [mostrarFichaCaso, setMostrarFichaCaso] = useState(false);
   const [hitoFechaInput, setHitoFechaInput] = useState('');
   const [hitoResolucionInput, setHitoResolucionInput] = useState('');
   const [hitoResumenInput, setHitoResumenInput] = useState('');
@@ -527,7 +677,6 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [driveDocAnexo, setDriveDocAnexo] = useState('');
   const [analizandoDocIAId, setAnalizandoDocIAId] = useState(null);
   const [resultadoAnalisisDocIA, setResultadoAnalisisDocIA] = useState(null);
-  const [usarArgonEnDoc, setUsarArgonEnDoc] = useState(false);
 
   // Estados locales para la caja de búsqueda y la paginación masiva de representados
   const [searchQuery, setSearchQuery] = useState('');
@@ -553,7 +702,6 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   const [filtroDestinatarios, setFiltroDestinatarios] = useState('');
 
   // Estados para Pestaña 6: Copiloto Jurídico PIDA
-  const [modeloCopilotoIA, setModeloCopilotoIA] = useState('gemini-4-argon');
   const [consultaCopilotoIA, setConsultaCopilotoIA] = useState('');
   const [ejecutandoCopilotoIA, setEjecutandoCopilotoIA] = useState(false);
   const [respuestaCopilotoIA, setRespuestaCopilotoIA] = useState(null);
@@ -623,6 +771,10 @@ export default function DetalleCaso({ caso, onVolver, currentUserEmail, userRole
   }, [caso]);
 
   const handleSeleccionarEtapaInspeccion = (etapa) => {
+    if (etapaInspeccionada === etapa && mostrarDetalleEtapa) {
+      setMostrarDetalleEtapa(false);
+      return;
+    }
     setEtapaInspeccionada(etapa);
     setMostrarDetalleEtapa(true);
     const info = historialEtapas[etapa] || {};
@@ -1688,194 +1840,601 @@ ${promptBase.trim()}`;
     );
   }
 
-  return (
-    <Box>
-      <Button 
-        startIcon={<ArrowLeft size={16} />} 
-        onClick={onVolver} 
-        sx={{ mb: 2, textTransform: 'none', color: 'text.secondary', fontWeight: 'bold' }}
-      >
-        Volver a todos los casos
-      </Button>
+  const totalAcreditados = clientes.filter((c) => c.tiene_poder && c.tiene_documento_id).length;
+  const totalVulnerables = clientes.filter(
+    (c) => c.condicion_vulnerabilidad && c.condicion_vulnerabilidad !== 'Ninguna'
+  ).length;
+  const plazosPendientesCount = localPlazos.filter((p) => !p.completado).length;
 
-      {/* CABECERA ADAPTATIVA (NACIONAL LATAM / INTERNACIONAL SIDH-ONU) + PIPELINE DE 6 ETAPAS PROCESALES */}
-      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1.5, mb: 1.5 }}>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Chip
-              label={
-                perfilJurisdiccional.esInternacional
-                  ? `🌐 Internacional · ${perfilJurisdiccional.pais.bandera} ${perfilJurisdiccional.pais.nombre}`
-                  : `${perfilJurisdiccional.pais.bandera} Jurisdicción Nacional · ${perfilJurisdiccional.pais.nombre}`
-              }
-              size="small"
+  return (
+    <Box sx={{ maxWidth: 1440, mx: 'auto', pb: 6 }}>
+      {/* =================================================================== */}
+      {/* BARRA SUPERIOR: BREADCRUMB + TELEMETRÍA INTEGRADA + ACCIONES        */}
+      {/* =================================================================== */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', lg: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', lg: 'center' },
+          gap: 1.5,
+          mb: 2
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            size="small"
+            startIcon={<ArrowLeft size={15} />}
+            onClick={onVolver}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              color: '#475569',
+              bgcolor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: 1.5,
+              px: 1.25,
+              py: 0.4,
+              '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' }
+            }}
+          >
+            Casos y Litigios
+          </Button>
+
+          {casoLocal.expediente_oficial && (
+            <Box
+              component="span"
               sx={{
-                fontWeight: 'bold',
-                bgcolor: perfilJurisdiccional.esInternacional ? '#eff6ff' : '#ecfdf5',
-                color: perfilJurisdiccional.esInternacional ? '#1e40af' : '#065f46',
-                border: perfilJurisdiccional.esInternacional ? '1px solid #bfdbfe' : '1px solid #a7f3d0'
+                px: 0.85,
+                py: 0.2,
+                borderRadius: 1,
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                fontFamily: 'monospace',
+                bgcolor: '#f1f5f9',
+                color: '#334155',
+                border: '1px solid #e2e8f0'
               }}
-            />
-            <Chip
-              icon={<Globe size={14} />}
-              label={casoLocal.jurisdiccion || 'CIDH (Comisión)'}
-              size="small"
-              color="primary"
-              sx={{ fontWeight: 'bold' }}
-            />
-            {casoLocal.expediente_oficial && (
-              <Chip
-                label={`Exp: ${casoLocal.expediente_oficial}`}
-                size="small"
-                sx={{ fontWeight: 'bold', fontFamily: 'monospace', bgcolor: '#1e293b', color: '#ffffff' }}
-              />
-            )}
-            {casoLocal.estado_demandado && (
-              <Chip
-                label={`🏛️ Contra: ${casoLocal.estado_demandado}`}
-                size="small"
-                variant="outlined"
-                sx={{ fontWeight: 'bold' }}
-              />
-            )}
-            {casoLocal.abogado_responsable && (
-              <Chip
-                label={`⚖️ ${casoLocal.abogado_responsable}`}
-                size="small"
-                variant="outlined"
-                sx={{ fontWeight: 'medium' }}
-              />
+            >
+              {casoLocal.expediente_oficial}
+            </Box>
+          )}
+        </Box>
+
+        {/* CINTA DE TELEMETRÍA EJECUTIVA DEL CASO + ACCIONES PRIMARIAS */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            flexWrap: 'wrap',
+            width: { xs: '100%', lg: 'auto' },
+            justifyContent: { xs: 'space-between', lg: 'flex-end' }
+          }}
+        >
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              bgcolor: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: 2,
+              px: 0.75,
+              py: 0.45,
+              gap: 0.4,
+              boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+              overflowX: 'auto'
+            }}
+          >
+            <Tooltip title="Ver Padrón de Representados">
+              <Box
+                onClick={() => setActiveTab(0)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.5,
+                  px: 1.1,
+                  py: 0.35,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  bgcolor: activeTab === 0 ? '#f8fafc' : 'transparent',
+                  '&:hover': { bgcolor: '#f1f5f9' }
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {clientes.length}
+                </Typography>
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}>
+                  representados
+                </Typography>
+              </Box>
+            </Tooltip>
+
+            <Divider orientation="vertical" flexItem sx={{ my: 0.4 }} />
+
+            <Tooltip title={`Acreditación completa (${perfilJurisdiccional.normaCorto})`}>
+              <Box
+                onClick={() => {
+                  setActiveTab(0);
+                  setFiltroAcreditacion((prev) =>
+                    prev === 'Listos Art. 35' ? 'Todos' : 'Listos Art. 35'
+                  );
+                }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.5,
+                  px: 1.1,
+                  py: 0.35,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  bgcolor: filtroAcreditacion === 'Listos Art. 35' ? '#f0fdf4' : 'transparent',
+                  '&:hover': { bgcolor: '#f0fdf4' }
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    color: '#15803d',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {totalAcreditados}/{clientes.length}
+                </Typography>
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}>
+                  acreditados
+                </Typography>
+              </Box>
+            </Tooltip>
+
+            <Divider orientation="vertical" flexItem sx={{ my: 0.4 }} />
+
+            <Tooltip title="Ver Piezas Procesales y Anexos">
+              <Box
+                onClick={() => setActiveTab(1)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.5,
+                  px: 1.1,
+                  py: 0.35,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  bgcolor: activeTab === 1 ? '#f8fafc' : 'transparent',
+                  '&:hover': { bgcolor: '#f1f5f9' }
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {docsComunes.length}
+                </Typography>
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}>
+                  piezas
+                </Typography>
+              </Box>
+            </Tooltip>
+
+            {semaforoGeneral && (
+              <>
+                <Divider orientation="vertical" flexItem sx={{ my: 0.4 }} />
+                <Tooltip title="Ver Plazos Fatales">
+                  <Box
+                    onClick={() => setActiveTab(3)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      px: 1.1,
+                      py: 0.35,
+                      borderRadius: 1.25,
+                      cursor: 'pointer',
+                      bgcolor: '#fef2f2',
+                      '&:hover': { bgcolor: '#fee2e2' }
+                    }}
+                  >
+                    <Clock size={12} color={semaforoGeneral.color} />
+                    <Typography
+                      sx={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        color: semaforoGeneral.color
+                      }}
+                    >
+                      {semaforoGeneral.label}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+              </>
             )}
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
             {!perfilJurisdiccional.esInternacional && (
               <Button
                 size="small"
                 variant="outlined"
-                color="secondary"
-                startIcon={<Globe size={15} />}
+                startIcon={<Globe size={14} />}
                 onClick={() => setOpenEscalarModal(true)}
                 sx={{
                   textTransform: 'none',
-                  fontWeight: 'bold',
-                  borderRadius: 2,
-                  borderColor: '#818cf8',
-                  color: '#312e81',
-                  bgcolor: '#eef2ff',
-                  '&:hover': { bgcolor: '#e0e7ff', borderColor: '#4f46e5' }
+                  fontWeight: 600,
+                  fontSize: '0.76rem',
+                  borderRadius: 1.75,
+                  borderColor: '#cbd5e1',
+                  color: '#334155',
+                  bgcolor: '#ffffff',
+                  py: 0.55,
+                  px: 1.35,
+                  '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' }
                 }}
               >
-                🌐 Agotamiento Vía Interna / Escalar a CIDH-ONU
+                Escalar a CIDH / ONU
               </Button>
             )}
             <Button
               size="small"
               variant="contained"
-              startIcon={<Sparkles size={15} />}
+              startIcon={<Sparkles size={14} />}
               onClick={() => setActiveTab(5)}
               sx={{
                 textTransform: 'none',
-                fontWeight: 'bold',
-                borderRadius: 2,
+                fontWeight: 600,
+                fontSize: '0.78rem',
+                borderRadius: 1.75,
+                bgcolor: '#0f172a',
                 color: '#ffffff',
-                background: 'linear-gradient(90deg, #1e3a8a 0%, #4338ca 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(90deg, #172554 0%, #312e81 100%)'
-                }
+                py: 0.6,
+                px: 1.6,
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.12)',
+                '&:hover': { bgcolor: '#1e293b' }
               }}
             >
-              Abrir Copiloto PIDA
+              Copiloto PIDA
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* =================================================================== */}
+      {/* CABECERA EJECUTIVA MÍNIMA DEL EXPEDIENTE + RUTA PROCESAL EN 1 CLIC  */}
+      {/* =================================================================== */}
+      <Paper
+        elevation={0}
+        sx={{
+          position: 'relative',
+          p: { xs: 2, sm: 2.5 },
+          pl: { xs: 2.5, sm: 3 },
+          mb: 2.5,
+          borderRadius: 2.5,
+          bgcolor: '#ffffff',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: '4px',
+            bgcolor: perfilJurisdiccional.esInternacional ? '#2563eb' : '#0d9488'
+          }
+        }}
+      >
+        {/* Fila 1: Insignias jurisdiccionales + Contraparte + Botón de Ficha Desplegable */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 1,
+            mb: 0.75
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.5,
+                px: 0.9,
+                py: 0.2,
+                borderRadius: 1,
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                bgcolor: perfilJurisdiccional.esInternacional ? '#eff6ff' : '#f0fdf4',
+                color: perfilJurisdiccional.esInternacional ? '#1d4ed8' : '#0f766e'
+              }}
+            >
+              {perfilJurisdiccional.pais.bandera}{' '}
+              {perfilJurisdiccional.esInternacional ? 'Internacional' : 'Nacional'} ·{' '}
+              {casoLocal.jurisdiccion || 'CIDH'}
+            </Box>
+
+            {casoLocal.estado_demandado && (
+              <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.76rem' }}>
+                Contra <strong style={{ color: '#334155' }}>{casoLocal.estado_demandado}</strong>
+              </Typography>
+            )}
+
+            {casoLocal.abogado_responsable && (
+              <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.75rem' }}>
+                · Resp: <strong style={{ color: '#475569' }}>{casoLocal.abogado_responsable}</strong>
+              </Typography>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Button
+              size="small"
+              onClick={() => setMostrarFichaCaso((prev) => !prev)}
+              endIcon={mostrarFichaCaso ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                color: '#475569',
+                bgcolor: mostrarFichaCaso ? '#f1f5f9' : '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: 1.5,
+                px: 1.1,
+                py: 0.25,
+                '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' }
+              }}
+            >
+              Ficha y Normativa
             </Button>
           </Box>
         </Box>
 
-        <Typography variant="h4" fontWeight="bold" color="primary.main" gutterBottom sx={{ fontSize: { xs: '1.35rem', sm: '2rem' } }}>
+        {/* Título Principal del Caso */}
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 800,
+            color: '#0f172a',
+            letterSpacing: '-0.02em',
+            fontSize: { xs: '1.2rem', sm: '1.45rem' },
+            lineHeight: 1.3,
+            mb: 1.5
+          }}
+        >
           {casoLocal.nombre}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {casoLocal.descripcion || 'Sin descripción del litigio.'}
-        </Typography>
 
-        <Box sx={{ mb: 2, p: 1.25, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="caption" color="text.secondary">
-            <strong>Régimen Procesal y de Personería Activo:</strong> {perfilJurisdiccional.normaTitulo} —{' '}
-            {perfilJurisdiccional.esInternacional
-              ? 'Evaluación conforme a reglamentos internacionales (CIDH / Corte IDH / ONU).'
-              : `${perfilJurisdiccional.pais.requisitoPoderNacional}`}
-          </Typography>
-          {casoLocal.fecha_agotamiento_interno && (
-            <Chip
-              size="small"
-              color="warning"
-              label={`Vía interna agotada el: ${casoLocal.fecha_agotamiento_interno}`}
-              sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
-            />
-          )}
-        </Box>
-
-        {Array.isArray(casoLocal.derechos_invocados) && casoLocal.derechos_invocados.length > 0 && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
-            {casoLocal.derechos_invocados.map((der) => (
-              <Chip
-                key={der}
-                label={der}
-                size="small"
-                sx={{ bgcolor: '#eff6ff', color: '#1e40af', fontWeight: 'bold', fontSize: '0.72rem' }}
-              />
-            ))}
-          </Box>
-        )}
-
-        <Divider sx={{ my: 1.5 }} />
-
-        {/* Pipeline Procesal Interactivo con Historial de Hitos y Guía Dinámica (Nacional / Internacional) */}
-        <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-            <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
-              Línea de Tiempo Procesal ({perfilJurisdiccional.esInternacional ? 'Instancia Internacional' : `Vía Interna · ${perfilJurisdiccional.pais.nombre}`}) — Haz clic en una etapa para inspeccionar o activarla:
+        {/* CAJÓN DESPLEGABLE 1: SÍNTESIS FÁCTICA, RÉGIMEN Y NORMATIVA INVOCADA */}
+        <Collapse in={mostrarFichaCaso} timeout="auto" unmountOnExit>
+          <Box
+            sx={{
+              p: 1.75,
+              mb: 1.75,
+              bgcolor: '#f8fafc',
+              borderRadius: 2,
+              border: '1px solid #e2e8f0'
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: '#334155', fontSize: '0.82rem', lineHeight: 1.6, mb: 1.25 }}
+            >
+              {casoLocal.descripcion || 'Sin descripción registrada para este litigio.'}
             </Typography>
+
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 1,
+                pt: 1,
+                borderTop: '1px solid #e2e8f0'
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.74rem' }}>
+                <strong style={{ color: '#334155' }}>Estándar Procesal:</strong>{' '}
+                {perfilJurisdiccional.normaTitulo} —{' '}
+                {perfilJurisdiccional.esInternacional
+                  ? 'Reglamentos internacionales (CIDH / Corte IDH / ONU).'
+                  : perfilJurisdiccional.pais.requisitoPoderNacional}
+              </Typography>
+
+              {casoLocal.fecha_agotamiento_interno && (
+                <Box
+                  component="span"
+                  sx={{
+                    px: 0.8,
+                    py: 0.15,
+                    borderRadius: 1,
+                    bgcolor: '#fffbeb',
+                    color: '#b45309',
+                    border: '1px solid #fde68a',
+                    fontSize: '0.68rem',
+                    fontWeight: 700
+                  }}
+                >
+                  Vía interna agotada: {casoLocal.fecha_agotamiento_interno}
+                </Box>
+              )}
+            </Box>
+
+            {Array.isArray(casoLocal.derechos_invocados) &&
+              casoLocal.derechos_invocados.length > 0 && (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1.25 }}>
+                  {casoLocal.derechos_invocados.map((der) => (
+                    <Box
+                      key={der}
+                      component="span"
+                      sx={{
+                        px: 0.85,
+                        py: 0.2,
+                        bgcolor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 1,
+                        fontSize: '0.68rem',
+                        fontWeight: 600,
+                        color: '#334155'
+                      }}
+                    >
+                      {der}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+          </Box>
+        </Collapse>
+
+        {/* BARRA DE PROGRESO PROCESAL SEGMENTADA (CLIC EN UNA ETAPA DESPLIEGA SU INSPECTOR) */}
+        <Box sx={{ pt: 1.25, borderTop: '1px solid #f1f5f9' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 1,
+              mb: 0.85
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.66rem',
+                  fontWeight: 700,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em'
+                }}
+              >
+                Ruta Procesal
+              </Typography>
+              <Typography sx={{ fontSize: '0.73rem', fontWeight: 700, color: '#0f172a' }}>
+                · {etapaActualCaso}
+              </Typography>
+            </Box>
+
             <Button
               size="small"
               variant="text"
               onClick={() => setMostrarDetalleEtapa((prev) => !prev)}
-              sx={{ textTransform: 'none', fontWeight: 'bold', fontSize: '0.75rem', p: 0 }}
+              endIcon={mostrarDetalleEtapa ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.72rem',
+                color: '#475569',
+                p: 0.25,
+                minHeight: 'auto'
+              }}
             >
-              {mostrarDetalleEtapa ? 'Ocultar detalle de etapa ▲' : 'Mostrar detalle de etapa ▼'}
+              {mostrarDetalleEtapa ? 'Contraer hito de etapa' : 'Inspeccionar / editar hito'}
             </Button>
           </Box>
 
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {/* Track segmentado de 6 etapas */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: 'repeat(2, 1fr)',
+                sm: 'repeat(3, 1fr)',
+                md: `repeat(${etapasActivas.length}, 1fr)`
+              },
+              gap: 0.75
+            }}
+          >
             {etapasActivas.map((etapa, idx) => {
               const idxActual = etapasActivas.indexOf(etapaActualCaso);
               const activa = etapaActualCaso === etapa;
               const completada = idx < idxActual;
-              const inspeccionada = etapaInspeccionada === etapa;
+              const inspeccionada = etapaInspeccionada === etapa && mostrarDetalleEtapa;
               const infoHito = historialEtapas[etapa];
-              const etiquetaChip = infoHito?.fecha_hito
-                ? `${completada ? '✓ ' : activa ? '● ' : ''}${etapa} (${infoHito.fecha_hito})`
-                : `${completada ? '✓ ' : activa ? '● ' : ''}${etapa}`;
+              const cleanName = etapa.replace(/^\d+\.\s*/, '');
 
               return (
-                <Chip
+                <Box
                   key={etapa}
-                  label={etiquetaChip}
-                  size="small"
-                  color={activa ? 'primary' : completada ? 'success' : 'default'}
-                  variant={activa || completada ? 'filled' : 'outlined'}
                   onClick={() => handleSeleccionarEtapaInspeccion(etapa)}
                   sx={{
-                    fontWeight: activa || inspeccionada ? 'bold' : 'medium',
+                    p: 0.85,
+                    borderRadius: 1.5,
                     cursor: 'pointer',
-                    border: inspeccionada ? '2px solid #4f46e5' : undefined,
-                    boxShadow: inspeccionada ? '0 0 0 2px rgba(79,70,229,0.2)' : 'none'
+                    bgcolor: inspeccionada
+                      ? '#f1f5f9'
+                      : activa
+                      ? '#f8fafc'
+                      : '#ffffff',
+                    border: inspeccionada
+                      ? '1px solid #0f172a'
+                      : activa
+                      ? '1px solid #94a3b8'
+                      : '1px solid #e2e8f0',
+                    transition: 'all 0.15s ease',
+                    '&:hover': { borderColor: '#64748b', bgcolor: '#f8fafc' }
                   }}
-                />
+                >
+                  <Box
+                    sx={{
+                      height: 3.5,
+                      borderRadius: 1,
+                      mb: 0.5,
+                      bgcolor: activa
+                        ? '#0f172a'
+                        : completada
+                        ? perfilJurisdiccional.esInternacional
+                          ? '#2563eb'
+                          : '#0d9488'
+                        : '#e2e8f0'
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
+                    <Typography
+                      noWrap
+                      sx={{
+                        fontSize: '0.7rem',
+                        fontWeight: activa || inspeccionada ? 700 : 500,
+                        color: activa || inspeccionada ? '#0f172a' : completada ? '#334155' : '#64748b'
+                      }}
+                    >
+                      {idx + 1}. {cleanName}
+                    </Typography>
+                    {infoHito?.fecha_hito && (
+                      <Typography
+                        sx={{
+                          fontSize: '0.6rem',
+                          fontFamily: 'monospace',
+                          color: '#64748b',
+                          flexShrink: 0
+                        }}
+                      >
+                        {infoHito.fecha_hito.slice(5)}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
               );
             })}
           </Box>
 
-          <Collapse in={mostrarDetalleEtapa}>
+          {/* CAJÓN DESPLEGABLE 2: INSPECTOR Y REGISTRO DE HITO DE ETAPA */}
+          <Collapse in={mostrarDetalleEtapa} timeout="auto" unmountOnExit>
             {(() => {
               const guia = guiaEtapasActiva[etapaInspeccionada] || guiaEtapasActiva[etapasActivas[0]];
               const idxInsp = etapasActivas.indexOf(etapaInspeccionada);
@@ -1885,143 +2444,176 @@ ${promptBase.trim()}`;
               const infoGuardada = historialEtapas[etapaInspeccionada];
 
               return (
-                <Paper
-                  variant="outlined"
+                <Box
                   sx={{
-                    mt: 2,
+                    mt: 1.5,
                     p: 2,
-                    borderRadius: 2.5,
-                    bgcolor: esEtapaActual ? '#f8fafc' : esEtapaCompletada ? '#f0fdf4' : '#fafafa',
-                    borderColor: esEtapaActual ? '#93c5fd' : esEtapaCompletada ? '#86efac' : '#e2e8f0'
+                    borderRadius: 2,
+                    bgcolor: '#f8fafc',
+                    border: '1px solid #cbd5e1'
                   }}
                 >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: 1,
+                      mb: 1
+                    }}
+                  >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                      <Typography variant="subtitle2" fontWeight="bold" color="primary.main">
+                      <Typography variant="subtitle2" fontWeight={800} color="#0f172a">
                         {etapaInspeccionada}
                       </Typography>
-                      <Chip
-                        size="small"
-                        label={
-                          esEtapaActual
-                            ? '● Etapa Actual en Curso'
-                            : esEtapaCompletada
-                            ? '✓ Etapa Superada / Completada'
-                            : '○ Etapa Futura / Proyectada'
-                        }
-                        color={esEtapaActual ? 'primary' : esEtapaCompletada ? 'success' : 'default'}
-                        sx={{ fontWeight: 'bold', height: 22, fontSize: '0.7rem' }}
-                      />
+                      <Box
+                        component="span"
+                        sx={{
+                          px: 0.8,
+                          py: 0.15,
+                          borderRadius: 1,
+                          fontSize: '0.66rem',
+                          fontWeight: 700,
+                          bgcolor: esEtapaActual ? '#0f172a' : esEtapaCompletada ? '#f0fdf4' : '#e2e8f0',
+                          color: esEtapaActual ? '#ffffff' : esEtapaCompletada ? '#15803d' : '#475569'
+                        }}
+                      >
+                        {esEtapaActual
+                          ? 'Etapa Actual'
+                          : esEtapaCompletada
+                          ? 'Completada'
+                          : 'Etapa Proyectada'}
+                      </Box>
                       {infoGuardada?.resolucion_referencia && (
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={`Ref: ${infoGuardada.resolucion_referencia}`}
-                          sx={{ fontWeight: 'bold', height: 22, fontSize: '0.7rem', bgcolor: '#ffffff' }}
-                        />
+                        <Box
+                          component="span"
+                          sx={{
+                            px: 0.8,
+                            py: 0.15,
+                            borderRadius: 1,
+                            fontSize: '0.66rem',
+                            fontWeight: 600,
+                            fontFamily: 'monospace',
+                            bgcolor: '#ffffff',
+                            border: '1px solid #cbd5e1',
+                            color: '#334155'
+                          }}
+                        >
+                          Ref: {infoGuardada.resolucion_referencia}
+                        </Box>
                       )}
                     </Box>
 
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                       {!esEtapaActual && (
                         <Button
                           size="small"
                           variant="contained"
-                          color="primary"
                           disabled={guardandoHitoEtapa}
                           onClick={() => handleCambiarEtapaProcesal(etapaInspeccionada, true)}
-                          sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '0.73rem',
+                            borderRadius: 1.5,
+                            bgcolor: '#0f172a',
+                            py: 0.4
+                          }}
                         >
-                          Establecer como Etapa Actual del Caso
+                          Marcar como Etapa Actual
                         </Button>
                       )}
                       <Button
                         size="small"
                         variant="outlined"
-                        color="secondary"
-                        startIcon={<Sparkles size={14} />}
+                        startIcon={<Sparkles size={13} />}
                         onClick={() => {
                           setActiveTab(5);
                           setConsultaCopilotoIA(guia.promptIA);
                           handleEjecutarCopilotoIA(guia.promptIA);
                         }}
-                        sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                        sx={{
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          fontSize: '0.73rem',
+                          borderRadius: 1.5,
+                          bgcolor: '#ffffff',
+                          borderColor: '#cbd5e1',
+                          color: '#0f172a',
+                          py: 0.4
+                        }}
                       >
-                        Generar Estrategia con PIDA
+                        Estrategia PIDA
                       </Button>
                     </Box>
                   </Box>
 
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                    <strong>Objetivo procesal ({perfilJurisdiccional.esInternacional ? 'SIDH / ONU' : perfilJurisdiccional.pais.nombre}):</strong>{' '}
-                    {guia.objetivo}
+                  <Typography variant="caption" sx={{ display: 'block', color: '#475569', mb: 1.25 }}>
+                    <strong>Objetivo:</strong> {guia.objetivo}
                   </Typography>
 
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
-                    {guia.entregables.map((ent) => (
-                      <Chip
-                        key={ent}
-                        size="small"
-                        label={`• ${ent}`}
-                        sx={{ bgcolor: '#ffffff', border: '1px solid #cbd5e1', fontSize: '0.72rem' }}
-                      />
-                    ))}
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', sm: '160px 1fr 1fr auto' },
+                      gap: 1,
+                      alignItems: 'center'
+                    }}
+                  >
+                    <TextField
+                      label="Fecha Hito"
+                      type="date"
+                      size="small"
+                      fullWidth
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      value={hitoFechaInput}
+                      onChange={(e) => setHitoFechaInput(e.target.value)}
+                      sx={{ bgcolor: '#ffffff' }}
+                    />
+                    <TextField
+                      label="Resolución / Escrito Ref."
+                      size="small"
+                      fullWidth
+                      placeholder={
+                        perfilJurisdiccional.esInternacional
+                          ? 'Ej: Informe Admisibilidad 48/26'
+                          : 'Ej: Voto N° 2026-004120'
+                      }
+                      value={hitoResolucionInput}
+                      onChange={(e) => setHitoResolucionInput(e.target.value)}
+                      sx={{ bgcolor: '#ffffff' }}
+                    />
+                    <TextField
+                      label="Nota Ejecutiva"
+                      size="small"
+                      fullWidth
+                      placeholder="Observación de avance..."
+                      value={hitoResumenInput}
+                      onChange={(e) => setHitoResumenInput(e.target.value)}
+                      sx={{ bgcolor: '#ffffff' }}
+                    />
+                    <Button
+                      size="small"
+                      variant="contained"
+                      disabled={guardandoHitoEtapa}
+                      onClick={() => handleGuardarHitoEtapa(etapaInspeccionada)}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        bgcolor: '#0f172a',
+                        borderRadius: 1.5,
+                        px: 2,
+                        py: 0.85,
+                        whiteSpace: 'nowrap',
+                        '&:hover': { bgcolor: '#1e293b' }
+                      }}
+                    >
+                      {guardandoHitoEtapa ? 'Guardando...' : 'Guardar Hito'}
+                    </Button>
                   </Box>
-
-                  <Grid container spacing={1.5} alignItems="center">
-                    <Grid item xs={12} sm={3}>
-                      <TextField
-                        label="Fecha de Inicio / Hito"
-                        type="date"
-                        size="small"
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                        value={hitoFechaInput}
-                        onChange={(e) => setHitoFechaInput(e.target.value)}
-                        sx={{ bgcolor: '#ffffff' }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        label="Resolución / Escrito de Referencia"
-                        size="small"
-                        fullWidth
-                        placeholder={
-                          perfilJurisdiccional.esInternacional
-                            ? 'Ej: Informe Admisibilidad No. 48/26 o ESAP'
-                            : 'Ej: Auto Admisorio / Voto N° 2026-004120'
-                        }
-                        value={hitoResolucionInput}
-                        onChange={(e) => setHitoResolucionInput(e.target.value)}
-                        sx={{ bgcolor: '#ffffff' }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={3}>
-                      <TextField
-                        label="Resumen / Observación de la Etapa"
-                        size="small"
-                        fullWidth
-                        placeholder="Nota ejecutiva del avance..."
-                        value={hitoResumenInput}
-                        onChange={(e) => setHitoResumenInput(e.target.value)}
-                        sx={{ bgcolor: '#ffffff' }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={2}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        variant="contained"
-                        color="success"
-                        disabled={guardandoHitoEtapa}
-                        onClick={() => handleGuardarHitoEtapa(etapaInspeccionada)}
-                        sx={{ textTransform: 'none', fontWeight: 'bold', py: 1 }}
-                      >
-                        {guardandoHitoEtapa ? 'Guardando...' : 'Guardar Hito'}
-                      </Button>
-                    </Grid>
-                  </Grid>
-                </Paper>
+                </Box>
               );
             })()}
           </Collapse>
@@ -2029,95 +2621,281 @@ ${promptBase.trim()}`;
       </Paper>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2, fontWeight: 'medium' }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs 
-          value={activeTab} 
-          onChange={(e, val) => setActiveTab(val)} 
-          textColor="primary" 
-          indicatorColor="primary"
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-          sx={{
-            '& .MuiTab-root': {
-              minHeight: 48,
-              fontSize: { xs: '0.82rem', sm: '0.9rem' },
-              whiteSpace: 'nowrap'
-            }
-          }}
-        >
-          <Tab icon={<Users size={18} />} iconPosition="start" label={`Padrón de Representados (${clientes.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
-          <Tab icon={<FileText size={18} />} iconPosition="start" label={`Piezas y Anexos (${docsComunes.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
-          <Tab icon={<CreditCard size={18} />} iconPosition="start" label="Control Financiero y Aportes" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
-          <Tab 
-            icon={<Clock size={18} style={{ color: semaforoGeneral ? semaforoGeneral.color : 'inherit' }} />} 
-            iconPosition="start" 
-            label={semaforoGeneral ? `Plazos Fatales (${semaforoGeneral.label})` : "Plazos Fatales"} 
-            style={{ 
-              textTransform: 'none', 
-              fontWeight: 'bold', 
-              color: semaforoGeneral ? semaforoGeneral.color : 'inherit' 
-            }} 
-          />
-          <Tab icon={<Mail size={18} />} iconPosition="start" label="Comunicados Oficiales" sx={{ textTransform: 'none', fontWeight: 'bold' }} />
-          <Tab icon={<Sparkles size={18} />} iconPosition="start" label="✨ Copiloto Jurídico PIDA" sx={{ textTransform: 'none', fontWeight: 'bold', color: '#4338ca' }} />
-        </Tabs>
+      {/* =================================================================== */}
+      {/* NAVEGACIÓN ARQUITECTÓNICA DE PESTAÑAS (ESTILO LINEAR / HARVEY)      */}
+      {/* =================================================================== */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          overflowX: 'auto',
+          p: 0.5,
+          bgcolor: '#f1f5f9',
+          borderRadius: 2,
+          border: '1px solid #e2e8f0',
+          mb: 0.5
+        }}
+      >
+        {[
+          { idx: 0, label: 'Padrón de Representados', count: clientes.length, icon: <Users size={15} /> },
+          { idx: 1, label: 'Piezas y Anexos', count: docsComunes.length, icon: <FileText size={15} /> },
+          { idx: 2, label: 'Finanzas y Aportes', count: null, icon: <CreditCard size={15} /> },
+          {
+            idx: 3,
+            label: 'Plazos Fatales',
+            count: plazosPendientesCount,
+            urgent: Boolean(semaforoGeneral),
+            icon: <Clock size={15} />
+          },
+          { idx: 4, label: 'Comunicados', count: comunicados.length, icon: <Mail size={15} /> },
+          { idx: 5, label: 'Copiloto Jurídico PIDA', count: null, icon: <Sparkles size={15} /> }
+        ].map((tabItem) => {
+          const active = activeTab === tabItem.idx;
+          return (
+            <Box
+              key={tabItem.idx}
+              onClick={() => setActiveTab(tabItem.idx)}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.5,
+                py: 0.7,
+                borderRadius: 1.5,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                userSelect: 'none',
+                fontSize: '0.78rem',
+                fontWeight: active ? 700 : 600,
+                color: active ? '#0f172a' : tabItem.urgent ? '#b91c1c' : '#64748b',
+                bgcolor: active ? '#ffffff' : 'transparent',
+                boxShadow: active ? '0 1px 2px rgba(15, 23, 42, 0.06)' : 'none',
+                transition: 'all 0.15s ease',
+                '&:hover': {
+                  color: '#0f172a',
+                  bgcolor: active ? '#ffffff' : 'rgba(255,255,255,0.5)'
+                }
+              }}
+            >
+              {tabItem.icon}
+              <span>{tabItem.label}</span>
+              {tabItem.count !== null && (
+                <Box
+                  component="span"
+                  sx={{
+                    px: 0.65,
+                    py: 0.05,
+                    borderRadius: 1,
+                    fontSize: '0.67rem',
+                    fontWeight: 700,
+                    fontVariantNumeric: 'tabular-nums',
+                    bgcolor: tabItem.urgent
+                      ? '#fef2f2'
+                      : active
+                      ? '#f1f5f9'
+                      : '#e2e8f0',
+                    color: tabItem.urgent ? '#b91c1c' : '#334155'
+                  }}
+                >
+                  {tabItem.count}
+                </Box>
+              )}
+            </Box>
+          );
+        })}
       </Box>
 
-      {/* PESTAÑA 1: PADRÓN DE REPRESENTADOS Y ACREDITACIÓN ADAPTATIVA */}
+      {/* =================================================================== */}
+      {/* PESTAÑA 1: PADRÓN DE REPRESENTADOS Y ACREDITACIÓN ADAPTATIVA        */}
+      {/* =================================================================== */}
       <TabPanel value={activeTab} index={0}>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 3 }}>
-          <Box>
-            <Typography variant="h6" fontWeight="bold">
-              {perfilJurisdiccional.pais.bandera} Padrón Oficial de Víctimas y Representados ({perfilJurisdiccional.normaTitulo})
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {perfilJurisdiccional.normaSubtitulo} · Control automático por PIDA de poderes, documentos de identidad y pruebas.
-            </Typography>
+        {/* Barra de Comando del Padrón */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', lg: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', lg: 'center' },
+            gap: 1.25,
+            mb: 2
+          }}
+        >
+          {/* Buscador + Píldoras de Filtro Rápido */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                bgcolor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: 2,
+                px: 1.5,
+                py: 0.45,
+                flexGrow: 1,
+                maxWidth: { xs: '100%', md: 360 },
+                '&:focus-within': {
+                  borderColor: '#0f172a',
+                  boxShadow: '0 0 0 3px rgba(15, 23, 42, 0.06)'
+                }
+              }}
+            >
+              <Search size={15} color="#94a3b8" />
+              <InputBase
+                fullWidth
+                placeholder="Buscar por nombre, ID, país o correo..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(0);
+                }}
+                sx={{ ml: 1, fontSize: '0.8rem', color: '#0f172a' }}
+              />
+              {searchQuery && (
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setPage(0);
+                  }}
+                  sx={{ p: 0.25 }}
+                >
+                  <X size={13} />
+                </IconButton>
+              )}
+            </Box>
+
+            <Box
+              sx={{
+                display: 'inline-flex',
+                bgcolor: '#f1f5f9',
+                p: 0.35,
+                borderRadius: 1.75,
+                border: '1px solid #e2e8f0',
+                flexWrap: 'wrap'
+              }}
+            >
+              {[
+                { key: 'Todos', label: `Todos (${clientes.length})` },
+                { key: 'Listos Art. 35', label: `Acreditados (${totalAcreditados})` },
+                {
+                  key: 'Pendientes Poder/ID',
+                  label: `Pendientes (${clientes.length - totalAcreditados})`
+                },
+                { key: 'Con Vulnerabilidad', label: `Vulnerables (${totalVulnerables})` }
+              ].map((f) => {
+                const active = filtroAcreditacion === f.key;
+                return (
+                  <Box
+                    key={f.key}
+                    onClick={() => {
+                      setFiltroAcreditacion(f.key);
+                      setPage(0);
+                    }}
+                    sx={{
+                      px: 1.15,
+                      py: 0.35,
+                      borderRadius: 1.25,
+                      fontSize: '0.73rem',
+                      fontWeight: active ? 700 : 500,
+                      color: active ? '#0f172a' : '#64748b',
+                      bgcolor: active ? '#ffffff' : 'transparent',
+                      boxShadow: active ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}
+                  >
+                    {f.label}
+                  </Box>
+                );
+              })}
+            </Box>
           </Box>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+
+          {/* Acciones Ejecutivas del Padrón */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, justifyContent: 'flex-end' }}>
             <Button
               variant="outlined"
               size="small"
-              startIcon={<ShieldCheck size={16} />}
+              startIcon={<ShieldCheck size={14} />}
               disabled={auditandoPadronIA}
               onClick={handleAuditarPadronIA}
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', color: '#4338ca', borderColor: '#c7d2fe', bgcolor: '#eef2ff' }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1.75,
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                color: '#334155',
+                borderColor: '#e2e8f0',
+                bgcolor: '#ffffff',
+                py: 0.55,
+                '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' }
+              }}
             >
-              {auditandoPadronIA ? 'Auditando con PIDA...' : `🛡️ Auditar Padrón con PIDA (${perfilJurisdiccional.normaCorto})`}
+              {auditandoPadronIA ? 'Auditando...' : `Auditar PIDA (${perfilJurisdiccional.normaCorto})`}
             </Button>
+
             <Button
               variant="outlined"
               size="small"
-              startIcon={<Download size={16} />}
+              startIcon={<Download size={14} />}
               onClick={handleExportarPadronCSV}
               disabled={clientes.length === 0}
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1.75,
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                color: '#334155',
+                borderColor: '#e2e8f0',
+                bgcolor: '#ffffff',
+                py: 0.55
+              }}
             >
-              Exportar Anexo CSV/Excel
+              CSV
             </Button>
+
             <Button
               variant="outlined"
               size="small"
               component="label"
-              startIcon={<Upload size={16} />}
+              startIcon={<Upload size={14} />}
               disabled={importandoCSV}
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1.75,
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                color: '#334155',
+                borderColor: '#e2e8f0',
+                bgcolor: '#ffffff',
+                py: 0.55
+              }}
             >
-              {importandoCSV ? 'Importando...' : 'Importar CSV'}
+              {importandoCSV ? 'Importando...' : 'Importar'}
               <input type="file" accept=".csv" hidden onChange={handleImportarPadronCSV} />
             </Button>
-            <Button 
-              variant="contained" 
+
+            <Button
+              variant="contained"
               size="small"
-              startIcon={<Plus size={18} />} 
-              onClick={() => setOpenModal(true)} 
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+              startIcon={<Plus size={15} />}
+              onClick={() => setOpenModal(true)}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1.75,
+                fontWeight: 700,
+                fontSize: '0.76rem',
+                bgcolor: '#0f172a',
+                py: 0.6,
+                px: 1.5,
+                '&:hover': { bgcolor: '#1e293b' }
+              }}
             >
               Agregar Representado
             </Button>
@@ -2126,40 +2904,78 @@ ${promptBase.trim()}`;
 
         {/* Panel de Resultado de Auditoría PIDA del Padrón */}
         {resultadoAuditoriaPadron && (
-          <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #c7d2fe', bgcolor: '#eef2ff', boxShadow: 'none' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.25,
+              mb: 2.5,
+              borderRadius: 2.5,
+              border: '1px solid #cbd5e1',
+              bgcolor: '#f8fafc'
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 1,
+                mb: 1.25
+              }}
+            >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <ShieldCheck size={18} color="#4338ca" />
-                <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
-                  Auditoría de Cumplimiento del Padrón ({perfilJurisdiccional.normaTitulo})
+                <ShieldCheck size={17} color="#0f172a" />
+                <Typography variant="subtitle2" fontWeight={800} color="#0f172a">
+                  Auditoría de Cumplimiento PIDA ({perfilJurisdiccional.normaTitulo})
                 </Typography>
-                <Chip
-                  size="small"
-                  label={`PIDA · Auditoría ${perfilJurisdiccional.normaCorto}`}
-                  sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
-                />
               </Box>
-              <Button size="small" color="inherit" onClick={() => setResultadoAuditoriaPadron(null)} sx={{ textTransform: 'none' }}>
+              <Button
+                size="small"
+                color="inherit"
+                onClick={() => setResultadoAuditoriaPadron(null)}
+                sx={{ textTransform: 'none', fontSize: '0.74rem' }}
+              >
                 Cerrar
               </Button>
             </Box>
 
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
-              <Chip size="small" color="success" label={`Listos (${perfilJurisdiccional.normaCorto}): ${resultadoAuditoriaPadron.estadisticas.listosArt35}/${resultadoAuditoriaPadron.estadisticas.total} (${resultadoAuditoriaPadron.estadisticas.porcentajeListos}%)`} sx={{ fontWeight: 'bold' }} />
-              <Chip size="small" color="warning" label={`Sin Poder: ${resultadoAuditoriaPadron.estadisticas.sinPoderCount}`} sx={{ fontWeight: 'bold' }} />
-              <Chip size="small" color="warning" label={`Sin Cédula/ID: ${resultadoAuditoriaPadron.estadisticas.sinIdCount}`} sx={{ fontWeight: 'bold' }} />
-              <Chip size="small" color="secondary" label={`Con Vulnerabilidad: ${resultadoAuditoriaPadron.estadisticas.vulnerablesCount}`} sx={{ fontWeight: 'bold' }} />
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
+              <Chip
+                size="small"
+                color="success"
+                label={`Listos: ${resultadoAuditoriaPadron.estadisticas.listosArt35}/${resultadoAuditoriaPadron.estadisticas.total} (${resultadoAuditoriaPadron.estadisticas.porcentajeListos}%)`}
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
+              <Chip
+                size="small"
+                color="warning"
+                label={`Sin Poder: ${resultadoAuditoriaPadron.estadisticas.sinPoderCount}`}
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
+              <Chip
+                size="small"
+                color="warning"
+                label={`Sin ID: ${resultadoAuditoriaPadron.estadisticas.sinIdCount}`}
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
+              <Chip
+                size="small"
+                color="secondary"
+                label={`Vulnerables: ${resultadoAuditoriaPadron.estadisticas.vulnerablesCount}`}
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
             </Box>
 
             <Box
               sx={{
                 bgcolor: '#ffffff',
-                p: 2.5,
+                p: 2,
                 borderRadius: 2,
-                border: '1px solid #e0e7ff',
+                border: '1px solid #e2e8f0',
                 fontFamily: '"Georgia", "Times New Roman", serif',
-                fontSize: '0.94rem',
-                lineHeight: 1.7,
+                fontSize: '0.92rem',
+                lineHeight: 1.68,
                 color: '#1e293b'
               }}
               dangerouslySetInnerHTML={{
@@ -2169,156 +2985,306 @@ ${promptBase.trim()}`;
           </Paper>
         )}
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2, mb: 3 }}>
-          <TextField
-            fullWidth
-            size="small"
-            variant="outlined"
-            placeholder="Buscar representados por nombres, apellidos, identificación, país o correo..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(0);
-            }}
-            InputProps={{
-              startAdornment: (
-                <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, color: 'text.secondary' }}>
-                  <Search size={18} />
-                </Box>
-              ),
-            }}
-          />
-
-          <FormControl size="small" fullWidth>
-            <InputLabel>Filtro de Acreditación Procesal</InputLabel>
-            <Select
-              value={filtroAcreditacion}
-              label="Filtro de Acreditación Procesal"
-              onChange={(e) => {
-                setFiltroAcreditacion(e.target.value);
-                setPage(0);
-              }}
-            >
-              <MenuItem value="Todos">Todos los Representados ({clientes.length})</MenuItem>
-              <MenuItem value="Listos Art. 35">🟢 Listos ({perfilJurisdiccional.normaCorto}: Poder + ID)</MenuItem>
-              <MenuItem value="Pendientes Poder/ID">🟡 Pendientes de Poder o ID</MenuItem>
-              <MenuItem value="Con Vulnerabilidad">
-                🛡️ {perfilJurisdiccional.esInternacional ? 'Con Vulnerabilidad (Art. 29.2 CIDH)' : 'Con Vulnerabilidad / Trámite Preferente'}
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={26} sx={{ color: '#0f172a' }} />
+          </Box>
         ) : clientesFiltrados.length === 0 ? (
-          <Alert severity="info" sx={{ borderRadius: 2 }}>
-            {searchQuery || filtroAcreditacion !== 'Todos'
-              ? 'No se localizaron registros de representados que coincidan con los criterios de búsqueda.'
-              : 'No hay clientes registrados en este litigio.'}
-          </Alert>
+          <Box
+            sx={{
+              textAlign: 'center',
+              py: 6,
+              px: 3,
+              bgcolor: '#ffffff',
+              borderRadius: 2.5,
+              border: '1px dashed #cbd5e1'
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={700} color="#334155">
+              {searchQuery || filtroAcreditacion !== 'Todos'
+                ? 'No hay representados que coincidan con este filtro'
+                : 'No hay representados registrados en este expediente'}
+            </Typography>
+          </Box>
         ) : (
-          <>
-            <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none', overflowX: 'auto' }}>
-              <Table sx={{ minWidth: 780 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: 2.5,
+              border: '1px solid #e2e8f0',
+              bgcolor: '#ffffff',
+              overflow: 'hidden'
+            }}
+          >
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 780 }}>
                 <TableHead sx={{ bgcolor: '#f8fafc' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Apellidos y Nombres</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Identificación / País</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Semáforo PIDA ({perfilJurisdiccional.normaCorto})</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Contacto Principal</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Estado Pago</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Ficha</TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.68rem',
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        py: 1.25
+                      }}
+                    >
+                      Representado y Calidad
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.68rem',
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      Identificación / País
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.68rem',
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      Acreditación ({perfilJurisdiccional.normaCorto})
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.68rem',
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      Contacto
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.68rem',
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      Finanzas
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.68rem',
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      Acción
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {clientesPaginados.map((clienteItem) => (
-                    <TableRow key={clienteItem.id} hover>
-                      <TableCell sx={{ fontWeight: 'medium' }}>
-                        <Typography variant="body2" fontWeight="bold">
+                    <TableRow
+                      key={clienteItem.id}
+                      hover
+                      onClick={() => setClienteSeleccionadoId(clienteItem.id)}
+                      sx={{ cursor: 'pointer', '& td': { py: 1.25 } }}
+                    >
+                      <TableCell>
+                        <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a' }}>
                           {clienteItem.apellidos}, {clienteItem.nombres}
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                          <Chip
-                            label={clienteItem.calidad_procesal || 'Víctima Directa'}
-                            size="small"
-                            variant="outlined"
-                            sx={{ height: 18, fontSize: '0.65rem' }}
-                          />
-                          {clienteItem.condicion_vulnerabilidad && clienteItem.condicion_vulnerabilidad !== 'Ninguna' && (
-                            <Chip
-                              label={`🛡️ ${clienteItem.condicion_vulnerabilidad}`}
-                              size="small"
-                              color="secondary"
-                              sx={{ height: 18, fontSize: '0.65rem', fontWeight: 'bold' }}
-                            />
-                          )}
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.35 }}>
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.65,
+                              py: 0.1,
+                              borderRadius: 0.85,
+                              bgcolor: '#f1f5f9',
+                              color: '#475569',
+                              fontSize: '0.64rem',
+                              fontWeight: 600
+                            }}
+                          >
+                            {clienteItem.calidad_procesal || 'Víctima Directa'}
+                          </Box>
+                          {clienteItem.condicion_vulnerabilidad &&
+                            clienteItem.condicion_vulnerabilidad !== 'Ninguna' && (
+                              <Box
+                                component="span"
+                                sx={{
+                                  px: 0.65,
+                                  py: 0.1,
+                                  borderRadius: 0.85,
+                                  bgcolor: '#faf5ff',
+                                  color: '#7e22ce',
+                                  border: '1px solid #e9d5ff',
+                                  fontSize: '0.64rem',
+                                  fontWeight: 700
+                                }}
+                              >
+                                🛡️ {clienteItem.condicion_vulnerabilidad}
+                              </Box>
+                            )}
                         </Box>
                       </TableCell>
+
                       <TableCell>
-                        <Typography variant="body2" fontFamily="monospace" fontWeight="bold">
+                        <Typography
+                          sx={{
+                            fontSize: '0.78rem',
+                            fontFamily: 'monospace',
+                            fontWeight: 700,
+                            color: '#1e293b'
+                          }}
+                        >
                           {clienteItem.identificacion}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {clienteItem.tipo_identificacion} · {clienteItem.pais || perfilJurisdiccional.pais.codigo}
+                        <Typography sx={{ fontSize: '0.68rem', color: '#64748b' }}>
+                          {clienteItem.tipo_identificacion} ·{' '}
+                          {clienteItem.pais || perfilJurisdiccional.pais.codigo}
                         </Typography>
                       </TableCell>
+
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                          <Chip
-                            size="small"
-                            label={perfilJurisdiccional.requisitos.poder.chipLabel(Boolean(clienteItem.tiene_poder))}
-                            color={clienteItem.tiene_poder ? 'success' : 'default'}
-                            variant={clienteItem.tiene_poder ? 'filled' : 'outlined'}
-                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
-                          />
-                          <Chip
-                            size="small"
-                            label={perfilJurisdiccional.requisitos.identidad.chipLabel(Boolean(clienteItem.tiene_documento_id))}
-                            color={clienteItem.tiene_documento_id ? 'success' : 'default'}
-                            variant={clienteItem.tiene_documento_id ? 'filled' : 'outlined'}
-                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
-                          />
-                          <Chip
-                            size="small"
-                            label={perfilJurisdiccional.requisitos.prueba.chipLabel(Boolean(clienteItem.tiene_prueba_dano))}
-                            color={clienteItem.tiene_prueba_dano ? 'info' : 'default'}
-                            variant={clienteItem.tiene_prueba_dano ? 'filled' : 'outlined'}
-                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 'bold' }}
-                          />
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.7,
+                              py: 0.15,
+                              borderRadius: 1,
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              bgcolor: clienteItem.tiene_poder ? '#f0fdf4' : '#f8fafc',
+                              color: clienteItem.tiene_poder ? '#15803d' : '#94a3b8',
+                              border: clienteItem.tiene_poder
+                                ? '1px solid #bbf7d0'
+                                : '1px solid #e2e8f0'
+                            }}
+                          >
+                            {perfilJurisdiccional.requisitos.poder.chipLabel(
+                              Boolean(clienteItem.tiene_poder)
+                            )}
+                          </Box>
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.7,
+                              py: 0.15,
+                              borderRadius: 1,
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              bgcolor: clienteItem.tiene_documento_id ? '#f0fdf4' : '#f8fafc',
+                              color: clienteItem.tiene_documento_id ? '#15803d' : '#94a3b8',
+                              border: clienteItem.tiene_documento_id
+                                ? '1px solid #bbf7d0'
+                                : '1px solid #e2e8f0'
+                            }}
+                          >
+                            {perfilJurisdiccional.requisitos.identidad.chipLabel(
+                              Boolean(clienteItem.tiene_documento_id)
+                            )}
+                          </Box>
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.7,
+                              py: 0.15,
+                              borderRadius: 1,
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              bgcolor: clienteItem.tiene_prueba_dano ? '#eff6ff' : '#f8fafc',
+                              color: clienteItem.tiene_prueba_dano ? '#1d4ed8' : '#94a3b8',
+                              border: clienteItem.tiene_prueba_dano
+                                ? '1px solid #bfdbfe'
+                                : '1px solid #e2e8f0'
+                            }}
+                          >
+                            {perfilJurisdiccional.requisitos.prueba.chipLabel(
+                              Boolean(clienteItem.tiene_prueba_dano)
+                            )}
+                          </Box>
                         </Box>
                       </TableCell>
+
                       <TableCell>
-                        <Typography variant="body2">{clienteItem.correo_principal || 'Sin correo'}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {clienteItem.telefono_principal ? `${clienteItem.codigo_telefono_principal || ''} ${clienteItem.telefono_principal}` : 'Sin teléfono'}
+                        <Typography sx={{ fontSize: '0.78rem', color: '#334155' }}>
+                          {clienteItem.correo_principal || '—'}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.68rem', color: '#64748b' }}>
+                          {clienteItem.telefono_principal
+                            ? `${clienteItem.codigo_telefono_principal || ''} ${
+                                clienteItem.telefono_principal
+                              }`
+                            : 'Sin teléfono'}
                         </Typography>
                       </TableCell>
+
                       <TableCell>
-                        <Chip 
-                          label={clienteItem.estado_pago || 'Pendiente'} 
-                          size="small" 
-                          color={
-                            clienteItem.estado_pago === 'Pagado'
-                              ? 'success'
-                              : clienteItem.estado_pago === 'Abono Parcial'
-                              ? 'info'
-                              : clienteItem.estado_pago === 'Exonerado / Pro Bono'
-                              ? 'secondary'
-                              : 'warning'
-                          } 
-                          sx={{ fontWeight: 'bold' }} 
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton 
-                          size="small" 
-                          color="primary" 
-                          title="Ver Ficha Completa" 
-                          onClick={() => setClienteSeleccionadoId(clienteItem.id)}
+                        <Box
+                          component="span"
+                          sx={{
+                            px: 0.8,
+                            py: 0.2,
+                            borderRadius: 1,
+                            fontSize: '0.67rem',
+                            fontWeight: 700,
+                            bgcolor:
+                              clienteItem.estado_pago === 'Pagado'
+                                ? '#f0fdf4'
+                                : clienteItem.estado_pago === 'Exonerado / Pro Bono'
+                                ? '#faf5ff'
+                                : '#fffbeb',
+                            color:
+                              clienteItem.estado_pago === 'Pagado'
+                                ? '#15803d'
+                                : clienteItem.estado_pago === 'Exonerado / Pro Bono'
+                                ? '#7e22ce'
+                                : '#b45309'
+                          }}
                         >
-                          <Eye size={18} />
-                        </IconButton>
+                          {clienteItem.estado_pago || 'Pendiente'}
+                        </Box>
+                      </TableCell>
+
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setClienteSeleccionadoId(clienteItem.id);
+                          }}
+                          endIcon={<ArrowUpRight size={13} />}
+                          sx={{
+                            textTransform: 'none',
+                            fontSize: '0.73rem',
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            bgcolor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 1.5,
+                            px: 1.1,
+                            py: 0.25,
+                            minWidth: 'auto',
+                            '&:hover': {
+                              bgcolor: '#0f172a',
+                              color: '#ffffff',
+                              borderColor: '#0f172a'
+                            }
+                          }}
+                        >
+                          Ficha
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -2337,102 +3303,177 @@ ${promptBase.trim()}`;
                 setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
-              labelRowsPerPage="Representados por página:"
+              labelRowsPerPage="Filas:"
               labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
             />
-          </>
+          </Paper>
         )}
       </TabPanel>
 
       {/* PESTAÑA 2: PIEZAS PROCESALES, ANEXOS, GOOGLE DRIVE Y ANALIZADOR IA */}
       <TabPanel value={activeTab} index={1}>
-        <Paper 
-          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        <Paper
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDropDocComun}
-          sx={{ 
-            p: { xs: 2, sm: 3 }, 
-            borderRadius: 3, 
-            border: isDragging ? '2px dashed #1a365d' : '1px solid #e2e8f0', 
-            bgcolor: isDragging ? '#f0f4f8' : '#ffffff',
-            boxShadow: 'none',
+          sx={{
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: 3,
+            border: isDragging ? '2px dashed #0f172a' : '1px solid #e2e8f0',
+            bgcolor: isDragging ? '#f8fafc' : '#ffffff',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
             transition: 'all 0.2s ease'
           }}
         >
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 2.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', md: 'center' },
+              gap: 1.5,
+              mb: 2
+            }}
+          >
             <Box>
-              <Typography variant="h6" fontWeight="bold">Piezas Procesales, Resoluciones y Anexos del Caso</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Clasifica escritos, resoluciones CIDH/Corte IDH, contestaciones del Estado y analiza plazos fatales con IA.
+              <Typography sx={{ fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
+                Piezas Procesales, Resoluciones y Anexos del Caso
+              </Typography>
+              <Typography sx={{ fontSize: '0.76rem', color: '#64748b' }}>
+                Clasifica escritos, resoluciones, contestaciones del Estado y analiza plazos fatales con PIDA. Haz clic en cualquier pieza para desplegar detalles.
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<FolderOpen size={16} />}
+                startIcon={<FolderOpen size={14} />}
                 onClick={() => setOpenDriveLinkModal(true)}
-                sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 1.75,
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  borderColor: '#cbd5e1',
+                  color: '#334155'
+                }}
               >
                 Vincular desde Google Drive
               </Button>
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 size="small"
-                component="label" 
-                startIcon={<Upload size={16} />} 
-                disabled={uploadingDoc} 
-                sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+                component="label"
+                startIcon={<Upload size={14} />}
+                disabled={uploadingDoc}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 1.75,
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  bgcolor: '#0f172a',
+                  boxShadow: 'none',
+                  '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+                }}
               >
                 {uploadingDoc ? 'Subiendo...' : 'Subir Pieza / Anexo'}
-                <input type="file" accept="application/pdf,image/*" hidden onChange={handleUploadDocComun} />
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  hidden
+                  onChange={handleUploadDocComun}
+                />
               </Button>
             </Box>
           </Box>
 
-          {/* Filtro por Categoría Procesal */}
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2.5 }}>
-            {['Todas', ...CATEGORIAS_DOCUMENTOS_PROCESALES].map((cat) => (
-              <Chip
-                key={cat}
-                label={cat}
-                size="small"
-                color={filtroCategoriaDoc === cat ? 'primary' : 'default'}
-                variant={filtroCategoriaDoc === cat ? 'filled' : 'outlined'}
-                onClick={() => setFiltroCategoriaDoc(cat)}
-                sx={{ fontWeight: 'bold' }}
-              />
-            ))}
+          {/* Filtro por Categoría Procesal (Pills arquitectónicas) */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6, mb: 2 }}>
+            {['Todas', ...CATEGORIAS_DOCUMENTOS_PROCESALES].map((cat) => {
+              const active = filtroCategoriaDoc === cat;
+              return (
+                <Box
+                  key={cat}
+                  component="button"
+                  type="button"
+                  onClick={() => setFiltroCategoriaDoc(cat)}
+                  sx={{
+                    px: 1.25,
+                    py: 0.5,
+                    borderRadius: 1.5,
+                    border: active ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                    bgcolor: active ? '#0f172a' : '#f8fafc',
+                    color: active ? '#ffffff' : '#475569',
+                    fontSize: '0.73rem',
+                    fontWeight: active ? 700 : 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: active ? '#0f172a' : '#f1f5f9',
+                      borderColor: active ? '#0f172a' : '#cbd5e1'
+                    }
+                  }}
+                >
+                  {cat}
+                </Box>
+              );
+            })}
           </Box>
-          
+
           {uploadingDoc && (
-            <Box sx={{ width: '100%', mb: 3 }}>
+            <Box sx={{ width: '100%', mb: 2 }}>
               <LinearProgress variant="determinate" value={uploadProgressDoc} />
             </Box>
           )}
 
           {/* Panel de Resultado del Analizador Multimodal IA */}
           {resultadoAnalisisDocIA && (
-            <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #c7d2fe', bgcolor: '#eef2ff', boxShadow: 'none' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+            <Paper
+              sx={{
+                p: 2.25,
+                mb: 2.5,
+                borderRadius: 2.5,
+                border: '1px solid #c7d2fe',
+                bgcolor: '#f8fafc',
+                boxShadow: 'none'
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 1,
+                  mb: 1.5
+                }}
+              >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Sparkles size={18} color="#4338ca" />
-                  <Typography variant="subtitle1" fontWeight="bold" color="#312e81">
+                  <Sparkles size={16} color="#4338ca" />
+                  <Typography sx={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e1b4b' }}>
                     Análisis de Pieza con PIDA: {resultadoAnalisisDocIA.docNombre}
                   </Typography>
                   <Chip
                     size="small"
                     label="PIDA · Análisis Multimodal"
-                    sx={{ fontWeight: 'bold', fontSize: '0.7rem', bgcolor: '#ffffff' }}
+                    sx={{ fontWeight: 700, fontSize: '0.68rem', bgcolor: '#eef2ff', color: '#4338ca' }}
                   />
                   <Chip
                     size="small"
                     color={resultadoAnalisisDocIA.riesgo_procesal === 'Alto' ? 'error' : 'info'}
                     label={`Riesgo: ${resultadoAnalisisDocIA.riesgo_procesal || 'Medio'}`}
-                    sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
+                    sx={{ fontWeight: 700, fontSize: '0.68rem' }}
                   />
                 </Box>
-                <Button size="small" color="inherit" onClick={() => setResultadoAnalisisDocIA(null)} sx={{ textTransform: 'none' }}>
+                <Button
+                  size="small"
+                  color="inherit"
+                  onClick={() => setResultadoAnalisisDocIA(null)}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 700 }}
+                >
                   Cerrar
                 </Button>
               </Box>
@@ -2441,16 +3482,26 @@ ${promptBase.trim()}`;
                 sx={{
                   mb: 1.5,
                   bgcolor: '#ffffff',
-                  p: 2,
+                  p: 1.75,
                   borderRadius: 2,
-                  border: '1px solid #e0e7ff',
+                  border: '1px solid #e2e8f0',
                   fontFamily: '"Georgia", "Times New Roman", serif',
-                  fontSize: '0.93rem',
+                  fontSize: '0.9rem',
                   lineHeight: 1.65
                 }}
               >
-                <Typography variant="caption" fontWeight="bold" color="primary.main" sx={{ display: 'block', mb: 0.5, textTransform: 'uppercase' }}>
-                  Resumen Ejecutivo PIDA:
+                <Typography
+                  sx={{
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    color: '#4338ca',
+                    display: 'block',
+                    mb: 0.5,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em'
+                  }}
+                >
+                  Resumen Ejecutivo PIDA
                 </Typography>
                 <Box
                   dangerouslySetInnerHTML={{
@@ -2459,29 +3510,59 @@ ${promptBase.trim()}`;
                 />
               </Box>
 
-              {Array.isArray(resultadoAnalisisDocIA.puntos_clave) && resultadoAnalisisDocIA.puntos_clave.length > 0 && (
-                <Box sx={{ mb: 1.5, bgcolor: '#ffffff', p: 1.5, borderRadius: 2, border: '1px solid #e0e7ff' }}>
-                  <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Puntos Resolutivos / Argumentos Detectados:
-                  </Typography>
+              {Array.isArray(resultadoAnalisisDocIA.puntos_clave) &&
+                resultadoAnalisisDocIA.puntos_clave.length > 0 && (
                   <Box
-                    sx={{ fontSize: '0.88rem' }}
-                    dangerouslySetInnerHTML={{
-                      __html: convertirMarkdownAHtmlJuridico(
-                        resultadoAnalisisDocIA.puntos_clave.map((pt) => `- ${pt}`).join('\n')
-                      )
+                    sx={{
+                      mb: 1.5,
+                      bgcolor: '#ffffff',
+                      p: 1.5,
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0'
                     }}
-                  />
-                </Box>
-              )}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: '#64748b',
+                        display: 'block',
+                        mb: 0.5,
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      Puntos Resolutivos / Argumentos Detectados
+                    </Typography>
+                    <Box
+                      sx={{ fontSize: '0.85rem' }}
+                      dangerouslySetInnerHTML={{
+                        __html: convertirMarkdownAHtmlJuridico(
+                          resultadoAnalisisDocIA.puntos_clave.map((pt) => `- ${pt}`).join('\n')
+                        )
+                      }}
+                    />
+                  </Box>
+                )}
 
               {resultadoAnalisisDocIA.fecha_vencimiento_sugerida && (
-                <Box sx={{ p: 1.5, bgcolor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    bgcolor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: 2,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 1
+                  }}
+                >
                   <Box>
-                    <Typography variant="caption" fontWeight="bold" color="error.main" display="block">
-                      🚨 PLAZO FATAL DETECTADO EN EL DOCUMENTO: {resultadoAnalisisDocIA.fecha_vencimiento_sugerida}
+                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: '#b91c1c' }}>
+                      PLAZO FATAL DETECTADO EN EL DOCUMENTO: {resultadoAnalisisDocIA.fecha_vencimiento_sugerida}
                     </Typography>
-                    <Typography variant="caption" color="text.primary">
+                    <Typography sx={{ fontSize: '0.75rem', color: '#334155' }}>
                       {resultadoAnalisisDocIA.titulo_plazo_sugerido}
                     </Typography>
                   </Box>
@@ -2489,11 +3570,11 @@ ${promptBase.trim()}`;
                     size="small"
                     variant="contained"
                     color="error"
-                    startIcon={<Calendar size={15} />}
+                    startIcon={<Calendar size={14} />}
                     onClick={handleAgendarPlazoDesdeIA}
-                    sx={{ textTransform: 'none', fontWeight: 'bold' }}
+                    sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.76rem', borderRadius: 1.5 }}
                   >
-                    Agendar Plazo Fatal y Sincronizar Calendario
+                    Agendar Plazo Fatal y Sincronizar
                   </Button>
                 </Box>
               )}
@@ -2501,172 +3582,410 @@ ${promptBase.trim()}`;
           )}
 
           {loadingDocs ? (
-            <CircularProgress />
+            <Box sx={{ py: 3, textAlign: 'center' }}>
+              <CircularProgress size={26} />
+            </Box>
           ) : docsComunesFiltrados.length === 0 ? (
-            <Alert severity="info">No hay piezas procesales registradas en esta categoría.</Alert>
+            <Box
+              sx={{
+                py: 4,
+                textAlign: 'center',
+                bgcolor: '#f8fafc',
+                borderRadius: 2,
+                border: '1px dashed #cbd5e1'
+              }}
+            >
+              <Typography sx={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
+                No hay piezas procesales registradas en esta categoría.
+              </Typography>
+            </Box>
           ) : (
-            <List>
-              {docsComunesFiltrados.map((d) => (
-                <ListItem key={d.id} disablePadding sx={{ mb: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <Button 
-                    component="a" 
-                    href={d.url} 
-                    target="_blank" 
-                    variant="text" 
-                    color="inherit" 
-                    startIcon={<File size={16} />} 
-                    sx={{ flexGrow: 1, justifyContent: 'flex-start', p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5 }}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.85 }}>
+              {docsComunesFiltrados.map((d) => {
+                const isDocExpanded = Boolean(expandedDocIds[d.id]);
+                return (
+                  <Paper
+                    key={d.id}
+                    elevation={0}
+                    sx={{
+                      borderRadius: 2,
+                      border: isDocExpanded ? '1px solid #cbd5e1' : '1px solid #e2e8f0',
+                      bgcolor: isDocExpanded ? '#f8fafc' : '#ffffff',
+                      overflow: 'hidden',
+                      transition: 'all 0.16s ease',
+                      '&:hover': { borderColor: '#cbd5e1' }
+                    }}
                   >
-                    <ListItemText 
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Typography variant="subtitle2" fontWeight="bold">
-                            {d.nombre}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            label={d.categoria_procesal || 'Escrito IIRESODH'}
-                            color="primary"
-                            variant="outlined"
-                            sx={{ height: 20, fontSize: '0.68rem', fontWeight: 'bold' }}
-                          />
-                          {d.numero_anexo && (
-                            <Chip
-                              size="small"
-                              label={`Anexo ${d.numero_anexo}`}
-                              sx={{ height: 20, fontSize: '0.68rem', fontWeight: 'bold', bgcolor: '#e2e8f0' }}
-                            />
-                          )}
+                    {/* Fila compacta 1-clic */}
+                    <Box
+                      onClick={() => toggleExpandDoc(d.id)}
+                      sx={{
+                        px: 1.75,
+                        py: 1.15,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1.5,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
+                        <File size={15} color="#475569" style={{ flexShrink: 0 }} />
+                        <Typography
+                          sx={{
+                            fontSize: '0.83rem',
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {d.nombre}
+                        </Typography>
+                        <Box
+                          component="span"
+                          sx={{
+                            px: 0.8,
+                            py: 0.15,
+                            borderRadius: 1,
+                            fontSize: '0.67rem',
+                            fontWeight: 700,
+                            bgcolor: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe'
+                          }}
+                        >
+                          {d.categoria_procesal || 'Escrito IIRESODH'}
                         </Box>
-                      } 
-                      secondary={
-                        <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
-                          <Typography variant="body2" component="span" color="text.primary" sx={{ display: 'block', fontWeight: 'medium' }}>
-                            {d.descripcion || 'Sin descripción configurada.'}
+                        {d.numero_anexo && (
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.75,
+                              py: 0.15,
+                              borderRadius: 1,
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              fontFamily: '"JetBrains Mono", monospace',
+                              bgcolor: '#f1f5f9',
+                              color: '#334155',
+                              border: '1px solid #e2e8f0'
+                            }}
+                          >
+                            Anexo {d.numero_anexo}
+                          </Box>
+                        )}
+                      </Box>
+
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexShrink: 0 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {d.fecha_documento && (
+                          <Typography
+                            sx={{
+                              display: { xs: 'none', sm: 'block' },
+                              fontSize: '0.7rem',
+                              fontFamily: '"JetBrains Mono", monospace',
+                              color: '#64748b'
+                            }}
+                          >
+                            {d.fecha_documento}
                           </Typography>
-                          <Typography variant="caption" component="span" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                            {`Fecha Doc: ${d.fecha_documento || 'No específica'} | Subido: ${d.fecha_subida ? new Date(d.fecha_subida).toLocaleString() : ''}`}
+                        )}
+                        <Button
+                          size="small"
+                          component="a"
+                          href={d.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          endIcon={<ArrowUpRight size={13} />}
+                          sx={{
+                            textTransform: 'none',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            bgcolor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 1.5,
+                            px: 1,
+                            py: 0.25,
+                            minWidth: 'auto',
+                            '&:hover': { bgcolor: '#0f172a', color: '#ffffff' }
+                          }}
+                        >
+                          Abrir
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={
+                            analizandoDocIAId === d.id ? (
+                              <CircularProgress size={12} />
+                            ) : (
+                              <Sparkles size={13} />
+                            )
+                          }
+                          disabled={analizandoDocIAId === d.id}
+                          onClick={() => handleAnalizarPiezaIA(d)}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '0.72rem',
+                            borderRadius: 1.5,
+                            py: 0.25,
+                            px: 1,
+                            borderColor: '#c7d2fe',
+                            color: '#4338ca',
+                            bgcolor: '#eef2ff',
+                            whiteSpace: 'nowrap',
+                            '&:hover': { bgcolor: '#e0e7ff', borderColor: '#818cf8' }
+                          }}
+                        >
+                          PIDA
+                        </Button>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleExpandDoc(d.id)}
+                          sx={{ p: 0.4, color: '#64748b' }}
+                        >
+                          {isDocExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        </IconButton>
+                      </Box>
+                    </Box>
+
+                    {/* Detalle colapsable de la pieza */}
+                    <Collapse in={isDocExpanded} timeout="auto" unmountOnExit>
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.25,
+                          borderTop: '1px solid #e2e8f0',
+                          bgcolor: '#ffffff',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: 1.5
+                        }}
+                      >
+                        <Box>
+                          <Typography sx={{ fontSize: '0.78rem', color: '#334155', fontWeight: 500 }}>
+                            {d.descripcion || 'Sin descripción adicional registrada.'}
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.68rem', color: '#94a3b8', mt: 0.25 }}>
+                            Fecha del documento: {d.fecha_documento || 'No especificada'} · Subido:{' '}
+                            {d.fecha_subida ? new Date(d.fecha_subida).toLocaleString() : '—'}
                           </Typography>
                         </Box>
-                      } 
-                    />
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={analizandoDocIAId === d.id ? <CircularProgress size={14} /> : <Sparkles size={15} />}
-                    disabled={analizandoDocIAId === d.id}
-                    onClick={() => handleAnalizarPiezaIA(d)}
-                    sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2, whiteSpace: 'nowrap' }}
-                  >
-                    Analizar con PIDA
-                  </Button>
-                  <IconButton 
-                    size="small" 
-                    color="error" 
-                    onClick={() => handleDeleteDocComun(d.id, d.storage_path)} 
-                    sx={{ border: '1px solid #fee2e2', bgcolor: '#fef2f2', p: 1.25 }}
-                  >
-                    <Trash2 size={18} />
-                  </IconButton>
-                </ListItem>
-              ))}
-            </List>
+                        <Button
+                          size="small"
+                          color="error"
+                          startIcon={<Trash2 size={13} />}
+                          onClick={() => handleDeleteDocComun(d.id, d.storage_path)}
+                          sx={{
+                            textTransform: 'none',
+                            fontSize: '0.72rem',
+                            fontWeight: 700
+                          }}
+                        >
+                          Eliminar pieza
+                        </Button>
+                      </Box>
+                    </Collapse>
+                  </Paper>
+                );
+              })}
+            </Box>
           )}
         </Paper>
       </TabPanel>
 
       {/* PESTAÑA 3: CONTROL FINANCIERO, APORTES Y REPARACIONES (PILAR 4) */}
       <TabPanel value={activeTab} index={2}>
-        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+        <Paper
+          sx={{
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: 3,
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 1.5,
+              mb: 2
+            }}
+          >
             <Box>
-              <Typography variant="h6" fontWeight="bold">Control Financiero, Aportes y Conciliación Stripe / SINPE</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Gestión en tiempo real de los aportes procesales, exoneraciones Pro Bono y referencias bancarias de cada representado.
+              <Typography sx={{ fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
+                Control Financiero, Aportes y Conciliación Stripe / SINPE
+              </Typography>
+              <Typography sx={{ fontSize: '0.76rem', color: '#64748b' }}>
+                Edición directa en línea de aportes procesales, exoneraciones Pro Bono y referencias bancarias.
               </Typography>
             </Box>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<Download size={16} />}
-              onClick={handleExportarPadronCSV}
-              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
-            >
-              Exportar Reporte Financiero CSV
-            </Button>
+
+            {/* CINTA DE TELEMETRÍA FINANCIERA COMPACTA (Reemplaza las 4 cajas gigantes) */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 1.25,
+                  px: 1.5,
+                  py: 0.65,
+                  borderRadius: 2,
+                  bgcolor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.5 }}>
+                  <Typography
+                    sx={{
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      color: '#15803d',
+                      fontFamily: '"JetBrains Mono", monospace'
+                    }}
+                  >
+                    ${metricasFinancieras.totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600 }}>
+                    USD
+                  </Typography>
+                </Box>
+
+                {metricasFinancieras.totalCRC > 0 && (
+                  <>
+                    <Box sx={{ width: '1px', height: 12, bgcolor: '#cbd5e1' }} />
+                    <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.4 }}>
+                      <Typography
+                        sx={{
+                          fontSize: '0.8rem',
+                          fontWeight: 800,
+                          color: '#0f172a',
+                          fontFamily: '"JetBrains Mono", monospace'
+                        }}
+                      >
+                        ₡{metricasFinancieras.totalCRC.toLocaleString('es-CR')}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600 }}>
+                        CRC
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+
+                <Box sx={{ width: '1px', height: 12, bgcolor: '#cbd5e1' }} />
+
+                <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.4 }}>
+                  <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: '#15803d' }}>
+                    {metricasFinancieras.pagados}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>
+                    al día
+                  </Typography>
+                </Box>
+
+                <Box sx={{ width: '1px', height: 12, bgcolor: '#cbd5e1' }} />
+
+                <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.4 }}>
+                  <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: '#b45309' }}>
+                    {metricasFinancieras.pendientes + metricasFinancieras.abonos}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>
+                    pendientes/abono
+                  </Typography>
+                </Box>
+
+                <Box sx={{ width: '1px', height: 12, bgcolor: '#cbd5e1' }} />
+
+                <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.4 }}>
+                  <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: '#7e22ce' }}>
+                    {metricasFinancieras.exonerados}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>
+                    pro bono
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Download size={14} />}
+                onClick={handleExportarPadronCSV}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.76rem',
+                  borderRadius: 1.75,
+                  borderColor: '#cbd5e1',
+                  color: '#334155'
+                }}
+              >
+                Exportar CSV
+              </Button>
+            </Box>
           </Box>
 
-          {/* KPIs Financieros */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', boxShadow: 'none' }}>
-              <Typography variant="caption" fontWeight="bold" color="#15803d">TOTAL RECAUDADO (USD)</Typography>
-              <Typography variant="h5" fontWeight="bold" color="#14532d">
-                ${metricasFinancieras.totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                CRC: ₡{metricasFinancieras.totalCRC.toLocaleString('es-CR')}
-              </Typography>
-            </Paper>
-
-            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-              <Typography variant="caption" fontWeight="bold" color="text.secondary">PAGADOS / AL DÍA</Typography>
-              <Typography variant="h5" fontWeight="bold" color="success.main">
-                {metricasFinancieras.pagados}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                De {clientes.length} representados
-              </Typography>
-            </Paper>
-
-            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: '#fffbeb', border: '1px solid #fde68a', boxShadow: 'none' }}>
-              <Typography variant="caption" fontWeight="bold" color="#b45309">PENDIENTES / ABONO PARCIAL</Typography>
-              <Typography variant="h5" fontWeight="bold" color="#92400e">
-                {metricasFinancieras.pendientes + metricasFinancieras.abonos}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Abonos parciales: {metricasFinancieras.abonos}
-              </Typography>
-            </Paper>
-
-            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: '#faf5ff', border: '1px solid #e9d5ff', boxShadow: 'none' }}>
-              <Typography variant="caption" fontWeight="bold" color="#7e22ce">EXONERADOS / PRO BONO</Typography>
-              <Typography variant="h5" fontWeight="bold" color="#581c87">
-                {metricasFinancieras.exonerados}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Cobertura solidaria institucional
-              </Typography>
-            </Paper>
-          </Box>
-
-          <TableContainer sx={{ borderRadius: 2, border: '1px solid #e2e8f0', maxHeight: 480 }}>
+          <TableContainer sx={{ borderRadius: 2, border: '1px solid #e2e8f0', maxHeight: 500 }}>
             <Table size="small" stickyHeader>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Representado</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Estado de Pago</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Monto Aportado</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Moneda</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Vía de Pago</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8fafc' }}>Comprobante / Ref</TableCell>
+                <TableRow
+                  sx={{
+                    '& th': {
+                      bgcolor: '#f8fafc',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      py: 1.1
+                    }
+                  }}
+                >
+                  <TableCell>Representado</TableCell>
+                  <TableCell>Estado de Pago</TableCell>
+                  <TableCell>Monto Aportado</TableCell>
+                  <TableCell>Moneda</TableCell>
+                  <TableCell>Vía de Pago</TableCell>
+                  <TableCell>Comprobante / Ref</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {clientes.map((c) => (
                   <TableRow key={c.id} hover>
-                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.81rem',
+                        color: '#0f172a',
+                        cursor: 'pointer',
+                        '&:hover': { textDecoration: 'underline' }
+                      }}
+                      onClick={() => setClienteSeleccionadoId(c.id)}
+                    >
                       {c.apellidos}, {c.nombres}
                     </TableCell>
                     <TableCell>
                       <Select
                         size="small"
                         value={c.estado_pago || 'Pendiente'}
-                        onChange={(e) => handleActualizarPagoRapido(c, { estado_pago: e.target.value })}
-                        sx={{ fontSize: '0.78rem', height: 30 }}
+                        onChange={(e) =>
+                          handleActualizarPagoRapido(c, { estado_pago: e.target.value })
+                        }
+                        sx={{ fontSize: '0.76rem', height: 28, borderRadius: 1.5 }}
                       >
                         {ESTADOS_PAGO_CLIENTE.map((st) => (
-                          <MenuItem key={st} value={st} sx={{ fontSize: '0.78rem' }}>
+                          <MenuItem key={st} value={st} sx={{ fontSize: '0.76rem' }}>
                             {st}
                           </MenuItem>
                         ))}
@@ -2677,16 +3996,29 @@ ${promptBase.trim()}`;
                         size="small"
                         type="number"
                         defaultValue={c.monto_pagado || 0}
-                        onBlur={(e) => handleActualizarPagoRapido(c, { monto_pagado: Number(e.target.value) || 0 })}
-                        sx={{ width: 105, '& input': { py: 0.5, fontSize: '0.8rem' } }}
+                        onBlur={(e) =>
+                          handleActualizarPagoRapido(c, {
+                            monto_pagado: Number(e.target.value) || 0
+                          })
+                        }
+                        sx={{
+                          width: 105,
+                          '& input': {
+                            py: 0.45,
+                            fontSize: '0.78rem',
+                            fontFamily: '"JetBrains Mono", monospace'
+                          }
+                        }}
                       />
                     </TableCell>
                     <TableCell>
                       <Select
                         size="small"
                         value={c.moneda_pago || 'USD'}
-                        onChange={(e) => handleActualizarPagoRapido(c, { moneda_pago: e.target.value })}
-                        sx={{ fontSize: '0.78rem', height: 30 }}
+                        onChange={(e) =>
+                          handleActualizarPagoRapido(c, { moneda_pago: e.target.value })
+                        }
+                        sx={{ fontSize: '0.76rem', height: 28, borderRadius: 1.5 }}
                       >
                         <MenuItem value="USD">USD</MenuItem>
                         <MenuItem value="CRC">CRC</MenuItem>
@@ -2696,8 +4028,10 @@ ${promptBase.trim()}`;
                       <Select
                         size="small"
                         value={c.metodo_pago || 'Transferencia / SINPE'}
-                        onChange={(e) => handleActualizarPagoRapido(c, { metodo_pago: e.target.value })}
-                        sx={{ fontSize: '0.78rem', height: 30 }}
+                        onChange={(e) =>
+                          handleActualizarPagoRapido(c, { metodo_pago: e.target.value })
+                        }
+                        sx={{ fontSize: '0.76rem', height: 28, borderRadius: 1.5 }}
                       >
                         <MenuItem value="Transferencia / SINPE">Transferencia / SINPE</MenuItem>
                         <MenuItem value="Stripe">Stripe</MenuItem>
@@ -2710,8 +4044,19 @@ ${promptBase.trim()}`;
                         size="small"
                         placeholder="Ref / Recibo"
                         defaultValue={c.referencia_pago || ''}
-                        onBlur={(e) => handleActualizarPagoRapido(c, { referencia_pago: e.target.value.trim() })}
-                        sx={{ width: 140, '& input': { py: 0.5, fontSize: '0.8rem' } }}
+                        onBlur={(e) =>
+                          handleActualizarPagoRapido(c, {
+                            referencia_pago: e.target.value.trim()
+                          })
+                        }
+                        sx={{
+                          width: 140,
+                          '& input': {
+                            py: 0.45,
+                            fontSize: '0.76rem',
+                            fontFamily: '"JetBrains Mono", monospace'
+                          }
+                        }}
                       />
                     </TableCell>
                   </TableRow>
@@ -2724,68 +4069,192 @@ ${promptBase.trim()}`;
 
       {/* PESTAÑA 4: CONTROL DE VENCIMIENTOS PROCESALES SINCRONIZADOS CON CALENDARIO (PILAR 5) */}
       <TabPanel value={activeTab} index={3}>
-        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
+        <Paper
+          sx={{
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: 3,
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 1.5,
+              mb: 2
+            }}
+          >
             <Box>
-              <Typography variant="h6" fontWeight="bold">Fechas Fatales y Plazos Judiciales (Sincronizados con Calendario Institucional)</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Seguimiento de términos perentorios asociados a notificaciones oficiales de la CIDH, Corte IDH, ONU o Tribunales.
+              <Typography sx={{ fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
+                Fechas Fatales y Plazos Judiciales
+              </Typography>
+              <Typography sx={{ fontSize: '0.76rem', color: '#64748b' }}>
+                Términos perentorios sincronizados con el Calendario Institucional.
               </Typography>
             </Box>
-            <Button 
-              variant="contained" 
-              startIcon={<Calendar size={18} />} 
-              onClick={() => setOpenPlazoModal(true)} 
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', width: { xs: '100%', sm: 'auto' } }}
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Calendar size={14} />}
+              onClick={() => setOpenPlazoModal(true)}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1.75,
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                bgcolor: '#0f172a',
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+              }}
             >
               Cargar Fecha Fatal
             </Button>
           </Box>
 
           {localPlazos.length === 0 ? (
-            <Alert severity="info" sx={{ borderRadius: 2 }}>No hay plazos procesales configurados para este litigio.</Alert>
+            <Box
+              sx={{
+                py: 4,
+                textAlign: 'center',
+                bgcolor: '#f8fafc',
+                borderRadius: 2,
+                border: '1px dashed #cbd5e1'
+              }}
+            >
+              <Typography sx={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
+                No hay plazos procesales configurados para este litigio.
+              </Typography>
+            </Box>
           ) : (
-            <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none', overflowX: 'auto' }}>
-              <Table size="small" sx={{ minWidth: 700 }}>
-                <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Término Procesal / Responsable</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Fecha Límite</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Estatus</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Documento Probatorio</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>Acción</TableCell>
+            <TableContainer
+              component={Paper}
+              sx={{
+                borderRadius: 2,
+                border: '1px solid #e2e8f0',
+                boxShadow: 'none',
+                overflowX: 'auto'
+              }}
+            >
+              <Table size="small" sx={{ minWidth: 680 }}>
+                <TableHead>
+                  <TableRow
+                    sx={{
+                      '& th': {
+                        bgcolor: '#f8fafc',
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        py: 1.1
+                      }
+                    }}
+                  >
+                    <TableCell>Término Procesal / Responsable</TableCell>
+                    <TableCell>Fecha Límite</TableCell>
+                    <TableCell>Estatus</TableCell>
+                    <TableCell>Documento Probatorio</TableCell>
+                    <TableCell align="right">Acción</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {localPlazos.map((plazo) => {
                     const cfg = (() => {
-                      if (plazo.completado) return { colorChip: 'success', label: 'Presentado', bgFila: '#ffffff' };
+                      if (plazo.completado)
+                        return {
+                          bg: '#f0fdf4',
+                          color: '#15803d',
+                          border: '#bbf7d0',
+                          label: 'Presentado',
+                          bgFila: '#ffffff'
+                        };
                       const hoy = new Date();
-                      hoy.setHours(0,0,0,0);
+                      hoy.setHours(0, 0, 0, 0);
                       const fatal = new Date(plazo.fechaFatal + 'T00:00:00');
-                      fatal.setHours(0,0,0,0);
-                      const diff = Math.ceil((fatal.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+                      fatal.setHours(0, 0, 0, 0);
+                      const diff = Math.ceil(
+                        (fatal.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)
+                      );
 
-                      if (diff < 0) return { colorChip: 'error', label: 'Vencido', bgFila: '#fef2f2' };
-                      if (diff <= 2) return { colorChip: 'error', label: 'CRÍTICO', bgFila: '#fef2f2' };
-                      if (diff <= 5) return { colorChip: 'warning', label: 'Advertencia', bgFila: '#fffbeb' };
-                      return { colorChip: 'info', label: 'A tiempo', bgFila: '#ffffff' };
+                      if (diff < 0)
+                        return {
+                          bg: '#fef2f2',
+                          color: '#b91c1c',
+                          border: '#fecaca',
+                          label: `Vencido (${Math.abs(diff)}d)`,
+                          bgFila: '#fffbfb'
+                        };
+                      if (diff <= 2)
+                        return {
+                          bg: '#fef2f2',
+                          color: '#b91c1c',
+                          border: '#fecaca',
+                          label: `CRÍTICO (${diff}d)`,
+                          bgFila: '#fffbfb'
+                        };
+                      if (diff <= 5)
+                        return {
+                          bg: '#fffbeb',
+                          color: '#b45309',
+                          border: '#fde68a',
+                          label: `Próximo (${diff}d)`,
+                          bgFila: '#ffffff'
+                        };
+                      return {
+                        bg: '#eff6ff',
+                        color: '#1d4ed8',
+                        border: '#bfdbfe',
+                        label: `En plazo (${diff}d)`,
+                        bgFila: '#ffffff'
+                      };
                     })();
 
                     return (
                       <TableRow key={plazo.id} sx={{ bgcolor: cfg.bgFila }} hover>
-                        <TableCell sx={{ fontWeight: 'medium', py: 1.5 }}>
-                          <Typography variant="body2" fontWeight="bold">{plazo.descripcion}</Typography>
+                        <TableCell sx={{ py: 1.25 }}>
+                          <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a' }}>
+                            {plazo.descripcion}
+                          </Typography>
                           {(plazo.responsable || plazo.prorroga) && (
-                            <Typography variant="caption" color="text.secondary">
-                              {plazo.responsable ? `⚖️ ${plazo.responsable}` : ''}
+                            <Typography sx={{ fontSize: '0.71rem', color: '#64748b' }}>
+                              {plazo.responsable ? `Responsable: ${plazo.responsable}` : ''}
                               {plazo.prorroga ? ` · Nota: ${plazo.prorroga}` : ''}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: '#b91c1c' }}>{plazo.fechaFatal}</TableCell>
-                        <TableCell><Chip label={cfg.label} color={cfg.colorChip} size="small" sx={{ fontWeight: 'bold' }} /></TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell>
+                          <Typography
+                            sx={{
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              fontFamily: '"JetBrains Mono", monospace',
+                              color: plazo.completado ? '#475569' : '#b91c1c'
+                            }}
+                          >
+                            {plazo.fechaFatal}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 0.85,
+                              py: 0.2,
+                              borderRadius: 1,
+                              fontSize: '0.68rem',
+                              fontWeight: 800,
+                              bgcolor: cfg.bg,
+                              color: cfg.color,
+                              border: `1px solid ${cfg.border}`
+                            }}
+                          >
+                            {cfg.label}
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.78rem' }}>
                           {plazo.completado ? (
                             <Box>
                               <Button
@@ -2795,41 +4264,62 @@ ${promptBase.trim()}`;
                                 rel="noopener"
                                 variant="text"
                                 size="small"
-                                startIcon={<File size={14} />}
-                                sx={{ textTransform: 'none', p: 0, fontWeight: 'bold', justifyContent: 'flex-start' }}
+                                startIcon={<File size={13} />}
+                                sx={{
+                                  textTransform: 'none',
+                                  p: 0,
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700,
+                                  justifyContent: 'flex-start'
+                                }}
                               >
-                                {plazo.documentoProbatorioNombre || 'Ver Archivo'}
+                                {plazo.documentoProbatorioNombre || 'Ver Comprobante'}
                               </Button>
-                              <Typography variant="caption" display="block" color="text.primary" sx={{ fontWeight: 'medium', mt: 0.5 }}>
-                                {plazo.documentoProbatorioDescripcion}
-                              </Typography>
-                              <Typography variant="caption" display="block" color="text.secondary">
-                                Fecha Doc: {plazo.documentoProbatorioFechaDocumento || 'No asignada'}
-                              </Typography>
+                              {plazo.documentoProbatorioDescripcion && (
+                                <Typography sx={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                  {plazo.documentoProbatorioDescripcion}
+                                </Typography>
+                              )}
                             </Box>
                           ) : (
-                            <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-                              Exigible ante la instancia
+                            <Typography sx={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                              Pendiente de presentación
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ textAlign: 'center' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.75 }}>
                             {!plazo.completado ? (
-                              <Button 
-                                variant="contained" 
-                                color="success" 
-                                size="small" 
-                                onClick={() => { setPlazoAActivar(plazo); setOpenCerrarModal(true); }}
-                                sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                              <Button
+                                variant="outlined"
+                                color="success"
+                                size="small"
+                                onClick={() => {
+                                  setPlazoAActivar(plazo);
+                                  setOpenCerrarModal(true);
+                                }}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontWeight: 700,
+                                  fontSize: '0.72rem',
+                                  borderRadius: 1.5,
+                                  py: 0.25
+                                }}
                               >
-                                Cerrar
+                                Acreditar Cierre
                               </Button>
                             ) : (
-                              <Chip label="Histórico" size="small" variant="outlined" disabled />
+                              <Typography sx={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>
+                                Cumplido
+                              </Typography>
                             )}
-                            <IconButton size="small" color="error" onClick={() => handleEliminarPlazo(plazo.id)}>
-                              <Trash2 size={15} />
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleEliminarPlazo(plazo.id)}
+                              sx={{ p: 0.4 }}
+                            >
+                              <Trash2 size={14} />
                             </IconButton>
                           </Box>
                         </TableCell>
@@ -2845,33 +4335,76 @@ ${promptBase.trim()}`;
 
       {/* PESTAÑA 5: COMUNICADOS ENVIADOS (BITÁCORA DE MAILING MASIVO) */}
       <TabPanel value={activeTab} index={4}>
-        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
+        <Paper
+          sx={{
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: 3,
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 1.5,
+              mb: 2
+            }}
+          >
             <Box>
-              <Typography variant="h6" fontWeight="bold">Historial de Comunicados Enviados</Typography>
-              <Typography variant="body2" color="text.secondary">Registro de circulares y comunicados enviados por correo a los representados.</Typography>
+              <Typography sx={{ fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
+                Historial de Comunicados Masivos
+              </Typography>
+              <Typography sx={{ fontSize: '0.76rem', color: '#64748b' }}>
+                Haz clic en cualquier comunicado para desplegar el cuerpo del mensaje, adjuntos y acuses de lectura.
+              </Typography>
             </Box>
-            <Button 
-              variant="contained" 
-              startIcon={<Plus size={18} />} 
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={15} />}
               onClick={() => {
                 setClientesSeleccionadosIds([]);
                 setFiltroDestinatarios('');
                 setTipoDestinatario('todos');
                 setOpenComunicadoModal(true);
-              }} 
-              sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold', width: { xs: '100%', sm: 'auto' } }}
+              }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1.75,
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                bgcolor: '#0f172a',
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+              }}
             >
               Redactar Comunicado
             </Button>
           </Box>
 
           {loadingComunicados ? (
-            <CircularProgress />
+            <Box sx={{ py: 3, textAlign: 'center' }}>
+              <CircularProgress size={26} />
+            </Box>
           ) : comunicados.length === 0 ? (
-            <Alert severity="info">No se registran comunicados masivos enviados para este litigio.</Alert>
+            <Box
+              sx={{
+                py: 4,
+                textAlign: 'center',
+                bgcolor: '#f8fafc',
+                borderRadius: 2,
+                border: '1px dashed #cbd5e1'
+              }}
+            >
+              <Typography sx={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
+                No se registran comunicados masivos enviados para este litigio.
+              </Typography>
+            </Box>
           ) : (
-            <List>
+            <List disablePadding>
               {comunicados.map((c) => (
                 <ItemComunicadoMasivo
                   key={c.id}
@@ -2888,119 +4421,204 @@ ${promptBase.trim()}`;
 
       {/* PESTAÑA 6: COPILOTO JURÍDICO PIDA ADAPTATIVO (NACIONAL LATAM / INTERNACIONAL SIDH-ONU) */}
       <TabPanel value={activeTab} index={5}>
-        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #c7d2fe', bgcolor: '#f8fafc', boxShadow: 'none' }}>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 3 }}>
+        <Paper
+          sx={{
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: 3,
+            border: '1px solid #e2e8f0',
+            bgcolor: '#ffffff',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', md: 'center' },
+              gap: 1.5,
+              mb: 2.25
+            }}
+          >
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                <Sparkles size={22} color="#4338ca" />
-                <Typography variant="h6" fontWeight="bold" color="#1e1b4b">
-                  PIDA — Copiloto Jurídico {perfilJurisdiccional.esInternacional ? 'Internacional (SIDH / ONU)' : `Nacional (${perfilJurisdiccional.pais.bandera} ${perfilJurisdiccional.pais.nombre})`}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25, flexWrap: 'wrap' }}>
+                <Sparkles size={18} color="#4338ca" />
+                <Typography sx={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>
+                  PIDA — Copiloto Jurídico{' '}
+                  {perfilJurisdiccional.esInternacional
+                    ? 'Internacional (SIDH / ONU)'
+                    : `Nacional (${perfilJurisdiccional.pais.bandera} ${perfilJurisdiccional.pais.nombre})`}
                 </Typography>
               </Box>
-              <Typography variant="body2" color="text.secondary">
+              <Typography sx={{ fontSize: '0.76rem', color: '#64748b' }}>
                 {perfilJurisdiccional.esInternacional
-                  ? 'Sistema de Inteligencia Jurídica en el Sistema Interamericano (CIDH / Corte IDH) y Sistema Universal ONU, conectado en tiempo real al contexto de este expediente.'
+                  ? 'Sistema de Inteligencia Jurídica en el Sistema Interamericano (CIDH / Corte IDH) y Sistema Universal ONU, conectado al expediente.'
                   : `Sistema de Inteligencia Jurídica adaptado a la jurisdicción interna de ${perfilJurisdiccional.pais.nombre} (${casoLocal.jurisdiccion || 'Vía Interna'}), con Control de Convencionalidad integrado.`}
               </Typography>
             </Box>
 
-            <Chip
-              label={`🧠 PIDA · ${perfilJurisdiccional.esInternacional ? 'Modo Internacional SIDH/ONU' : `Modo Nacional ${perfilJurisdiccional.pais.codigo}`}`}
-              color="primary"
-              sx={{ fontWeight: 'bold', bgcolor: '#1e3a8a', color: '#ffffff' }}
-            />
+            <Box
+              component="span"
+              sx={{
+                px: 1.25,
+                py: 0.45,
+                borderRadius: 1.5,
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                bgcolor: '#eef2ff',
+                color: '#312e81',
+                border: '1px solid #c7d2fe'
+              }}
+            >
+              PIDA ·{' '}
+              {perfilJurisdiccional.esInternacional
+                ? 'Modo Internacional SIDH/ONU'
+                : `Modo Nacional ${perfilJurisdiccional.pais.codigo}`}
+            </Box>
           </Box>
 
           {/* Plantillas Jurídicas de 1 Clic Adaptativas según Jurisdicción */}
-          <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}>
-            Generadores Estratégicos de 1 Clic ({perfilJurisdiccional.esInternacional ? 'Estándares SIDH / ONU' : `Derecho Procesal de ${perfilJurisdiccional.pais.nombre} + Control de Convencionalidad`}):
+          <Typography
+            sx={{
+              fontSize: '0.68rem',
+              fontWeight: 800,
+              color: '#64748b',
+              display: 'block',
+              mb: 1,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}
+          >
+            Generadores Estratégicos de 1 Clic (
+            {perfilJurisdiccional.esInternacional
+              ? 'Estándares SIDH / ONU'
+              : `Derecho Procesal de ${perfilJurisdiccional.pais.nombre} + Control de Convencionalidad`}
+            )
           </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 1.5, mb: 3 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+              gap: 1,
+              mb: 2.25
+            }}
+          >
             {(perfilJurisdiccional.esInternacional
               ? [
                   {
-                    titulo: '🌎 Test de Admisibilidad (Arts. 46-47 CADH)',
-                    prompt: 'Elabora un análisis exhaustivo de admisibilidad ante la CIDH (Arts. 46 y 47 CADH y Arts. 31-34 del Reglamento CIDH), evaluando agotamiento de recursos internos o las excepciones del Art. 46.2 CADH aplicables a este caso, plazo o situación continuada y caracterización (colorable claim).'
+                    titulo: 'Test de Admisibilidad (Arts. 46-47 CADH)',
+                    sub: 'Agotamiento o excepciones Art. 46.2 CADH',
+                    prompt:
+                      'Elabora un análisis exhaustivo de admisibilidad ante la CIDH (Arts. 46 y 47 CADH y Arts. 31-34 del Reglamento CIDH), evaluando agotamiento de recursos internos o las excepciones del Art. 46.2 CADH aplicables a este caso, plazo o situación continuada y caracterización (colorable claim).'
                   },
                   {
-                    titulo: '🏛️ Estándares y Jurisprudencia Corte IDH',
-                    prompt: 'Construye una matriz de estándares jurisprudenciales de la Corte IDH aplicables a los derechos invocados en este caso, citando casos contenciosos líderes (leading cases) y cómo subsumir los hechos del expediente en dichos estándares.'
+                    titulo: 'Estándares y Jurisprudencia Corte IDH',
+                    sub: 'Leading cases y subsunción normativa',
+                    prompt:
+                      'Construye una matriz de estándares jurisprudenciales de la Corte IDH aplicables a los derechos invocados en este caso, citando casos contenciosos líderes (leading cases) y cómo subsumir los hechos del expediente en dichos estándares.'
                   },
                   {
-                    titulo: '🚨 Solicitud de Medidas Cautelares (Art. 25 CIDH)',
-                    prompt: 'Redacta la estructura argumentativa para una solicitud de Medidas Cautelares (Art. 25 Reglamento CIDH) o Medidas Provisionales (Art. 63.2 CADH), acreditando gravedad, urgencia e irreparabilidad del daño.'
+                    titulo: 'Medidas Cautelares (Art. 25 CIDH)',
+                    sub: 'Gravedad, urgencia e irreparabilidad',
+                    prompt:
+                      'Redacta la estructura argumentativa para una solicitud de Medidas Cautelares (Art. 25 Reglamento CIDH) o Medidas Provisionales (Art. 63.2 CADH), acreditando gravedad, urgencia e irreparabilidad del daño.'
                   },
                   {
-                    titulo: '⚡ Tramitación Prioritaria (Art. 29.2 CIDH)',
-                    prompt: 'Redacta un escrito fundamentado solicitando el adelanto de estudio / tramitación prioritaria conforme al Artículo 29.2 del Reglamento de la CIDH, destacando las condiciones de vulnerabilidad del padrón de víctimas.'
+                    titulo: 'Tramitación Prioritaria (Art. 29.2 CIDH)',
+                    sub: 'Adelanto de estudio por vulnerabilidad',
+                    prompt:
+                      'Redacta un escrito fundamentado solicitando el adelanto de estudio / tramitación prioritaria conforme al Artículo 29.2 del Reglamento de la CIDH, destacando las condiciones de vulnerabilidad del padrón de víctimas.'
                   },
                   {
-                    titulo: '💰 Pretensiones y Reparaciones (Art. 63.1 CADH)',
-                    prompt: 'Diseña el pliego integral de reparaciones bajo el Art. 63.1 de la CADH para el ESAP o alegatos de fondo: restitución, rehabilitación, satisfacción, garantías de no repetición y criterios de daño material e inmaterial.'
+                    titulo: 'Pretensiones y Reparaciones (Art. 63.1 CADH)',
+                    sub: 'Restitución, rehabilitación y no repetición',
+                    prompt:
+                      'Diseña el pliego integral de reparaciones bajo el Art. 63.1 de la CADH para el ESAP o alegatos de fondo: restitución, rehabilitación, satisfacción, garantías de no repetición y criterios de daño material e inmaterial.'
                   },
                   {
-                    titulo: '🤝 Ruta de Solución Amistosa (Art. 40 CIDH)',
-                    prompt: 'Propón una hoja de ruta estratégica y cláusulas esenciales para negociar un Acuerdo de Solución Amistosa (Art. 40 Reglamento CIDH) con el Estado demandado garantizando supervisión internacional.'
+                    titulo: 'Ruta de Solución Amistosa (Art. 40 CIDH)',
+                    sub: 'Cláusulas esenciales y supervisión',
+                    prompt:
+                      'Propón una hoja de ruta estratégica y cláusulas esenciales para negociar un Acuerdo de Solución Amistosa (Art. 40 Reglamento CIDH) con el Estado demandado garantizando supervisión internacional.'
                   }
                 ]
               : [
                   {
-                    titulo: `⚖️ Legitimación y Admisibilidad (${perfilJurisdiccional.pais.codigo})`,
+                    titulo: `Legitimación y Admisibilidad (${perfilJurisdiccional.pais.codigo})`,
+                    sub: 'Personería, competencia y caducidad',
                     prompt: `Elabora un examen riguroso de legitimación activa, personería judicial (${perfilJurisdiccional.pais.requisitoPoderNacional}), competencia, agotamiento de vía administrativa previa (si aplica) y plazos de prescripción o caducidad conforme al derecho procesal de ${perfilJurisdiccional.pais.nombre} para la vía "${casoLocal.jurisdiccion}".`
                   },
                   {
-                    titulo: `🏛️ Estructura de Demanda / Acción (${perfilJurisdiccional.pais.nombre})`,
+                    titulo: `Estructura de Demanda / Acción (${perfilJurisdiccional.pais.nombre})`,
+                    sub: 'Agravios principales y fundamentación',
                     prompt: `Redacta la estructura formal y los agravios principales de la demanda o acción constitucional en ${perfilJurisdiccional.pais.nombre} ante ${perfilJurisdiccional.pais.organoConstitucional} o ${perfilJurisdiccional.pais.organoContencioso}, integrando las normas nacionales invocadas.`
                   },
                   {
-                    titulo: '🚨 Medida Cautelar / Suspensión del Acto',
+                    titulo: 'Medida Cautelar / Suspensión del Acto',
+                    sub: 'Fumus boni iuris y periculum in mora',
                     prompt: `Redacta una solicitud fundamentada de Medida Cautelar o Suspensión Provisional del acto impugnado conforme a la legislación procesal de ${perfilJurisdiccional.pais.nombre}, acreditando apariencia de buen derecho (fumus boni iuris), peligro en la demora (periculum in mora) y ponderación del interés público.`
                   },
                   {
-                    titulo: '🌎 Control de Convencionalidad en Sede Nacional',
+                    titulo: 'Control de Convencionalidad en Sede Nacional',
+                    sub: 'Bloque de constitucionalidad y Corte IDH',
                     prompt: `Formula un capítulo de Control de Convencionalidad interno dirigido a los jueces nacionales de ${perfilJurisdiccional.pais.nombre}, explicando cómo el bloque de constitucionalidad y la jurisprudencia vinculante de la Corte IDH obligan a proteger los derechos reclamados en este expediente.`
                   },
                   {
-                    titulo: '💰 Pliego de Pretensiones, Daños y Costas',
+                    titulo: 'Pliego de Pretensiones, Daños y Costas',
+                    sub: 'Petitorio principal y subsidiario',
                     prompt: `Diseña el petitorio / pliego de pretensiones principales y subsidiarias para este litigio en ${perfilJurisdiccional.pais.nombre}, incluyendo nulidad de actuaciones, restablecimiento de derechos, liquidación de daños materiales/morales y condenatoria en costas.`
                   },
                   {
-                    titulo: '🌐 Hoja de Ruta de Agotamiento (Puente a CIDH)',
+                    titulo: 'Hoja de Ruta de Agotamiento (Puente a CIDH)',
+                    sub: 'Preparación del requisito Art. 46.1.a CADH',
                     prompt: `Evalúa qué recursos ordinarios y extraordinarios deben interponerse y agotarse en ${perfilJurisdiccional.pais.nombre} dentro de este proceso para dejar debidamente preparado el requisito del Art. 46.1.a de la CADH (o acreditar una excepción del Art. 46.2 CADH) en caso de que sea necesario escalar ulteriormente ante la CIDH.`
                   }
                 ]
             ).map((item) => (
-              <Button
+              <Box
                 key={item.titulo}
-                variant="outlined"
+                component="button"
+                type="button"
                 disabled={ejecutandoCopilotoIA}
                 onClick={() => {
                   setConsultaCopilotoIA(item.prompt);
                   handleEjecutarCopilotoIA(item.prompt);
                 }}
                 sx={{
-                  textTransform: 'none',
-                  fontWeight: 'bold',
-                  justifyContent: 'flex-start',
                   textAlign: 'left',
-                  p: 1.5,
+                  p: 1.35,
                   borderRadius: 2,
-                  bgcolor: '#ffffff',
-                  borderColor: '#cbd5e1',
-                  '&:hover': { bgcolor: '#eef2ff', borderColor: '#6366f1' }
+                  bgcolor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  cursor: ejecutandoCopilotoIA ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.16s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.25,
+                  '&:hover': {
+                    bgcolor: '#eef2ff',
+                    borderColor: '#a5b4fc',
+                    transform: 'translateY(-1px)'
+                  }
                 }}
               >
-                {item.titulo}
-              </Button>
+                <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a' }}>
+                  {item.titulo}
+                </Typography>
+                <Typography sx={{ fontSize: '0.68rem', color: '#64748b' }}>
+                  {item.sub}
+                </Typography>
+              </Box>
             ))}
           </Box>
 
           {/* Caja de Consulta Libre */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, mb: 2.5 }}>
             <TextField
               fullWidth
               multiline
-              rows={3}
+              rows={2}
+              size="small"
               label="Consulta jurídica libre o instrucción de redacción procesal para PIDA"
               placeholder={
                 perfilJurisdiccional.esInternacional
@@ -3009,56 +4627,89 @@ ${promptBase.trim()}`;
               }
               value={consultaCopilotoIA}
               onChange={(e) => setConsultaCopilotoIA(e.target.value)}
-              sx={{ bgcolor: '#ffffff' }}
+              sx={{ bgcolor: '#f8fafc' }}
             />
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="contained"
-                startIcon={ejecutandoCopilotoIA ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={18} />}
+                size="small"
+                startIcon={
+                  ejecutandoCopilotoIA ? (
+                    <CircularProgress size={14} color="inherit" />
+                  ) : (
+                    <Sparkles size={15} />
+                  )
+                }
                 disabled={ejecutandoCopilotoIA || !consultaCopilotoIA.trim()}
                 onClick={() => handleEjecutarCopilotoIA()}
                 sx={{
                   textTransform: 'none',
-                  fontWeight: 'bold',
-                  borderRadius: 2,
-                  px: 3,
-                  py: 1,
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  borderRadius: 1.75,
+                  px: 2.5,
+                  py: 0.85,
                   color: '#ffffff',
-                  bgcolor: '#1e3a8a',
-                  background: 'linear-gradient(90deg, #1e3a8a 0%, #4338ca 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(90deg, #172554 0%, #312e81 100%)'
-                  },
+                  bgcolor: '#0f172a',
+                  boxShadow: 'none',
+                  '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' },
                   '&.Mui-disabled': {
-                    background: '#e2e8f0',
                     bgcolor: '#e2e8f0',
-                    color: '#475569',
-                    border: '1px solid #cbd5e1'
+                    color: '#64748b'
                   }
                 }}
               >
-                {ejecutandoCopilotoIA ? 'PIDA está elaborando el dictamen jurídico...' : 'Ejecutar Análisis con PIDA'}
+                {ejecutandoCopilotoIA
+                  ? 'PIDA está elaborando el dictamen jurídico...'
+                  : 'Ejecutar Análisis con PIDA'}
               </Button>
             </Box>
           </Box>
 
           {/* Resultado del Copiloto Jurídico PIDA con Formato Editorial, Copia Rica, Drive, Word y PDF */}
           {respuestaCopilotoIA && (
-            <Paper sx={{ p: { xs: 2, sm: 3.5 }, borderRadius: 2.5, bgcolor: '#ffffff', border: '1px solid #c7d2fe', boxShadow: '0 4px 20px rgba(30, 58, 138, 0.06)' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2.5, pb: 1.5, borderBottom: '2px solid #1e3a8a' }}>
+            <Paper
+              sx={{
+                p: { xs: 2, sm: 3 },
+                borderRadius: 2.5,
+                bgcolor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)'
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 1.25,
+                  mb: 2,
+                  pb: 1.25,
+                  borderBottom: '1px solid #e2e8f0'
+                }}
+              >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Chip
-                    label={`🧠 PIDA · Dictamen Jurídico (${perfilJurisdiccional.normaCorto})`}
-                    color="primary"
-                    size="small"
-                    sx={{ fontWeight: 'bold', bgcolor: '#1e3a8a', color: '#ffffff' }}
-                  />
-                  <Typography variant="caption" color="text.secondary" fontWeight="medium">
+                  <Box
+                    component="span"
+                    sx={{
+                      px: 1,
+                      py: 0.3,
+                      borderRadius: 1,
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      bgcolor: '#0f172a',
+                      color: '#ffffff'
+                    }}
+                  >
+                    PIDA · Dictamen Jurídico ({perfilJurisdiccional.normaCorto})
+                  </Box>
+                  <Typography sx={{ fontSize: '0.72rem', color: '#64748b' }}>
                     Generado el {respuestaCopilotoIA.fecha}
                   </Typography>
                 </Box>
 
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                   <Button
                     size="small"
                     variant="outlined"
@@ -3068,17 +4719,25 @@ ${promptBase.trim()}`;
                         titulo: 'Dictamen Jurídico PIDA',
                         caso: casoLocal
                       });
-                      alert('✅ Dictamen copiado con formato enriquecido (listo para pegar en Word, Google Docs o Correo).');
+                      alert(
+                        '✅ Dictamen copiado con formato enriquecido (listo para pegar en Word, Google Docs o Correo).'
+                      );
                     }}
-                    sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      borderRadius: 1.5,
+                      borderColor: '#cbd5e1',
+                      color: '#334155'
+                    }}
                   >
-                    📋 Copiar con Formato
+                    Copiar
                   </Button>
 
                   <Button
                     size="small"
                     variant="outlined"
-                    color="secondary"
                     disabled={guardandoEnDrivePida}
                     onClick={async () => {
                       setGuardandoEnDrivePida(true);
@@ -3097,15 +4756,21 @@ ${promptBase.trim()}`;
                         setGuardandoEnDrivePida(false);
                       }
                     }}
-                    sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      borderRadius: 1.5,
+                      borderColor: '#cbd5e1',
+                      color: '#334155'
+                    }}
                   >
-                    {guardandoEnDrivePida ? 'Guardando en Drive...' : '☁️ Agregar a Mi Drive'}
+                    {guardandoEnDrivePida ? 'Guardando...' : 'Guardar en Drive'}
                   </Button>
 
                   <Button
                     size="small"
                     variant="outlined"
-                    color="primary"
                     onClick={() =>
                       descargarDictamenWord({
                         markdown: respuestaCopilotoIA.text,
@@ -3113,9 +4778,16 @@ ${promptBase.trim()}`;
                         caso: casoLocal
                       })
                     }
-                    sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 1.5 }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      borderRadius: 1.5,
+                      borderColor: '#cbd5e1',
+                      color: '#334155'
+                    }}
                   >
-                    📝 Descargar Word (.doc)
+                    Word (.doc)
                   </Button>
 
                   <Button
@@ -3130,14 +4802,16 @@ ${promptBase.trim()}`;
                     }
                     sx={{
                       textTransform: 'none',
-                      fontWeight: 'bold',
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
                       borderRadius: 1.5,
-                      bgcolor: '#1e3a8a',
+                      bgcolor: '#0f172a',
                       color: '#ffffff',
-                      '&:hover': { bgcolor: '#172554' }
+                      boxShadow: 'none',
+                      '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
                     }}
                   >
-                    📄 Descargar PDF
+                    Descargar PDF
                   </Button>
                 </Box>
               </Box>
@@ -3168,10 +4842,10 @@ ${promptBase.trim()}`;
               <Box
                 sx={{
                   fontFamily: '"Georgia", "Times New Roman", serif',
-                  fontSize: '0.96rem',
+                  fontSize: '0.95rem',
                   lineHeight: 1.75,
                   color: '#1e293b',
-                  px: { xs: 0.5, sm: 1.5 }
+                  px: { xs: 0.5, sm: 1 }
                 }}
                 dangerouslySetInnerHTML={{
                   __html: convertirMarkdownAHtmlJuridico(respuestaCopilotoIA.text)
