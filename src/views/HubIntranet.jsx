@@ -131,18 +131,18 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
   const fechaCapitalizada = fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1);
 
   return (
-    <Box sx={{ position: 'relative', minHeight: 'calc(100vh - 120px)', py: 1 }}>
-      {/* FONDO INSTITUCIONAL SOBRIO: Patrón arquitectónico sutil y marca de agua oficial IIRESODH */}
+    <Box sx={{ position: 'relative', minHeight: 'calc(100vh - 120px)', py: 0.5 }}>
+      {/* FONDO INSTITUCIONAL SOBRIO: Lienzo técnico #f8fafc con retícula sutil */}
       <Box
         sx={{
           position: 'fixed',
-          top: 64,
+          top: 60,
           left: 0,
           right: 0,
           bottom: 0,
-          bgcolor: '#F8FAF8',
-          backgroundImage: 'radial-gradient(rgba(29, 53, 87, 0.055) 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
+          bgcolor: '#f8fafc',
+          backgroundImage: 'radial-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
           pointerEvents: 'none',
           zIndex: 0,
         }}
@@ -157,9 +157,9 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           position: 'fixed',
           right: -90,
           bottom: -90,
-          width: { xs: 280, md: 460 },
+          width: { xs: 260, md: 420 },
           height: 'auto',
-          opacity: 0.025,
+          opacity: 0.018,
           pointerEvents: 'none',
           userSelect: 'none',
           zIndex: 0
@@ -167,93 +167,76 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
       />
 
       {/* CONTENIDO DEL HUB */}
-      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 1240, mx: 'auto', p: { xs: 0.5, sm: 1.5, md: 2 }, mt: { xs: 0.5, md: 1 } }}>
+      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 1280, mx: 'auto', p: { xs: 0.5, sm: 1.5, md: 1.5 }, mt: { xs: 0, md: 0.5 } }}>
         
-        {/* BANNER EJECUTIVO INSTITUCIONAL IIRESODH */}
+        {/* BANNER EJECUTIVO DE COMANDO INSTITUCIONAL (CON BARRA LATERAL DE RADIO CERO) */}
         <Card
           elevation={0}
           sx={{
-            borderRadius: '14px 14px 0 0',
-            bgcolor: '#1D3557',
-            color: '#FFFFFF',
-            border: '1px solid rgba(69, 123, 157, 0.35)',
-            borderBottom: '4px solid #B92F32',
-            boxShadow: '0 14px 34px -10px rgba(29, 53, 87, 0.22)',
-            p: { xs: 2.5, sm: 3.5, md: 4 },
-            mb: { xs: 3, sm: 4.5 },
+            borderRadius: '0 12px 12px 0',
+            bgcolor: '#ffffff',
+            color: '#0f172a',
+            border: '1px solid #e2e8f0',
+            borderLeft: '3px solid #0f172a',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
+            p: { xs: 2.25, sm: 3, md: 3.5 },
+            mb: { xs: 3, sm: 3.5 },
             display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            alignItems: { xs: 'flex-start', md: 'center' },
+            flexDirection: { xs: 'column', lg: 'row' },
+            alignItems: { xs: 'flex-start', lg: 'center' },
             justifyContent: 'space-between',
             gap: { xs: 2.5, sm: 3 },
             position: 'relative',
             overflow: 'hidden'
           }}
         >
-          {/* Luz radial secundaria institucional */}
-          <Box
-            sx={{
-              position: 'absolute',
-              right: '10%',
-              top: -80,
-              width: 340,
-              height: 340,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(69, 123, 157, 0.28) 0%, rgba(29, 53, 87, 0) 70%)',
-              pointerEvents: 'none'
-            }}
-          />
-
-          {/* Marca de agua del isotipo en el banner */}
-          <Box
-            component="img"
-            src="/iiresodh-isotipo-gradient.png"
-            alt=""
-            sx={{
-              position: 'absolute',
-              right: { xs: -40, md: 24 },
-              bottom: -55,
-              width: 210,
-              height: 'auto',
-              opacity: 0.07,
-              filter: 'brightness(2)',
-              pointerEvents: 'none'
-            }}
-          />
-
-          {/* LADO IZQUIERDO: AVATAR E IDENTIDAD */}
-          <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 2.75 }, position: 'relative', zIndex: 1 }}>
+          {/* LADO IZQUIERDO: AVATAR E IDENTIDAD EJECUTIVA */}
+          <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 2.5 }, position: 'relative', zIndex: 1 }}>
             <Avatar
               src={currentUser?.photoURL}
               alt={nombreAMostrar}
               referrerPolicy="no-referrer"
               sx={{
-                width: { xs: 58, sm: 70 },
-                height: { xs: 58, sm: 70 },
-                bgcolor: '#457B9D',
-                color: '#FFFFFF',
-                fontSize: { xs: '1.4rem', sm: '1.75rem' },
+                width: { xs: 52, sm: 60 },
+                height: { xs: 52, sm: 60 },
+                borderRadius: '12px',
+                bgcolor: '#0f172a',
+                color: '#ffffff',
+                fontSize: { xs: '1.25rem', sm: '1.45rem' },
                 fontFamily: '"Plus Jakarta Sans", sans-serif',
                 fontWeight: 800,
-                boxShadow: '0 6px 18px rgba(0, 0, 0, 0.25)',
-                border: '2.5px solid #A8DADC'
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.08)'
               }}
             >
               {inicial}
             </Avatar>
 
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
                 <Typography
                   sx={{
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
+                    fontSize: '0.66rem',
+                    fontWeight: 800,
                     letterSpacing: '0.09em',
                     textTransform: 'uppercase',
-                    color: '#A8DADC'
+                    color: '#b91c1c'
                   }}
                 >
-                  INSTITUTO INTERNACIONAL DE RESPONSABILIDAD SOCIAL Y DERECHOS HUMANOS
+                  IIRESODH · PORTAL CENTRAL DE OPERACIONES
+                </Typography>
+                <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: '#cbd5e1', display: { xs: 'none', sm: 'block' } }} />
+                <Typography
+                  sx={{
+                    display: { xs: 'none', sm: 'block' },
+                    fontSize: '0.66rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#64748b'
+                  }}
+                >
+                  Instituto Internacional de Responsabilidad Social y Derechos Humanos
                 </Typography>
               </Box>
 
@@ -262,67 +245,146 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
                 sx={{ 
                   fontFamily: '"Plus Jakarta Sans", sans-serif',
                   fontWeight: 800,
-                  color: '#FFFFFF',
-                  lineHeight: 1.2, 
-                  fontSize: { xs: '1.3rem', sm: '1.65rem', md: '1.8rem' } 
+                  color: '#0f172a',
+                  letterSpacing: '-0.025em',
+                  lineHeight: 1.15, 
+                  fontSize: { xs: '1.25rem', sm: '1.55rem', md: '1.7rem' } 
                 }}
               >
                 {obtenerSaludo()}, {nombreAMostrar}
               </Typography>
               
-              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-                <Typography variant="body2" sx={{ color: 'rgba(241, 250, 238, 0.85)', fontSize: '0.86rem' }}>
-                  Portal Central de Gestión e Intranet Institucional
-                </Typography>
+              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Chip
                   label={userRole || 'Colaborador'}
                   size="small"
                   sx={{
-                    bgcolor: 'rgba(185, 47, 50, 0.9)',
-                    color: '#FFFFFF',
+                    bgcolor: '#0f172a',
+                    color: '#ffffff',
                     fontWeight: 700,
-                    fontSize: '0.7rem',
+                    fontSize: '0.68rem',
                     height: 22,
+                    borderRadius: '6px',
                     letterSpacing: '0.02em'
                   }}
                 />
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    px: 1.25,
+                    py: 0.3,
+                    borderRadius: '6px',
+                    bgcolor: '#f8fafc',
+                    border: '1px solid #e2e8f0'
+                  }}
+                >
+                  <Calendar size={12} color="#64748b" />
+                  <Typography sx={{ fontWeight: 600, color: '#475569', fontSize: '0.74rem', fontVariantNumeric: 'tabular-nums' }}>
+                    {fechaCapitalizada}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
           </Box>
 
-          {/* LADO DERECHO: FECHA Y ACCESOS RÁPIDOS AL ECOSISTEMA IIRESODH */}
+          {/* LADO DERECHO: TELEMETRÍA WHATSAPP Y ACCESOS RÁPIDOS AL ECOSISTEMA */}
           <Box 
             sx={{ 
               display: 'flex', 
               flexDirection: 'column',
-              alignItems: { xs: 'stretch', md: 'flex-end' }, 
+              alignItems: { xs: 'stretch', lg: 'flex-end' }, 
               gap: 1.25,
               position: 'relative',
               zIndex: 1,
-              alignSelf: { xs: 'stretch', md: 'center' }
+              alignSelf: { xs: 'stretch', lg: 'center' }
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.25,
-                px: 2,
-                py: 0.9,
-                borderRadius: 2,
-                bgcolor: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(168, 218, 220, 0.25)',
-                justifyContent: { xs: 'center', md: 'flex-end' }
-              }}
-            >
-              <Calendar size={16} color="#A8DADC" />
-              <Typography variant="body2" sx={{ fontWeight: 600, color: '#F1FAEE', fontSize: '0.82rem' }}>
-                {fechaCapitalizada}
-              </Typography>
-            </Box>
+            {/* Indicador en tiempo real de WhatsApp Institucional (exclusivo para usuarios con permiso) */}
+            {tieneAccesoWhatsapp && (
+              <Button
+                onClick={() => setView('whatsapp')}
+                size="small"
+                sx={{
+                  textTransform: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: { xs: 'space-between', lg: 'flex-end' },
+                  gap: 1.25,
+                  px: 1.75,
+                  py: 0.75,
+                  borderRadius: '0 8px 8px 0',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  bgcolor: whatsappSinLeer > 0 ? '#f0fdf4' : '#f8fafc',
+                  border: whatsappSinLeer > 0
+                    ? '1px solid #bbf7d0'
+                    : '1px solid #e2e8f0',
+                  borderLeft: whatsappSinLeer > 0
+                    ? '3px solid #10b981'
+                    : '3px solid #0f766e',
+                  transition: 'all 0.15s ease',
+                  '&:hover': {
+                    bgcolor: whatsappSinLeer > 0 ? '#dcfce7' : '#f1f5f9',
+                    borderColor: '#94a3b8'
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', color: '#0f766e' }}>
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M12.031 2C6.508 2 2.023 6.484 2.023 12.006c0 1.766.461 3.49 1.337 5.011L2 22l5.122-1.343a9.969 9.969 0 0 0 4.906 1.298h.004c5.522 0 10.007-4.484 10.007-10.006C22.039 6.484 17.553 2 12.031 2zm5.847 14.28c-.244.688-1.425 1.318-1.972 1.399-.506.075-1.147.107-1.856-.118-.429-.136-.979-.318-1.682-.622-2.961-1.278-4.894-4.262-5.042-4.459-.148-.197-1.205-1.603-1.205-3.058 0-1.455.762-2.171 1.033-2.467.271-.296.591-.37.788-.37.197 0 .394.002.567.01.182.009.426-.069.667.509.246.592.838 2.047.912 2.195.074.148.123.321.025.518-.099.197-.148.321-.296.493-.148.173-.311.386-.444.518-.148.148-.302.309-.13.605.173.296.766 1.264 1.645 2.048 1.13 1.008 2.083 1.32 2.379 1.468.296.148.469.123.641-.074.173-.197.74-.863.937-1.159.197-.296.395-.247.666-.148.271.099 1.726.814 2.022.962.296.148.493.222.567.345.075.124.075.716-.169 1.404z" />
+                    </svg>
+                    {whatsappSinLeer > 0 && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: -2,
+                          right: -2,
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          bgcolor: '#10b981',
+                          boxShadow: '0 0 0 2px #ffffff'
+                        }}
+                      />
+                    )}
+                  </Box>
+                  <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f172a' }}>
+                    WhatsApp Business
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label={
+                    whatsappSinLeer === 1
+                      ? '1 sin leer'
+                      : `${whatsappSinLeer} sin leer`
+                  }
+                  sx={{
+                    height: 20,
+                    fontSize: '0.67rem',
+                    fontWeight: 800,
+                    fontVariantNumeric: 'tabular-nums',
+                    borderRadius: '5px',
+                    bgcolor: whatsappSinLeer > 0 ? '#10b981' : '#e2e8f0',
+                    color: whatsappSinLeer > 0 ? '#ffffff' : '#475569',
+                    '& .MuiChip-label': { px: 1 }
+                  }}
+                />
+              </Button>
+            )}
 
             {/* Enlaces rápidos al ecosistema oficial IIRESODH */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'center', md: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'flex-start', lg: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
               <Button
                 component="a"
                 href="https://iiresodh.org"
@@ -333,15 +395,15 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
                 endIcon={<ExternalLink size={11} />}
                 sx={{
                   textTransform: 'none',
-                  fontSize: '0.73rem',
-                  fontWeight: 600,
-                  color: '#A8DADC',
-                  bgcolor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(168, 218, 220, 0.18)',
-                  borderRadius: 1.5,
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: '#334155',
+                  bgcolor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '7px',
                   px: 1.25,
-                  py: 0.35,
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.12)', color: '#FFFFFF' }
+                  py: 0.4,
+                  '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a', borderColor: '#cbd5e1' }
                 }}
               >
                 Portal iiresodh.org
@@ -356,107 +418,25 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
                 endIcon={<ExternalLink size={11} />}
                 sx={{
                   textTransform: 'none',
-                  fontSize: '0.73rem',
-                  fontWeight: 600,
-                  color: '#A8DADC',
-                  bgcolor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(168, 218, 220, 0.18)',
-                  borderRadius: 1.5,
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: '#334155',
+                  bgcolor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '7px',
                   px: 1.25,
-                  py: 0.35,
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.12)', color: '#FFFFFF' }
+                  py: 0.4,
+                  '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a', borderColor: '#cbd5e1' }
                 }}
               >
                 Campus Virtual
               </Button>
             </Box>
-
-            {/* Indicador en tiempo real de WhatsApp Institucional (exclusivo para usuarios con permiso) */}
-            {tieneAccesoWhatsapp && (
-              <Button
-                onClick={() => setView('whatsapp')}
-                size="small"
-                sx={{
-                  textTransform: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: { xs: 'center', md: 'flex-end' },
-                  gap: 1,
-                  px: 1.5,
-                  py: 0.55,
-                  borderRadius: 2,
-                  fontSize: '0.76rem',
-                  fontWeight: 700,
-                  color: '#FFFFFF',
-                  bgcolor: whatsappSinLeer > 0 ? 'rgba(37, 211, 102, 0.18)' : 'rgba(255, 255, 255, 0.06)',
-                  border: whatsappSinLeer > 0
-                    ? '1px solid rgba(37, 211, 102, 0.65)'
-                    : '1px solid rgba(168, 218, 220, 0.22)',
-                  boxShadow: whatsappSinLeer > 0 ? '0 0 16px rgba(37, 211, 102, 0.25)' : 'none',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    bgcolor: whatsappSinLeer > 0 ? 'rgba(37, 211, 102, 0.28)' : 'rgba(255, 255, 255, 0.12)',
-                    borderColor: '#25D366'
-                  }
-                }}
-              >
-                <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', color: '#25D366' }}>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M12.031 2C6.508 2 2.023 6.484 2.023 12.006c0 1.766.461 3.49 1.337 5.011L2 22l5.122-1.343a9.969 9.969 0 0 0 4.906 1.298h.004c5.522 0 10.007-4.484 10.007-10.006C22.039 6.484 17.553 2 12.031 2zm5.847 14.28c-.244.688-1.425 1.318-1.972 1.399-.506.075-1.147.107-1.856-.118-.429-.136-.979-.318-1.682-.622-2.961-1.278-4.894-4.262-5.042-4.459-.148-.197-1.205-1.603-1.205-3.058 0-1.455.762-2.171 1.033-2.467.271-.296.591-.37.788-.37.197 0 .394.002.567.01.182.009.426-.069.667.509.246.592.838 2.047.912 2.195.074.148.123.321.025.518-.099.197-.148.321-.296.493-.148.173-.311.386-.444.518-.148.148-.302.309-.13.605.173.296.766 1.264 1.645 2.048 1.13 1.008 2.083 1.32 2.379 1.468.296.148.469.123.641-.074.173-.197.74-.863.937-1.159.197-.296.395-.247.666-.148.271.099 1.726.814 2.022.962.296.148.493.222.567.345.075.124.075.716-.169 1.404z" />
-                  </svg>
-                  {whatsappSinLeer > 0 && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: -2,
-                        right: -2,
-                        width: 7,
-                        height: 7,
-                        borderRadius: '50%',
-                        bgcolor: '#25D366',
-                        boxShadow: '0 0 0 2px #1D3557',
-                        animation: 'pulseWhatsappDot 1.6s infinite',
-                        '@keyframes pulseWhatsappDot': {
-                          '0%': { transform: 'scale(0.95)', opacity: 1 },
-                          '50%': { transform: 'scale(1.35)', opacity: 0.65 },
-                          '100%': { transform: 'scale(0.95)', opacity: 1 }
-                        }
-                      }}
-                    />
-                  )}
-                </Box>
-                <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#F1FAEE' }}>
-                  WhatsApp Institucional
-                </Typography>
-                <Chip
-                  size="small"
-                  label={
-                    whatsappSinLeer === 1
-                      ? '1 sin leer'
-                      : `${whatsappSinLeer} sin leer`
-                  }
-                  sx={{
-                    height: 20,
-                    fontSize: '0.68rem',
-                    fontWeight: 800,
-                    bgcolor: whatsappSinLeer > 0 ? '#25D366' : 'rgba(168, 218, 220, 0.16)',
-                    color: whatsappSinLeer > 0 ? '#052E16' : '#A8DADC',
-                    '& .MuiChip-label': { px: 1 }
-                  }}
-                />
-              </Button>
-            )}
           </Box>
         </Card>
 
         {/* HERRAMIENTAS INSTITUCIONALES (ESPACIO DE TRABAJO SLACK, PROYECTOS, DRIVE & CALENDARIO HÍBRIDO) */}
-        <Box sx={{ mb: { xs: 4, sm: 5.5 } }}>
+        <Box sx={{ mb: { xs: 3.5, sm: 4.5 } }}>
           <AcordeonHerramientas
             activePanel={activePanel}
             onPanelChange={setActivePanel}
@@ -468,29 +448,29 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
         {/* ENCABEZADO DE MÓDULOS OPERATIVOS */}
         <Box
           sx={{
-            mb: { xs: 2.5, sm: 3.5 },
+            mb: { xs: 2.25, sm: 3 },
             display: 'flex',
             flexDirection: { xs: 'column', sm: 'row' },
             alignItems: { xs: 'flex-start', sm: 'flex-end' },
             justifyContent: 'space-between',
             gap: 1.5,
-            borderBottom: '1px solid #E2E8F0',
-            pb: 2
+            borderBottom: '1px solid #e2e8f0',
+            pb: 1.75
           }}
         >
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-              <Box sx={{ width: 18, height: 4, borderRadius: 1, bgcolor: '#B92F32' }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
+              <Box sx={{ width: 14, height: 3, bgcolor: '#b91c1c' }} />
               <Typography
                 sx={{
-                  fontSize: '0.72rem',
+                  fontSize: '0.68rem',
                   fontWeight: 800,
                   letterSpacing: '0.09em',
-                  color: '#B92F32',
+                  color: '#b91c1c',
                   textTransform: 'uppercase'
                 }}
               >
-                ÁREAS DE GESTIÓN
+                ARQUITECTURA DE SISTEMAS
               </Typography>
             </Box>
             <Typography
@@ -498,97 +478,103 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               sx={{
                 fontFamily: '"Plus Jakarta Sans", sans-serif',
                 fontWeight: 800,
-                color: '#1D3557',
-                fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                color: '#0f172a',
+                letterSpacing: '-0.02em',
+                fontSize: { xs: '1.18rem', sm: '1.38rem' }
               }}
             >
               Módulos Operativos Institucionales
             </Typography>
           </Box>
-          <Typography variant="body2" sx={{ color: '#475569', fontSize: { xs: '0.84rem', sm: '0.9rem' } }}>
-            Seleccione el área operativa a la que desea ingresar según sus permisos asignados
+          <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 500 }}>
+            Seleccione la consola especializada según sus credenciales de acceso
           </Typography>
         </Box>
 
-        {/* REJILLA DE MÓDULOS DE NEGOCIO */}
+        {/* REJILLA BENTO DE MÓDULOS DE NEGOCIO (TODOS CON BARRA LATERAL IZQUIERDA Y RADIO CERO) */}
         <Box sx={{ 
           display: 'grid', 
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, 
-          gap: { xs: 2.5, sm: 3 }, 
-          mb: { xs: 4, sm: 6 } 
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr' }, 
+          gap: { xs: 2, sm: 2.5 }, 
+          mb: { xs: 3.5, sm: 4.5 } 
         }}>
           
           {/* MÓDULO 1: GESTIÓN DE LITIGIOS */}
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: '0 0 12px 12px', 
-              border: '1px solid #DCE4EE',
-              borderTop: tieneAccesoLitigio ? '4px solid #1D3557' : '4px solid #CBD5E1',
-              bgcolor: '#FFFFFF',
-              boxShadow: '0 4px 18px rgba(29, 53, 87, 0.04)', 
+              borderRadius: '0 12px 12px 0', 
+              border: '1px solid #e2e8f0',
+              borderLeft: tieneAccesoLitigio ? '3px solid #0f172a' : '3px solid #cbd5e1',
+              bgcolor: '#ffffff',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)', 
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              transition: 'all 0.22s ease',
-              ...(!tieneAccesoLitigio && { opacity: 0.7, bgcolor: '#F8FAFC' }),
+              transition: 'all 0.18s ease',
+              ...(!tieneAccesoLitigio && { opacity: 0.72, bgcolor: '#f8fafc' }),
               '&:hover': tieneAccesoLitigio ? { 
-                borderColor: '#457B9D',
-                borderTopColor: '#B92F32',
-                transform: 'translateY(-3px)',
-                boxShadow: '0 12px 28px rgba(29, 53, 87, 0.10)' 
+                borderColor: '#94a3b8',
+                borderLeftColor: '#0f172a',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 10px 24px -8px rgba(15, 23, 42, 0.10)' 
               } : {}
             }}
           >
-            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.25 }}>
+            <CardContent sx={{ p: 2.75, display: 'flex', flexDirection: 'column', height: '100%', '&:last-child': { pb: 2.75 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2.25,
-                    bgcolor: tieneAccesoLitigio ? 'rgba(29, 53, 87, 0.07)' : '#F1F5F9',
-                    color: tieneAccesoLitigio ? '#1D3557' : '#94A3B8',
+                    width: 42,
+                    height: 42,
+                    borderRadius: '9px',
+                    bgcolor: tieneAccesoLitigio ? '#f1f5f9' : '#f8fafc',
+                    color: tieneAccesoLitigio ? '#0f172a' : '#94a3b8',
+                    border: '1px solid #e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <Scale size={24} />
+                  <Scale size={20} />
                 </Box>
                 <Chip
-                  label={tieneAccesoLitigio ? 'Área Jurídica' : 'Restringido'}
+                  label={tieneAccesoLitigio ? 'Área Jurídica · Corte IDH / ONU' : 'Restringido'}
                   size="small"
                   sx={{
-                    bgcolor: tieneAccesoLitigio ? 'rgba(29, 53, 87, 0.07)' : '#F1F5F9',
-                    color: tieneAccesoLitigio ? '#1D3557' : '#64748B',
+                    bgcolor: tieneAccesoLitigio ? '#f8fafc' : '#f1f5f9',
+                    color: tieneAccesoLitigio ? '#334155' : '#64748b',
+                    border: '1px solid #e2e8f0',
                     fontWeight: 700,
-                    fontSize: '0.7rem',
-                    height: 23
+                    fontSize: '0.66rem',
+                    borderRadius: '6px',
+                    height: 22
                   }}
                 />
               </Box>
 
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#1D3557', mb: 1, fontSize: '1.1rem' }}>
-                Gestión de Litigios
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a', mb: 0.75, fontSize: '1.02rem', letterSpacing: '-0.015em' }}>
+                Casos y Litigio Estratégico
               </Typography>
-              <Typography variant="body2" sx={{ color: '#475569', lineHeight: 1.6, mb: 3, flex: 1 }}>
-                Control de expedientes nacionales e internacionales, registro de representados, plazos procesales y actuaciones.
+              <Typography variant="body2" sx={{ color: '#64748b', lineHeight: 1.55, mb: 2.5, flex: 1, fontSize: '0.8rem' }}>
+                Control de expedientes nacionales e internacionales, ruta procesal, registro de representados, plazos y acervo probatorio.
               </Typography>
               
               <Button 
                 variant={tieneAccesoLitigio ? "contained" : "outlined"} 
                 fullWidth 
                 disabled={!tieneAccesoLitigio}
-                endIcon={tieneAccesoLitigio ? <ArrowRight size={16} /> : <Lock size={15} />}
+                endIcon={tieneAccesoLitigio ? <ArrowRight size={15} /> : <Lock size={14} />}
                 onClick={() => setView('casos')} 
                 sx={{ 
                   textTransform: 'none', 
                   fontWeight: 700, 
-                  py: 1.15,
-                  borderRadius: 2,
-                  ...(tieneAccesoLitigio && { bgcolor: '#1D3557', '&:hover': { bgcolor: '#122238' } }),
-                  ...(!tieneAccesoLitigio && { color: '#B92F32', borderColor: 'rgba(185, 47, 50, 0.35)' })
+                  fontSize: '0.8rem',
+                  py: 1,
+                  borderRadius: '8px',
+                  boxShadow: 'none',
+                  ...(tieneAccesoLitigio && { bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' } }),
+                  ...(!tieneAccesoLitigio && { color: '#b91c1c', borderColor: '#fecaca' })
                 }}
               >
                 {tieneAccesoLitigio ? "Ingresar a Litigios" : "Acceso Restringido"}
@@ -600,71 +586,76 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: '0 0 12px 12px', 
-              border: '1px solid #DCE4EE',
-              borderTop: '4px solid #1D3557',
-              bgcolor: '#FFFFFF',
-              boxShadow: '0 4px 18px rgba(29, 53, 87, 0.04)', 
+              borderRadius: '0 12px 12px 0', 
+              border: '1px solid #e2e8f0',
+              borderLeft: '3px solid #b91c1c',
+              bgcolor: '#ffffff',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)', 
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              transition: 'all 0.22s ease',
+              transition: 'all 0.18s ease',
               '&:hover': { 
-                borderColor: '#457B9D', 
-                borderTopColor: '#B92F32',
-                transform: 'translateY(-3px)',
-                boxShadow: '0 12px 28px rgba(29, 53, 87, 0.10)' 
+                borderColor: '#94a3b8', 
+                borderLeftColor: '#b91c1c',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 10px 24px -8px rgba(15, 23, 42, 0.10)' 
               }
             }}
           >
-            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.25 }}>
+            <CardContent sx={{ p: 2.75, display: 'flex', flexDirection: 'column', height: '100%', '&:last-child': { pb: 2.75 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2.25,
-                    bgcolor: 'rgba(69, 123, 157, 0.10)',
-                    color: '#1D3557',
+                    width: 42,
+                    height: 42,
+                    borderRadius: '9px',
+                    bgcolor: '#fef2f2',
+                    color: '#b91c1c',
+                    border: '1px solid #fecaca',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <FolderArchive size={24} />
+                  <FolderArchive size={20} />
                 </Box>
                 <Chip
-                  label="Normativa & Marca"
+                  label="Normativa & Identidad"
                   size="small"
                   sx={{
-                    bgcolor: 'rgba(69, 123, 157, 0.10)',
-                    color: '#1D3557',
+                    bgcolor: '#f8fafc',
+                    color: '#334155',
+                    border: '1px solid #e2e8f0',
                     fontWeight: 700,
-                    fontSize: '0.7rem',
-                    height: 23
+                    fontSize: '0.66rem',
+                    borderRadius: '6px',
+                    height: 22
                   }}
                 />
               </Box>
 
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#1D3557', mb: 1, fontSize: '1.1rem' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a', mb: 0.75, fontSize: '1.02rem', letterSpacing: '-0.015em' }}>
                 Centro de Recursos Institucionales
               </Typography>
-              <Typography variant="body2" sx={{ color: '#475569', lineHeight: 1.6, mb: 3, flex: 1 }}>
-                Reglamentos y normativas internas, manuales operativos, logotipos oficiales y plantillas de identidad visual.
+              <Typography variant="body2" sx={{ color: '#64748b', lineHeight: 1.55, mb: 2.5, flex: 1, fontSize: '0.8rem' }}>
+                Reglamentos y normativas internas vigentes, manuales operativos, logotipos oficiales y plantillas de identidad visual.
               </Typography>
               
               <Button 
                 variant="contained" 
                 fullWidth 
-                endIcon={<ArrowRight size={16} />}
+                endIcon={<ArrowRight size={15} />}
                 onClick={() => setView('recursos_institucionales')} 
                 sx={{ 
                   textTransform: 'none', 
                   fontWeight: 700, 
-                  py: 1.15,
-                  borderRadius: 2,
-                  bgcolor: '#1D3557',
-                  '&:hover': { bgcolor: '#122238' }
+                  fontSize: '0.8rem',
+                  py: 1,
+                  borderRadius: '8px',
+                  boxShadow: 'none',
+                  bgcolor: '#0f172a',
+                  '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
                 }}
               >
                 Acceder a Recursos
@@ -676,73 +667,78 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: '0 0 12px 12px', 
-              border: '1px solid #DCE4EE',
-              borderTop: tieneAccesoWeb ? '4px solid #457B9D' : '4px solid #CBD5E1',
-              bgcolor: '#FFFFFF',
-              boxShadow: '0 4px 18px rgba(29, 53, 87, 0.04)', 
+              borderRadius: '0 12px 12px 0', 
+              border: '1px solid #e2e8f0',
+              borderLeft: tieneAccesoWeb ? '3px solid #0369a1' : '3px solid #cbd5e1',
+              bgcolor: '#ffffff',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)', 
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              transition: 'all 0.22s ease',
-              ...(!tieneAccesoWeb && { opacity: 0.7, bgcolor: '#F8FAFC' }),
+              transition: 'all 0.18s ease',
+              ...(!tieneAccesoWeb && { opacity: 0.72, bgcolor: '#f8fafc' }),
               '&:hover': tieneAccesoWeb ? { 
-                borderColor: '#457B9D', 
-                borderTopColor: '#B92F32',
-                transform: 'translateY(-3px)',
-                boxShadow: '0 12px 28px rgba(29, 53, 87, 0.10)' 
+                borderColor: '#94a3b8', 
+                borderLeftColor: '#0369a1',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 10px 24px -8px rgba(15, 23, 42, 0.10)' 
               } : {}
             }}
           >
-            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.25 }}>
+            <CardContent sx={{ p: 2.75, display: 'flex', flexDirection: 'column', height: '100%', '&:last-child': { pb: 2.75 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2.25,
-                    bgcolor: tieneAccesoWeb ? 'rgba(69, 123, 157, 0.10)' : '#F1F5F9',
-                    color: tieneAccesoWeb ? '#457B9D' : '#94A3B8',
+                    width: 42,
+                    height: 42,
+                    borderRadius: '9px',
+                    bgcolor: tieneAccesoWeb ? '#f0f9ff' : '#f8fafc',
+                    color: tieneAccesoWeb ? '#0369a1' : '#94a3b8',
+                    border: tieneAccesoWeb ? '1px solid #bae6fd' : '1px solid #e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <Globe size={24} />
+                  <Globe size={20} />
                 </Box>
                 <Chip
-                  label={tieneAccesoWeb ? 'Portal Público' : 'Restringido'}
+                  label={tieneAccesoWeb ? 'Portal Público · CMS' : 'Restringido'}
                   size="small"
                   sx={{
-                    bgcolor: tieneAccesoWeb ? 'rgba(69, 123, 157, 0.10)' : '#F1F5F9',
-                    color: tieneAccesoWeb ? '#1D3557' : '#64748B',
+                    bgcolor: tieneAccesoWeb ? '#f8fafc' : '#f1f5f9',
+                    color: tieneAccesoWeb ? '#334155' : '#64748b',
+                    border: '1px solid #e2e8f0',
                     fontWeight: 700,
-                    fontSize: '0.7rem',
-                    height: 23
+                    fontSize: '0.66rem',
+                    borderRadius: '6px',
+                    height: 22
                   }}
                 />
               </Box>
 
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#1D3557', mb: 1, fontSize: '1.1rem' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a', mb: 0.75, fontSize: '1.02rem', letterSpacing: '-0.015em' }}>
                 Administración Sitio Web
               </Typography>
-              <Typography variant="body2" sx={{ color: '#475569', lineHeight: 1.6, mb: 3, flex: 1 }}>
-                Gestión editorial, actualización de publicaciones, programas académicos y contenidos del portal público.
+              <Typography variant="body2" sx={{ color: '#64748b', lineHeight: 1.55, mb: 2.5, flex: 1, fontSize: '0.8rem' }}>
+                Consola editorial multilingüe (ES/EN/FR), comunicados, biblioteca digital, cursos y contenidos de iiresodh.org.
               </Typography>
               
               <Button 
                 variant={tieneAccesoWeb ? "contained" : "outlined"} 
                 fullWidth 
                 disabled={!tieneAccesoWeb}
-                endIcon={tieneAccesoWeb ? <ArrowRight size={16} /> : <Lock size={15} />}
+                endIcon={tieneAccesoWeb ? <ArrowRight size={15} /> : <Lock size={14} />}
                 onClick={() => setView('sitio_web')} 
                 sx={{ 
                   textTransform: 'none', 
                   fontWeight: 700, 
-                  py: 1.15,
-                  borderRadius: 2,
-                  ...(tieneAccesoWeb && { bgcolor: '#1D3557', '&:hover': { bgcolor: '#122238' } }),
-                  ...(!tieneAccesoWeb && { color: '#B92F32', borderColor: 'rgba(185, 47, 50, 0.35)' })
+                  fontSize: '0.8rem',
+                  py: 1,
+                  borderRadius: '8px',
+                  boxShadow: 'none',
+                  ...(tieneAccesoWeb && { bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' } }),
+                  ...(!tieneAccesoWeb && { color: '#b91c1c', borderColor: '#fecaca' })
                 }}
               >
                 {tieneAccesoWeb ? "Administrar Sitio" : "Acceso Restringido"}
@@ -754,41 +750,42 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: '0 0 12px 12px', 
-              border: '1px solid #DCE4EE',
-              borderTop: tieneAccesoWhatsapp ? '4px solid #457B9D' : '4px solid #CBD5E1',
-              bgcolor: '#FFFFFF',
-              boxShadow: '0 4px 18px rgba(29, 53, 87, 0.04)', 
+              borderRadius: '0 12px 12px 0', 
+              border: '1px solid #e2e8f0',
+              borderLeft: tieneAccesoWhatsapp ? '3px solid #0f766e' : '3px solid #cbd5e1',
+              bgcolor: '#ffffff',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)', 
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              transition: 'all 0.22s ease',
-              ...(!tieneAccesoWhatsapp && { opacity: 0.7, bgcolor: '#F8FAFC' }),
+              transition: 'all 0.18s ease',
+              ...(!tieneAccesoWhatsapp && { opacity: 0.72, bgcolor: '#f8fafc' }),
               '&:hover': tieneAccesoWhatsapp ? { 
-                borderColor: '#457B9D', 
-                borderTopColor: '#B92F32',
-                transform: 'translateY(-3px)',
-                boxShadow: '0 12px 28px rgba(29, 53, 87, 0.10)' 
+                borderColor: '#94a3b8', 
+                borderLeftColor: '#0f766e',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 10px 24px -8px rgba(15, 23, 42, 0.10)' 
               } : {}
             }}
           >
-            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.25 }}>
+            <CardContent sx={{ p: 2.75, display: 'flex', flexDirection: 'column', height: '100%', '&:last-child': { pb: 2.75 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2.25,
-                    bgcolor: tieneAccesoWhatsapp ? 'rgba(37, 211, 102, 0.12)' : '#F1F5F9',
-                    color: tieneAccesoWhatsapp ? '#25D366' : '#94A3B8',
+                    width: 42,
+                    height: 42,
+                    borderRadius: '9px',
+                    bgcolor: tieneAccesoWhatsapp ? '#f0fdf4' : '#f8fafc',
+                    color: tieneAccesoWhatsapp ? '#0f766e' : '#94a3b8',
+                    border: tieneAccesoWhatsapp ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
                   <svg
-                    width="26"
-                    height="26"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="currentColor"
                     xmlns="http://www.w3.org/2000/svg"
@@ -797,38 +794,42 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
                   </svg>
                 </Box>
                 <Chip
-                  label={tieneAccesoWhatsapp ? 'Canal Oficial' : 'Restringido'}
+                  label={tieneAccesoWhatsapp ? 'Canal Oficial · Cloud API' : 'Restringido'}
                   size="small"
                   sx={{
-                    bgcolor: tieneAccesoWhatsapp ? 'rgba(29, 53, 87, 0.07)' : '#F1F5F9',
-                    color: tieneAccesoWhatsapp ? '#1D3557' : '#64748B',
+                    bgcolor: tieneAccesoWhatsapp ? '#f8fafc' : '#f1f5f9',
+                    color: tieneAccesoWhatsapp ? '#334155' : '#64748b',
+                    border: '1px solid #e2e8f0',
                     fontWeight: 700,
-                    fontSize: '0.7rem',
-                    height: 23
+                    fontSize: '0.66rem',
+                    borderRadius: '6px',
+                    height: 22
                   }}
                 />
               </Box>
 
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#1D3557', mb: 1, fontSize: '1.1rem' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a', mb: 0.75, fontSize: '1.02rem', letterSpacing: '-0.015em' }}>
                 Atención & WhatsApp Business
               </Typography>
-              <Typography variant="body2" sx={{ color: '#475569', lineHeight: 1.6, mb: 3, flex: 1 }}>
-                Bandeja centralizada de comunicación oficial vía WhatsApp Business API para atención a usuarios y casos.
+              <Typography variant="body2" sx={{ color: '#64748b', lineHeight: 1.55, mb: 2.5, flex: 1, fontSize: '0.8rem' }}>
+                Consola multi-operador y telefonía WebRTC vía WhatsApp Business API para atención de casos y consultas.
               </Typography>
               
               <Button 
                 variant={tieneAccesoWhatsapp ? "contained" : "outlined"} 
                 fullWidth 
                 disabled={!tieneAccesoWhatsapp}
-                endIcon={tieneAccesoWhatsapp ? <ArrowRight size={16} /> : <Lock size={15} />}
+                endIcon={tieneAccesoWhatsapp ? <ArrowRight size={15} /> : <Lock size={14} />}
                 onClick={() => setView('whatsapp')} 
                 sx={{ 
                   textTransform: 'none', 
                   fontWeight: 700, 
-                  py: 1.15,
-                  borderRadius: 2,
-                  ...(tieneAccesoWhatsapp && { bgcolor: '#1D3557', '&:hover': { bgcolor: '#122238' } }),
-                  ...(!tieneAccesoWhatsapp && { color: '#B92F32', borderColor: 'rgba(185, 47, 50, 0.35)' })
+                  fontSize: '0.8rem',
+                  py: 1,
+                  borderRadius: '8px',
+                  boxShadow: 'none',
+                  ...(tieneAccesoWhatsapp && { bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' } }),
+                  ...(!tieneAccesoWhatsapp && { color: '#b91c1c', borderColor: '#fecaca' })
                 }}
               >
                 {tieneAccesoWhatsapp ? "Abrir Bandeja" : "Acceso Restringido"}
@@ -840,48 +841,51 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: '0 0 12px 12px', 
-              bgcolor: '#F8FAF8', 
-              border: '1px dashed #CBD5E1', 
-              borderTop: '4px solid #CBD5E1',
+              borderRadius: '0 12px 12px 0', 
+              bgcolor: '#f8fafc', 
+              border: '1px dashed #cbd5e1', 
+              borderLeft: '3px solid #cbd5e1',
               boxShadow: 'none' 
             }}
           >
-            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%', opacity: 0.78 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.25 }}>
+            <CardContent sx={{ p: 2.75, display: 'flex', flexDirection: 'column', height: '100%', opacity: 0.82, '&:last-child': { pb: 2.75 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2.25,
-                    bgcolor: '#E2E8F0',
-                    color: '#64748B',
+                    width: 42,
+                    height: 42,
+                    borderRadius: '9px',
+                    bgcolor: '#ffffff',
+                    color: '#64748b',
+                    border: '1px solid #e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <Users size={24} />
+                  <Users size={20} />
                 </Box>
                 <Chip
-                  label="Próximamente"
+                  label="Hoja de Ruta"
                   size="small"
                   sx={{
-                    bgcolor: '#E2E8F0',
-                    color: '#475569',
+                    bgcolor: '#ffffff',
+                    color: '#64748b',
+                    border: '1px solid #e2e8f0',
                     fontWeight: 700,
-                    fontSize: '0.68rem',
+                    fontSize: '0.66rem',
+                    borderRadius: '6px',
                     height: 22
                   }}
                 />
               </Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#475569', mb: 1, fontSize: '1.1rem' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#334155', mb: 0.75, fontSize: '1.02rem', letterSpacing: '-0.015em' }}>
                 Talento & Recursos Humanos
               </Typography>
-              <Typography variant="body2" sx={{ color: '#64748B', lineHeight: 1.6, mb: 3, flex: 1 }}>
+              <Typography variant="body2" sx={{ color: '#64748b', lineHeight: 1.55, mb: 2.5, flex: 1, fontSize: '0.8rem' }}>
                 Gestión de expedientes de personal, directorio interno, solicitudes de vacaciones y perfiles institucionales.
               </Typography>
-              <Button variant="outlined" disabled fullWidth sx={{ textTransform: 'none', borderRadius: 2, py: 1.1 }}>
+              <Button variant="outlined" disabled fullWidth sx={{ textTransform: 'none', borderRadius: '8px', py: 1, fontSize: '0.8rem', fontWeight: 700 }}>
                 En Desarrollo
               </Button>
             </CardContent>
@@ -891,65 +895,69 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
           <Card
             elevation={0}
             sx={{ 
-              borderRadius: '0 0 12px 12px', 
-              bgcolor: '#F8FAF8', 
-              border: '1px dashed #CBD5E1', 
-              borderTop: '4px solid #CBD5E1',
+              borderRadius: '0 12px 12px 0', 
+              bgcolor: '#f8fafc', 
+              border: '1px dashed #cbd5e1', 
+              borderLeft: '3px solid #cbd5e1',
               boxShadow: 'none' 
             }}
           >
-            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%', opacity: 0.78 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.25 }}>
+            <CardContent sx={{ p: 2.75, display: 'flex', flexDirection: 'column', height: '100%', opacity: 0.82, '&:last-child': { pb: 2.75 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2.25,
-                    bgcolor: '#E2E8F0',
-                    color: '#64748B',
+                    width: 42,
+                    height: 42,
+                    borderRadius: '9px',
+                    bgcolor: '#ffffff',
+                    color: '#64748b',
+                    border: '1px solid #e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <FileSpreadsheet size={24} />
+                  <FileSpreadsheet size={20} />
                 </Box>
                 <Chip
-                  label="Próximamente"
+                  label="Hoja de Ruta"
                   size="small"
                   sx={{
-                    bgcolor: '#E2E8F0',
-                    color: '#475569',
+                    bgcolor: '#ffffff',
+                    color: '#64748b',
+                    border: '1px solid #e2e8f0',
                     fontWeight: 700,
-                    fontSize: '0.68rem',
+                    fontSize: '0.66rem',
+                    borderRadius: '6px',
                     height: 22
                   }}
                 />
               </Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#475569', mb: 1, fontSize: '1.1rem' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#334155', mb: 0.75, fontSize: '1.02rem', letterSpacing: '-0.015em' }}>
                 Finanzas & Presupuesto
               </Typography>
-              <Typography variant="body2" sx={{ color: '#64748B', lineHeight: 1.6, mb: 3, flex: 1 }}>
+              <Typography variant="body2" sx={{ color: '#64748b', lineHeight: 1.55, mb: 2.5, flex: 1, fontSize: '0.8rem' }}>
                 Ejecución presupuestaria de proyectos, conciliación de pasarelas de pago y reportes financieros institucionales.
               </Typography>
-              <Button variant="outlined" disabled fullWidth sx={{ textTransform: 'none', borderRadius: 2, py: 1.1 }}>
+              <Button variant="outlined" disabled fullWidth sx={{ textTransform: 'none', borderRadius: '8px', py: 1, fontSize: '0.8rem', fontWeight: 700 }}>
                 En Desarrollo
               </Button>
             </CardContent>
           </Card>
         </Box>
 
-        {/* ACCESOS DIRECTOS ADMINISTRATIVOS Y GOBERNANZA */}
+        {/* ACCESOS DIRECTOS ADMINISTRATIVOS Y GOBERNANZA (CON BARRA LATERAL DE RADIO CERO) */}
         {(userRole === 'Superadmin' || userRole === 'Admin') && (
           <Card
             elevation={0}
             sx={{
-              p: { xs: 2.5, sm: 3 },
+              p: { xs: 2.25, sm: 3 },
               mb: 4,
               borderRadius: '0 12px 12px 0',
-              bgcolor: '#FFFFFF',
-              border: '1px solid #DCE4EE',
-              borderLeft: '4px solid #1D3557',
+              bgcolor: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderLeft: '3px solid #0f172a',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
               display: 'flex',
               flexDirection: { xs: 'column', md: 'row' },
               alignItems: { xs: 'flex-start', md: 'center' },
@@ -958,26 +966,31 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             }}
           >
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1D3557' }}>
+              <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#b91c1c', letterSpacing: '0.08em', textTransform: 'uppercase', mb: 0.3 }}>
+                Administración de Seguridad
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '0.98rem', letterSpacing: '-0.01em' }}>
                 Gobernanza y Seguridad Perimetral del Sistema
               </Typography>
-              <Typography variant="body2" sx={{ color: '#475569', fontSize: '0.84rem' }}>
+              <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.8rem' }}>
                 Administración de cuentas institucionales autorizadas (@iiresodh.org) y auditoría de eventos de seguridad.
               </Typography>
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap' }}>
               <Button 
                 variant="outlined" 
-                startIcon={<ShieldCheck size={16} />} 
+                startIcon={<ShieldCheck size={15} />} 
                 onClick={() => setView('usuarios')}
                 sx={{
                   textTransform: 'none',
-                  borderRadius: 2,
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
                   fontWeight: 700,
-                  borderColor: '#1D3557',
-                  color: '#1D3557',
-                  '&:hover': { bgcolor: 'rgba(29, 53, 87, 0.05)', borderColor: '#122238' }
+                  borderColor: '#cbd5e1',
+                  color: '#0f172a',
+                  bgcolor: '#f8fafc',
+                  '&:hover': { bgcolor: '#f1f5f9', borderColor: '#0f172a' }
                 }}
               >
                 Control de Usuarios Autorizados
@@ -986,15 +999,17 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               {userRole === 'Superadmin' && (
                 <Button 
                   variant="outlined" 
-                  startIcon={<Activity size={16} />} 
+                  startIcon={<Activity size={15} />} 
                   onClick={() => setView('logs')}
                   sx={{
                     textTransform: 'none',
-                    borderRadius: 2,
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
                     fontWeight: 700,
-                    borderColor: '#457B9D',
-                    color: '#1D3557',
-                    '&:hover': { bgcolor: 'rgba(69, 123, 157, 0.08)', borderColor: '#1D3557' }
+                    borderColor: '#cbd5e1',
+                    color: '#0f172a',
+                    bgcolor: '#f8fafc',
+                    '&:hover': { bgcolor: '#f1f5f9', borderColor: '#0f172a' }
                   }}
                 >
                   Bitácora de Auditoría (Logs)
@@ -1005,7 +1020,7 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
         )}
 
         {/* PIE DE PÁGINA INSTITUCIONAL */}
-        <Divider sx={{ mb: 2.5, borderColor: '#E2E8F0' }} />
+        <Divider sx={{ mb: 2, borderColor: '#e2e8f0' }} />
         <Box
           sx={{
             pb: 2,
@@ -1021,14 +1036,14 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               component="img"
               src="/iiresodh-isotipo-blue.png"
               alt="IIRESODH"
-              sx={{ height: 22, width: 'auto', opacity: 0.85 }}
+              sx={{ height: 20, width: 'auto', opacity: 0.85 }}
             />
-            <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>
+            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>
               IIRESODH — Instituto Internacional de Responsabilidad Social y Derechos Humanos
             </Typography>
           </Box>
-          <Typography sx={{ fontSize: '0.75rem', color: '#64748B' }}>
-            Acceso confidencial exclusivo para miembros de la institución
+          <Typography sx={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+            Entorno privado exclusivo para miembros acreditados
           </Typography>
         </Box>
       </Box>
@@ -1047,10 +1062,12 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
             variant="filled"
             onClose={() => setAlertaWhatsappReciente(null)}
             sx={{
-              bgcolor: '#064E3B',
-              color: '#FFFFFF',
-              border: '1px solid #25D366',
-              boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
+              bgcolor: '#0f172a',
+              color: '#ffffff',
+              borderRadius: '0 10px 10px 0',
+              border: '1px solid #334155',
+              borderLeft: '3px solid #10b981',
+              boxShadow: '0 12px 28px rgba(15, 23, 42, 0.25)',
               alignItems: 'center',
               maxWidth: 380
             }}
@@ -1062,16 +1079,16 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
                   setAlertaWhatsappReciente(null);
                   setView('whatsapp');
                 }}
-                sx={{ fontWeight: 800, textTransform: 'none', color: '#A7F3D0' }}
+                sx={{ fontWeight: 800, textTransform: 'none', color: '#34d399', fontSize: '0.75rem' }}
               >
                 Abrir
               </Button>
             }
           >
-            <Typography variant="caption" sx={{ fontWeight: 800, display: 'block', color: '#25D366' }}>
+            <Typography variant="caption" sx={{ fontWeight: 800, display: 'block', color: '#34d399' }}>
               Nuevo WhatsApp · {alertaWhatsappReciente?.nombre}
             </Typography>
-            <Typography variant="caption" sx={{ display: 'block', color: '#ECFDF5' }} noWrap>
+            <Typography variant="caption" sx={{ display: 'block', color: '#f8fafc' }} noWrap>
               {alertaWhatsappReciente?.ultimo_mensaje}
             </Typography>
           </Alert>

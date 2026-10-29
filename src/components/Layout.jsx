@@ -67,53 +67,61 @@ export default function Layout({ children, currentView, setView, userRole, userP
   const drawerContent = (
     <Box sx={{ overflow: 'auto', mt: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', height: '100%' }}>
       {isMobile && (
-        <Box sx={{ px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="subtitle2" fontWeight="800" color="#1D3557" sx={{ letterSpacing: '0.03em' }}>
+        <Box sx={{ px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9' }}>
+          <Typography variant="subtitle2" fontWeight="800" color="#0f172a" sx={{ letterSpacing: '0.06em', fontSize: '0.72rem' }}>
             NAVEGACIÓN IIRESODH
           </Typography>
-          <IconButton size="small" onClick={handleDrawerToggle}>
+          <IconButton size="small" onClick={handleDrawerToggle} sx={{ color: '#475569' }}>
             <X size={18} />
           </IconButton>
         </Box>
       )}
+      <Box sx={{ px: 2.5, pt: 1, pb: 0.75, display: { xs: 'none', md: 'block' } }}>
+        <Typography sx={{ fontSize: '0.64rem', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
+          Módulos del Sistema
+        </Typography>
+      </Box>
       <List sx={{ px: 1.5, flex: 1 }}>
         {menuItems.map((item, index) => {
           const isSelected = currentView === item.id;
           return (
             <React.Fragment key={item.id}>
-              {!esHub && index === 1 && <Divider sx={{ my: 1.5, borderColor: '#E2E8F0' }} />}
+              {!esHub && index === 1 && <Divider sx={{ my: 1.25, borderColor: '#f1f5f9' }} />}
               
-              <ListItem disablePadding sx={{ mb: 0.6 }}>
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton 
                   onClick={() => handleSelectView(item.id)}
                   selected={isSelected}
                   sx={{
                     borderRadius: '0 8px 8px 0',
-                    py: 1.1,
+                    py: 1,
+                    px: 1.5,
                     position: 'relative',
-                    color: isSelected ? '#1D3557' : '#475569',
-                    bgcolor: isSelected ? 'rgba(29, 53, 87, 0.06)' : 'transparent',
-                    borderLeft: isSelected ? '3px solid #B92F32' : '3px solid transparent',
+                    color: isSelected ? '#0f172a' : '#475569',
+                    bgcolor: isSelected ? '#f8fafc' : 'transparent',
+                    borderLeft: isSelected ? '3px solid #b91c1c' : '3px solid transparent',
+                    transition: 'all 0.15s ease',
                     '&.Mui-selected': {
-                      bgcolor: 'rgba(29, 53, 87, 0.08)',
-                      color: '#1D3557',
-                      fontWeight: 700,
-                      '&:hover': { bgcolor: 'rgba(29, 53, 87, 0.12)' }
+                      bgcolor: '#f1f5f9',
+                      color: '#0f172a',
+                      fontWeight: 800,
+                      '&:hover': { bgcolor: '#e2e8f0' }
                     },
                     '&:hover': {
-                      bgcolor: 'rgba(29, 53, 87, 0.04)',
-                      color: '#1D3557'
+                      bgcolor: '#f8fafc',
+                      color: '#0f172a'
                     }
                   }}
                 >
-                  <ListItemIcon sx={{ color: isSelected ? '#1D3557' : '#64748B', minWidth: 36 }}>
+                  <ListItemIcon sx={{ color: isSelected ? '#0f172a' : '#64748b', minWidth: 32 }}>
                     {item.icon}
                   </ListItemIcon>
                   <ListItemText 
                     primary={item.text} 
                     primaryTypographyProps={{ 
-                      fontSize: '0.88rem', 
-                      fontWeight: isSelected ? 700 : 500 
+                      fontSize: '0.84rem', 
+                      fontWeight: isSelected ? 800 : 600,
+                      letterSpacing: '-0.01em'
                     }} 
                   />
                 </ListItemButton>
@@ -123,13 +131,22 @@ export default function Layout({ children, currentView, setView, userRole, userP
         })}
       </List>
 
-      {/* Pie institucional de la barra lateral */}
-      <Box sx={{ p: 2, m: 1.5, borderRadius: 2, bgcolor: '#F8FAF8', border: '1px solid #E2E8F0' }}>
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: '#1D3557', letterSpacing: '0.04em' }}>
-          IIRESODH INTRANET
+      {/* Pie institucional de la barra lateral con barra lateral de radio cero */}
+      <Box
+        sx={{
+          p: 1.75,
+          m: 1.5,
+          borderRadius: '0 8px 8px 0',
+          bgcolor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderLeft: '3px solid #0f172a'
+        }}
+      >
+        <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, color: '#0f172a', letterSpacing: '0.06em' }}>
+          IIRESODH · INTRANET
         </Typography>
-        <Typography sx={{ fontSize: '0.68rem', color: '#64748B', mt: 0.25 }}>
-          Entorno privado institucional
+        <Typography sx={{ fontSize: '0.68rem', color: '#64748b', mt: 0.25, fontWeight: 500 }}>
+          Red Cifrada Institucional
         </Typography>
       </Box>
     </Box>
@@ -137,17 +154,18 @@ export default function Layout({ children, currentView, setView, userRole, userP
 
   return (
     <Box sx={{ display: 'flex' }}>
-      {/* BARRA SUPERIOR INSTITUCIONAL IIRESODH */}
+      {/* BARRA SUPERIOR EJECUTIVA IIRESODH */}
       <AppBar 
         position="fixed" 
+        elevation={0}
         sx={{ 
           zIndex: (theme) => theme.zIndex.drawer + 1, 
-          bgcolor: '#1D3557', 
-          boxShadow: '0 2px 12px rgba(29, 53, 87, 0.16)',
-          borderBottom: '3px solid #B92F32'
+          bgcolor: '#0f172a', 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.14)'
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 1.5, sm: 3 }, minHeight: { xs: 56, sm: 64 } }}>
+        <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 1.5, sm: 3 }, minHeight: { xs: 56, sm: 60 } }}>
           
           {/* SECCIÓN IZQUIERDA: Menú móvil + Identidad Oficial IIRESODH */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.75 } }}>
@@ -159,7 +177,7 @@ export default function Layout({ children, currentView, setView, userRole, userP
                 onClick={handleDrawerToggle}
                 sx={{ mr: 0.5, color: '#ffffff' }}
               >
-                <Menu size={22} />
+                <Menu size={20} />
               </IconButton>
             )}
 
@@ -174,13 +192,13 @@ export default function Layout({ children, currentView, setView, userRole, userP
                 '&:hover': { opacity: 0.92 }
               }}
             >
-              {/* Isotipo blanco oficial sobre fondo transparente */}
+              {/* Isotipo blanco oficial */}
               <img 
                 src="/Isotipo-w.png" 
                 alt="Isotipo IIRESODH" 
                 style={{ 
-                  width: '36px', 
-                  height: '36px',
+                  width: '32px', 
+                  height: '32px',
                   objectFit: 'contain',
                   display: 'block'
                 }} 
@@ -189,25 +207,28 @@ export default function Layout({ children, currentView, setView, userRole, userP
               {/* Tipografía Institucional IIRESODH */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Box>
-                  <Typography
-                    sx={{
-                      fontFamily: '"Plus Jakarta Sans", sans-serif',
-                      fontWeight: 800,
-                      fontSize: { xs: '1.05rem', sm: '1.2rem' },
-                      letterSpacing: '0.08em',
-                      color: '#FFFFFF',
-                      lineHeight: 1.05
-                    }}
-                  >
-                    IIRESODH
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography
+                      sx={{
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontWeight: 800,
+                        fontSize: { xs: '0.98rem', sm: '1.08rem' },
+                        letterSpacing: '0.07em',
+                        color: '#ffffff',
+                        lineHeight: 1.05
+                      }}
+                    >
+                      IIRESODH
+                    </Typography>
+                    <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#ef4444', display: { xs: 'none', sm: 'block' } }} />
+                  </Box>
                   <Typography
                     sx={{
                       display: { xs: 'none', sm: 'block' },
-                      fontSize: '0.64rem',
-                      fontWeight: 600,
-                      letterSpacing: '0.07em',
-                      color: '#A8DADC',
+                      fontSize: '0.62rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      color: '#94a3b8',
                       textTransform: 'uppercase',
                       mt: 0.15
                     }}
@@ -220,19 +241,20 @@ export default function Layout({ children, currentView, setView, userRole, userP
           </Box>
           
           {/* SECCIÓN DERECHA: Rol, Email y botón de cierre de sesión */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.75 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
             {userRole && (
               <Chip
                 label={userRole}
                 size="small"
                 sx={{
                   display: { xs: 'none', md: 'inline-flex' },
-                  bgcolor: 'rgba(168, 218, 220, 0.14)',
-                  color: '#F1FAEE',
-                  border: '1px solid rgba(168, 218, 220, 0.28)',
+                  bgcolor: 'rgba(255, 255, 255, 0.07)',
+                  color: '#f8fafc',
+                  border: '1px solid rgba(255, 255, 255, 0.14)',
                   fontWeight: 700,
-                  fontSize: '0.7rem',
-                  height: 24,
+                  fontSize: '0.68rem',
+                  height: 23,
+                  borderRadius: '6px',
                   letterSpacing: '0.02em'
                 }}
               />
@@ -241,19 +263,19 @@ export default function Layout({ children, currentView, setView, userRole, userP
             <Tooltip title={user?.email || ''}>
               <Typography 
                 variant="body2" 
-                color="rgba(255,255,255,0.92)" 
+                color="#cbd5e1" 
                 noWrap
                 sx={{ 
-                  fontSize: { xs: '0.76rem', sm: '0.84rem' }, 
-                  fontWeight: 500,
-                  maxWidth: { xs: 130, sm: 230 }
+                  fontSize: { xs: '0.74rem', sm: '0.8rem' }, 
+                  fontWeight: 600,
+                  maxWidth: { xs: 120, sm: 220 }
                 }}
               >
                 {user?.email}
               </Typography>
             </Tooltip>
             
-            <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.2)', height: 20, my: 'auto' }} />
+            <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.12)', height: 18, my: 'auto' }} />
             
             <Button
               onClick={async () => {
@@ -275,21 +297,21 @@ export default function Layout({ children, currentView, setView, userRole, userP
                 }
                 logout();
               }}
-              startIcon={<LogOut size={15} />}
+              startIcon={<LogOut size={14} />}
               sx={{
-                color: '#FFFFFF',
+                color: '#ffffff',
                 textTransform: 'none',
-                fontSize: { xs: '0.78rem', sm: '0.82rem' },
-                fontWeight: 600,
-                px: { xs: 1.2, sm: 1.6 },
-                py: 0.5,
-                borderRadius: 1.75,
-                bgcolor: 'rgba(185, 47, 50, 0.85)',
-                border: '1px solid rgba(230, 57, 70, 0.5)',
+                fontSize: { xs: '0.75rem', sm: '0.78rem' },
+                fontWeight: 700,
+                px: { xs: 1.2, sm: 1.5 },
+                py: 0.45,
+                borderRadius: '7px',
+                bgcolor: 'rgba(185, 28, 28, 0.85)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
                 minWidth: 'auto',
                 '&:hover': {
-                  bgcolor: '#B92F32',
-                  borderColor: '#E63946'
+                  bgcolor: '#b91c1c',
+                  borderColor: '#ef4444'
                 }
               }}
             >
@@ -313,11 +335,11 @@ export default function Layout({ children, currentView, setView, userRole, userP
                 '& .MuiDrawer-paper': { 
                   boxSizing: 'border-box', 
                   width: drawerWidth,
-                  bgcolor: '#FFFFFF'
+                  bgcolor: '#ffffff'
                 }
               }}
             >
-              <Toolbar />
+              <Toolbar sx={{ minHeight: { xs: 56, sm: 60 } }} />
               {drawerContent}
             </Drawer>
           ) : (
@@ -330,12 +352,12 @@ export default function Layout({ children, currentView, setView, userRole, userP
                 '& .MuiDrawer-paper': { 
                   width: drawerWidth, 
                   boxSizing: 'border-box', 
-                  borderRight: '1px solid #E2E8F0', 
-                  bgcolor: '#FFFFFF' 
+                  borderRight: '1px solid #e2e8f0', 
+                  bgcolor: '#ffffff' 
                 },
               }}
             >
-              <Toolbar />
+              <Toolbar sx={{ minHeight: { xs: 56, sm: 60 } }} />
               {drawerContent}
             </Drawer>
           )}
@@ -347,8 +369,8 @@ export default function Layout({ children, currentView, setView, userRole, userP
         component="main" 
         sx={{ 
           flexGrow: 1, 
-          p: { xs: 1.5, sm: 2.5, md: 3.5 }, 
-          bgcolor: '#F8FAF8', 
+          p: { xs: 1.5, sm: 2.5, md: 3 }, 
+          bgcolor: '#f8fafc', 
           minHeight: '100vh',
           width: esHub || isMobile ? '100%' : `calc(100% - ${drawerWidth}px)`,
           maxWidth: '100%',
@@ -356,7 +378,7 @@ export default function Layout({ children, currentView, setView, userRole, userP
           transition: 'width 0.15s ease-in-out'
         }}
       >
-        <Toolbar />
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 60 } }} />
         {children}
       </Box>
     </Box>

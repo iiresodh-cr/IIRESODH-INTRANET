@@ -58,7 +58,11 @@ import {
   LogIn, 
   LogOut, 
   ShieldCheck, 
-  ExternalLink 
+  ExternalLink,
+  Sparkles,
+  Image as ImageIcon,
+  Search,
+  BarChart3
 } from "lucide-react";
 
 const generarSlug = (texto) => {
@@ -1465,10 +1469,20 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
   // Si está verificando la autenticación
   if (verificandoAuthWeb) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
-        <CircularProgress size={50} sx={{ color: '#1a365d' }} />
-        <Typography variant="body1" fontWeight="bold" color="text.secondary">
-          Conectando con el servidor web (iiresodh.org)...
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '55vh',
+          gap: 1.5,
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+        }}
+      >
+        <CircularProgress size={26} sx={{ color: '#0f172a' }} />
+        <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: '#64748b' }}>
+          Sincronizando sesión con el portal público (iiresodh.org)...
         </Typography>
       </Box>
     );
@@ -1477,84 +1491,134 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
   // Si no está autenticado en la app secundaria de la web, mostrar pantalla de conexión
   if (!userWeb) {
     return (
-      <Box sx={{ maxWidth: 520, mx: 'auto', mt: 6, p: 2 }}>
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: 4, 
-            borderRadius: 4, 
-            textAlign: 'center', 
+      <Box
+        sx={{
+          maxWidth: 460,
+          mx: 'auto',
+          mt: { xs: 3, md: 6 },
+          px: 2,
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+        }}
+      >
+        <Box
+          sx={{
+            p: { xs: 3, sm: 3.5 },
+            // Regla arquitectónica: barra lateral con radio cero en ese lado
+            borderRadius: '0 12px 12px 0',
             border: '1px solid #e2e8f0',
+            borderLeft: '3px solid #0f172a',
             bgcolor: '#ffffff',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
+            boxShadow: '0 4px 20px rgba(15, 23, 42, 0.04)'
           }}
         >
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-            <img 
-              src="/logo.png" 
-              alt="Logo IIRESODH" 
-              style={{ maxHeight: '48px', width: 'auto', objectFit: 'contain' }} 
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.1,
+                py: 0.35,
+                bgcolor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                color: '#0f172a'
+              }}
+            >
+              <Globe size={13} color="#0f766e" />
+              <Typography
+                sx={{
+                  fontSize: '0.66rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.07em'
+                }}
+              >
+                CMS Público · iiresodh.org
+              </Typography>
+            </Box>
+            <img
+              src="/logo.png"
+              alt="Logo IIRESODH"
+              style={{ height: '28px', width: 'auto', objectFit: 'contain' }}
             />
           </Box>
 
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 2, py: 0.5, mb: 2, bgcolor: '#eff6ff', borderRadius: 99, color: '#1d4ed8' }}>
-            <Globe size={16} />
-            <Typography variant="caption" fontWeight="bold">
-              Módulo de Administración Web
-            </Typography>
-          </Box>
-
-          <Typography variant="h5" fontWeight="bold" color="#1a365d" gutterBottom>
-            Gestión del Sitio Público (iiresodh.org)
+          <Typography
+            sx={{
+              fontSize: '1.2rem',
+              fontWeight: 700,
+              color: '#0f172a',
+              letterSpacing: '-0.02em',
+              mb: 1
+            }}
+          >
+            Consola Editorial del Sitio Público
           </Typography>
 
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 4, lineHeight: 1.6 }}>
-            Para publicar noticias, gestionar el catálogo editorial, cursos y contenidos institucionales, conecta tu credencial de administrador de <strong>@iiresodh.org</strong>.
+          <Typography sx={{ fontSize: '0.82rem', color: '#64748b', mb: 3, lineHeight: 1.55 }}>
+            Para publicar noticias, artículos académicos, cursos, catálogo editorial e informes anuales en <strong>iiresodh.org</strong>, vincula tu credencial institucional de <strong>@iiresodh.org</strong>.
           </Typography>
 
           {errorAuthWeb && (
-            <Alert severity="error" sx={{ mb: 3, borderRadius: 2, textAlign: 'left' }}>
+            <Box
+              sx={{
+                mb: 2.5,
+                p: 1.5,
+                bgcolor: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderLeft: '3px solid #dc2626',
+                borderRadius: '0 8px 8px 0',
+                fontSize: '0.76rem',
+                color: '#991b1b',
+                lineHeight: 1.45
+              }}
+            >
               {errorAuthWeb}
-            </Alert>
+            </Box>
           )}
 
           <Button
             variant="contained"
             fullWidth
-            startIcon={<LogIn size={18} />}
+            startIcon={<LogIn size={16} />}
             onClick={handleConectarWeb}
             disabled={conectandoWeb}
             sx={{
-              py: 1.5,
-              borderRadius: 2,
-              bgcolor: '#1a365d',
-              fontWeight: 'bold',
+              py: 1.15,
+              borderRadius: '8px',
+              bgcolor: '#0f172a',
+              color: '#ffffff',
+              fontWeight: 600,
               textTransform: 'none',
-              fontSize: '0.95rem',
-              '&:hover': { bgcolor: '#0f233c' }
+              fontSize: '0.84rem',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
             }}
           >
-            {conectandoWeb ? "Conectando..." : "Conectar con @iiresodh.org"}
+            {conectandoWeb ? 'Autenticando...' : 'Conectar con cuenta @iiresodh.org'}
           </Button>
 
           <Button
             variant="outlined"
             fullWidth
-            startIcon={<ArrowLeft size={16} />}
+            startIcon={<ArrowLeft size={15} />}
             onClick={onVolver}
             sx={{
-              mt: 2,
-              py: 1.2,
-              borderRadius: 2,
-              borderColor: '#cbd5e1',
-              color: 'text.secondary',
+              mt: 1.25,
+              py: 1,
+              borderRadius: '8px',
+              borderColor: '#e2e8f0',
+              color: '#475569',
               textTransform: 'none',
-              fontWeight: 'medium'
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc', color: '#0f172a' }
             }}
           >
-            Volver al Menú Principal
+            Volver al Hub Central
           </Button>
-        </Paper>
+        </Box>
       </Box>
     );
   }
@@ -1562,28 +1626,176 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
   // Si está autenticado pero no tiene ningún permiso activo y hay un error de privilegios
   if (errorAuthWeb) {
     return (
-      <Box sx={{ maxWidth: 520, mx: 'auto', mt: 6, p: 2 }}>
-        <Paper elevation={0} sx={{ p: 4, borderRadius: 4, textAlign: 'center', border: '1px solid #fee2e2', bgcolor: '#fff' }}>
-          <ShieldCheck size={48} style={{ color: '#ef4444', margin: '0 auto 16px' }} />
-          <Typography variant="h6" fontWeight="bold" color="error.main" gutterBottom>
-            Acceso no autorizado al panel web
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 4, lineHeight: 1.6 }}>
+      <Box
+        sx={{
+          maxWidth: 460,
+          mx: 'auto',
+          mt: 6,
+          px: 2,
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+        }}
+      >
+        <Box
+          sx={{
+            p: 3.5,
+            borderRadius: '0 12px 12px 0',
+            border: '1px solid #fecaca',
+            borderLeft: '3px solid #dc2626',
+            bgcolor: '#ffffff'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1.5 }}>
+            <ShieldCheck size={22} color="#dc2626" />
+            <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+              Sin permisos asignados en el CMS Web
+            </Typography>
+          </Box>
+          <Typography sx={{ fontSize: '0.8rem', color: '#64748b', mb: 3, lineHeight: 1.55 }}>
             {errorAuthWeb}
           </Typography>
-          <Button variant="contained" onClick={onVolver} sx={{ bgcolor: '#1a365d', textTransform: 'none', borderRadius: 2, px: 4, py: 1.2 }}>
-            Regresar a la Intranet
-          </Button>
-          <Button variant="text" color="error" onClick={handleDesconectarWeb} sx={{ display: 'block', mx: 'auto', mt: 2, textTransform: 'none' }}>
-            Desconectar cuenta web
-          </Button>
-        </Paper>
+          <Box sx={{ display: 'flex', gap: 1.25 }}>
+            <Button
+              variant="contained"
+              onClick={onVolver}
+              sx={{
+                bgcolor: '#0f172a',
+                textTransform: 'none',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+              }}
+            >
+              Regresar al Hub
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleDesconectarWeb}
+              sx={{ textTransform: 'none', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 600 }}
+            >
+              Cambiar cuenta
+            </Button>
+          </Box>
+        </Box>
       </Box>
     );
   }
 
+  const MODULOS_CMS = [
+    {
+      id: 'comunicaciones',
+      tag: 'PORTADA Y PRENSA',
+      titulo: 'Noticias y Comunicados',
+      subtitulo: 'Publicaciones oficiales, pronunciamientos y carrusel de inicio',
+      acento: 'border-l-[#0f172a]',
+      habilitado: misPermisos.comunicaciones,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l4 4v10a2 2 0 01-2 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M8 8h8M8 12h8M8 16h4" />
+        </svg>
+      )
+    },
+    {
+      id: 'articulos',
+      tag: 'DOCTRINA',
+      titulo: 'Artículos Académicos',
+      subtitulo: 'Ensayos jurídicos, investigaciones y análisis interamericano',
+      acento: 'border-l-[#b91c1c]',
+      habilitado: misPermisos.articulos,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      )
+    },
+    {
+      id: 'cursos',
+      tag: 'FORMACIÓN',
+      titulo: 'Cursos y Seminarios',
+      subtitulo: 'Oferta académica, talleres especializados e inscripciones',
+      acento: 'border-l-[#0f766e]',
+      habilitado: misPermisos.cursos,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 14l9-5-9-5-9 5 9 5z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+        </svg>
+      )
+    },
+    {
+      id: 'libros',
+      tag: 'SELLO EDITORIAL',
+      titulo: 'Tienda Editorial',
+      subtitulo: 'Catálogo de obras jurídicas, libros digitales y precios USD/MXN',
+      acento: 'border-l-[#0f172a]',
+      habilitado: misPermisos.libros,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        </svg>
+      )
+    },
+    {
+      id: 'equipo',
+      tag: 'INSTITUCIONAL',
+      titulo: 'Equipo de Trabajo',
+      subtitulo: 'Directorio oficial por país, cargos y perfiles directivos',
+      acento: 'border-l-[#0f766e]',
+      habilitado: misPermisos.equipo,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      )
+    },
+    {
+      id: 'informes',
+      tag: 'TRANSPARENCIA',
+      titulo: 'Informes Anuales',
+      subtitulo: 'Memorias anuales de gestión y rendición de cuentas en PDF',
+      acento: 'border-l-[#0f172a]',
+      habilitado: misPermisos.informes,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      )
+    },
+    {
+      id: 'incidencia',
+      tag: 'LITIGIO Y DDHH',
+      titulo: 'Incidencia Internacional',
+      subtitulo: 'Amicus curiae, informes temáticos y documentos ante organismos',
+      acento: 'border-l-[#b91c1c]',
+      habilitado: misPermisos.incidencia,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l4 4v10a2 2 0 01-2 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 4v16m8-8H4" />
+        </svg>
+      )
+    },
+    {
+      id: 'adminWeb',
+      tag: 'GOBERNANZA WEB',
+      titulo: 'Configuración y Auditoría',
+      subtitulo: 'Textos trilingües de portada, permisos de editores y bitácora',
+      acento: 'border-l-[#0f172a]',
+      habilitado: misPermisos.adminWeb || auth.currentUser?.email === 'webmaster@iiresodh.org',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      )
+    }
+  ];
+
   return (
-    <main className="min-h-screen bg-gray-50/50 font-sans relative">
+    <main className="min-h-screen font-sans relative max-w-[1320px] mx-auto px-2 sm:px-4 py-2">
       <ConfirmDialog 
         open={modalBorrar.isOpen}
         title="¿Eliminar publicación?"
@@ -1592,41 +1804,38 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
         onConfirm={ejecutarBorrado}
       />
 
-      {/* HEADER DE INTEGRACIÓN CON LA INTRANET */}
-      <header className="bg-white sticky top-0 z-30 p-4 shadow-xs border-b border-gray-200 flex flex-wrap justify-between items-center px-4 md:px-8 mb-6 rounded-2xl gap-4">
+      {/* BARRA EJECUTIVA DE COMANDO DEL CMS WEB */}
+      <header className="bg-white/95 backdrop-blur-md sticky top-0 z-30 px-4 py-3 border border-slate-200 border-l-[3px] border-l-slate-900 rounded-l-none rounded-r-[10px] flex flex-wrap justify-between items-center mb-6 gap-3 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
         <div className="flex items-center gap-3">
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<ArrowLeft size={16} />}
+          <button
+            type="button"
             onClick={onVolver}
-            sx={{
-              textTransform: 'none',
-              borderRadius: 2,
-              borderColor: '#cbd5e1',
-              color: '#334155',
-              fontWeight: 'medium'
-            }}
+            className="w-8 h-8 rounded-[7px] border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer"
+            title="Volver al Hub de la Intranet"
           >
-            Volver a la Intranet
-          </Button>
+            <ArrowLeft size={15} />
+          </button>
 
-          <span className="hidden md:inline-block border-l border-gray-300 h-6" />
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 bg-blue-50 text-main-blue font-bold px-3 py-1 rounded-full text-xs">
-              <Globe size={14} /> iiresodh.org
-            </span>
-            <span className="font-bold text-gray-700 text-sm hidden sm:inline">
-              Panel Administrativo del Sitio Web
-            </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                CMS Público · ES / EN / FR
+              </span>
+              <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold px-1.5 py-0.5 rounded-[5px] text-[10.5px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                iiresodh.org
+              </span>
+            </div>
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
+              Administración del Sitio Web
+            </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {userWeb && (
-            <span className="text-xs text-gray-500 font-medium hidden lg:inline">
-              Sesión Web: <strong className="text-main-blue">{userWeb.email}</strong>
+            <span className="text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-[6px] font-medium hidden lg:inline-block">
+              Editor: <strong className="text-slate-900 font-semibold">{userWeb.email}</strong>
             </span>
           )}
 
@@ -1634,23 +1843,23 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
             href="https://iiresodh.org" 
             target="_blank" 
             rel="noopener noreferrer" 
-            className="text-xs text-gray-500 hover:text-main-blue flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg font-medium transition-colors"
+            className="text-xs text-slate-700 hover:text-slate-900 flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-[7px] font-semibold transition-colors"
           >
-            Ver Sitio Público <ExternalLink size={12} />
+            Abrir Portal <ExternalLink size={12} />
           </a>
 
           <button 
             onClick={handleDesconectarWeb} 
-            className="text-xs bg-white border border-gray-200 text-gray-600 hover:text-main-red hover:border-main-red px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1 cursor-pointer"
+            className="text-xs bg-white border border-slate-200 text-slate-600 hover:text-red-700 hover:border-red-200 hover:bg-red-50 px-2.5 py-1.5 rounded-[7px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
             title="Desconectar credencial web"
           >
             <LogOut size={13} />
-            Desconectar
+            <span className="hidden sm:inline">Desconectar</span>
           </button>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto">
+      <div>
         <ToastAlert 
           open={!!mensaje} 
           message={mensaje} 
@@ -1660,200 +1869,124 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
         {vistaActiva === "inicio" && (
           <section className="animate-fade-in-up" aria-labelledby="admin-title">
-            <div className="mb-8 text-center md:text-left">
-              <h1 id="admin-title" className="text-2xl md:text-3xl font-bold text-main-blue tracking-tight mb-2">
-                Administración de iiresodh.org
-              </h1>
-              <p className="text-gray-500 text-base">
-                Selecciona el módulo del portal público que deseas gestionar.
-              </p>
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                Módulos Editoriales del Portal ({MODULOS_CMS.filter((m) => m.habilitado).length} habilitados)
+              </span>
             </div>
 
-            <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" aria-label="Departamentos administrativos">
-              {/* NOTICIAS Y COMUNICADOS */}
-              <button 
-                onClick={() => setVistaActiva("comunicaciones")} 
-                disabled={!misPermisos.comunicaciones}
-                className={`bg-white border border-gray-200 p-8 rounded-3xl shadow-xs transition-all duration-300 flex flex-col items-center justify-center gap-4 group text-center ${
-                  !misPermisos.comunicaciones ? "opacity-40 cursor-not-allowed pointer-events-none" : "hover:shadow-lg hover:-translate-y-1 hover:border-main-blue/40 cursor-pointer"
-                }`}
-              >
-                <div className="p-4 bg-blue-50 text-main-blue rounded-2xl group-hover:bg-main-blue group-hover:text-white transition-colors duration-300">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l4 4v10a2 2 0 01-2 2z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 8h8M8 12h8M8 16h4"></path></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 mb-1">Noticias y Comunicados</h2>
-                  <p className="text-xs text-gray-500">Publicaciones en portada y noticias</p>
-                </div>
-              </button>
-              
-              {/* ARTÍCULOS ACADÉMICOS */}
-              <button 
-                onClick={() => setVistaActiva("articulos")} 
-                disabled={!misPermisos.articulos}
-                className={`bg-white border border-gray-200 p-8 rounded-3xl shadow-xs transition-all duration-300 flex flex-col items-center justify-center gap-4 group text-center ${
-                  !misPermisos.articulos ? "opacity-40 cursor-not-allowed pointer-events-none" : "hover:shadow-lg hover:-translate-y-1 hover:border-main-red/40 cursor-pointer"
-                }`}
-              >
-                <div className="p-4 bg-red-50 text-main-red rounded-2xl group-hover:bg-main-red group-hover:text-white transition-colors duration-300">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 mb-1">Artículos Académicos</h2>
-                  <p className="text-xs text-gray-500">Investigaciones y doctrina</p>
-                </div>
-              </button>
+            <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5" aria-label="Departamentos administrativos">
+              {MODULOS_CMS.map((mod) => (
+                <button
+                  key={mod.id}
+                  type="button"
+                  onClick={() => setVistaActiva(mod.id)}
+                  disabled={!mod.habilitado}
+                  className={`bg-white border border-slate-200 border-l-[3px] ${mod.acento} rounded-l-none rounded-r-[10px] p-4 text-left transition-all duration-150 flex flex-col justify-between group ${
+                    !mod.habilitado
+                      ? 'opacity-40 cursor-not-allowed pointer-events-none'
+                      : 'hover:border-slate-300 hover:shadow-[0_6px_20px_rgba(15,23,42,0.06)] cursor-pointer'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                        {mod.tag}
+                      </span>
+                      <div className="w-8 h-8 rounded-[7px] bg-slate-50 border border-slate-200 text-slate-700 group-hover:bg-slate-900 group-hover:text-white group-hover:border-slate-900 flex items-center justify-center transition-colors">
+                        {mod.icon}
+                      </div>
+                    </div>
+                    <h2 className="text-[15px] font-bold text-slate-900 tracking-tight mb-1">
+                      {mod.titulo}
+                    </h2>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      {mod.subtitulo}
+                    </p>
+                  </div>
 
-              {/* CURSOS */}
-              <button 
-                onClick={() => setVistaActiva("cursos")} 
-                disabled={!misPermisos.cursos}
-                className={`bg-white border border-gray-200 p-8 rounded-3xl shadow-xs transition-all duration-300 flex flex-col items-center justify-center gap-4 group text-center ${
-                  !misPermisos.cursos ? "opacity-40 cursor-not-allowed pointer-events-none" : "hover:shadow-lg hover:-translate-y-1 hover:border-orange-500/40 cursor-pointer"
-                }`}
-              >
-                <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl group-hover:bg-orange-600 group-hover:text-white transition-colors duration-300">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 14l9-5-9-5-9 5 9 5z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 mb-1">Cursos</h2>
-                  <p className="text-xs text-gray-500">Oferta académica y capacitaciones</p>
-                </div>
-              </button>
-
-              {/* TIENDA EDITORIAL */}
-              <button 
-                onClick={() => setVistaActiva("libros")} 
-                disabled={!misPermisos.libros}
-                className={`bg-white border border-gray-200 p-8 rounded-3xl shadow-xs transition-all duration-300 flex flex-col items-center justify-center gap-4 group text-center ${
-                  !misPermisos.libros ? "opacity-40 cursor-not-allowed pointer-events-none" : "hover:shadow-lg hover:-translate-y-1 hover:border-green-500/40 cursor-pointer"
-                }`}
-              >
-                <div className="p-4 bg-green-50 text-green-600 rounded-2xl group-hover:bg-green-600 group-hover:text-white transition-colors duration-300">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 mb-1">Tienda Editorial</h2>
-                  <p className="text-xs text-gray-500">Catálogo de libros y publicaciones</p>
-                </div>
-              </button>
-
-              {/* EQUIPO DE TRABAJO */}
-              <button 
-                onClick={() => setVistaActiva("equipo")} 
-                disabled={!misPermisos.equipo}
-                className={`bg-white border border-gray-200 p-8 rounded-3xl shadow-xs transition-all duration-300 flex flex-col items-center justify-center gap-4 group text-center ${
-                  !misPermisos.equipo ? "opacity-40 cursor-not-allowed pointer-events-none" : "hover:shadow-lg hover:-translate-y-1 hover:border-purple-500/40 cursor-pointer"
-                }`}
-              >
-                <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl group-hover:bg-purple-600 group-hover:text-white transition-colors duration-300">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 mb-1">Equipo de Trabajo</h2>
-                  <p className="text-xs text-gray-500">Directorio institucional y cargos</p>
-                </div>
-              </button>
-
-              {/* INFORMES ANUALES */}
-              <button 
-                onClick={() => setVistaActiva("informes")} 
-                disabled={!misPermisos.informes}
-                className={`bg-white border border-gray-200 p-8 rounded-3xl shadow-xs transition-all duration-300 flex flex-col items-center justify-center gap-4 group text-center ${
-                  !misPermisos.informes ? "opacity-40 cursor-not-allowed pointer-events-none" : "hover:shadow-lg hover:-translate-y-1 hover:border-teal-500/40 cursor-pointer"
-                }`}
-              >
-                <div className="p-4 bg-teal-50 text-teal-600 rounded-2xl group-hover:bg-teal-600 group-hover:text-white transition-colors duration-300">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 mb-1">Informes Anuales</h2>
-                  <p className="text-xs text-gray-500">Memorias institucionales (PDF)</p>
-                </div>
-              </button>
-              
-              {/* INCIDENCIA */}
-              <button 
-                onClick={() => setVistaActiva("incidencia")} 
-                disabled={!misPermisos.incidencia}
-                className={`bg-white border border-gray-200 p-8 rounded-3xl shadow-xs transition-all duration-300 flex flex-col items-center justify-center gap-4 group text-center ${
-                  !misPermisos.incidencia ? "opacity-40 cursor-not-allowed pointer-events-none" : "hover:shadow-lg hover:-translate-y-1 hover:border-rose-500/40 cursor-pointer"
-                }`}
-              >
-                <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl group-hover:bg-rose-600 group-hover:text-white transition-colors duration-300">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l4 4v10a2 2 0 01-2 2z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4v16m8-8H4"></path></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 mb-1">Incidencia Internacional</h2>
-                  <p className="text-xs text-gray-500">Documentos por país</p>
-                </div>
-              </button>
-
-              {/* ADMINISTRACIÓN WEB & PERMISOS */}
-              <button 
-                onClick={() => setVistaActiva("adminWeb")} 
-                disabled={!misPermisos.adminWeb && auth.currentUser?.email !== "webmaster@iiresodh.org"}
-                className={`bg-white border border-gray-200 p-8 rounded-3xl shadow-xs transition-all duration-300 flex flex-col items-center justify-center gap-4 group text-center ${
-                  (!misPermisos.adminWeb && auth.currentUser?.email !== "webmaster@iiresodh.org") ? "opacity-40 cursor-not-allowed pointer-events-none" : "hover:shadow-lg hover:-translate-y-1 hover:border-yellow-500/40 cursor-pointer"
-                }`}
-              >
-                <div className="p-4 bg-yellow-50 text-yellow-600 rounded-2xl group-hover:bg-yellow-600 group-hover:text-white transition-colors duration-300">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 mb-1">Administración Web</h2>
-                  <p className="text-xs text-gray-500">Permisos, auditoría y textos</p>
-                </div>
-              </button>
+                  <div className="mt-4 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-700 group-hover:text-slate-900">
+                    <span>Gestionar sección</span>
+                    <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                  </div>
+                </button>
+              ))}
             </nav>
           </section>
         )}
 
         {(vistaActiva !== "inicio" && vistaActiva !== "adminWeb" && vistaActiva !== "estadisticas") && (
           <div className="animate-fade-in-up">
-            <button onClick={() => { limpiarFormulario(); setVistaActiva("inicio"); }} className="mb-6 flex items-center gap-2 text-gray-500 font-medium hover:text-main-blue transition-colors cursor-pointer group">
-              <div className="bg-white p-1.5 rounded-full shadow-xs group-hover:shadow border border-gray-200 transition-all">
-                <ArrowLeft size={16} />
-              </div>
-              Regresar al menú de módulos web
-            </button>
+            {/* Barra de navegación rápida entre módulos */}
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-2 bg-slate-100/80 p-1.5 rounded-[9px] border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => { limpiarFormulario(); setVistaActiva("inicio"); }}
+                className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold hover:text-slate-900 bg-white px-3 py-1.5 rounded-[6px] shadow-[0_1px_2px_rgba(15,23,42,0.05)] border border-slate-200/80 transition-colors cursor-pointer"
+              >
+                <ArrowLeft size={14} />
+                Todos los Módulos
+              </button>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-8 space-y-8">
-                <section className="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-gray-200" aria-labelledby="form-title">
-                  <header className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+                {MODULOS_CMS.filter((m) => m.id !== 'adminWeb' && m.habilitado).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => { limpiarFormulario(); setVistaActiva(m.id); }}
+                    className={`px-2.5 py-1 rounded-[6px] text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                      vistaActiva === m.id
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                    }`}
+                  >
+                    {m.titulo}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 space-y-6">
+                <section
+                  className={`bg-white p-5 md:p-7 rounded-l-none rounded-r-[10px] shadow-[0_1px_3px_rgba(15,23,42,0.03)] border border-slate-200 border-l-[3px] ${
+                    editandoId ? 'border-l-[#b91c1c]' : 'border-l-slate-900'
+                  }`}
+                  aria-labelledby="form-title"
+                >
+                  <header className="mb-6 pb-4 border-b border-slate-100 flex items-center justify-between gap-2">
                     <div>
-                      <h2 id="form-title" className={`text-xl md:text-2xl font-bold tracking-tight ${editandoId ? 'text-main-red' : 'text-gray-800'}`}>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.07em] text-slate-400 block mb-0.5">
+                        {vistaActiva === "comunicaciones" ? "Módulo · Noticias y Comunicados" :
+                         vistaActiva === "libros" ? "Módulo · Tienda Editorial" :
+                         vistaActiva === "informes" ? "Módulo · Informes Anuales" :
+                         vistaActiva === "incidencia" ? "Módulo · Incidencia Internacional" :
+                         vistaActiva === "cursos" ? "Módulo · Cursos y Seminarios" :
+                         vistaActiva === "articulos" ? "Módulo · Artículos Académicos" :
+                         "Módulo · Equipo de Trabajo"}
+                      </span>
+                      <h2 id="form-title" className={`text-lg md:text-xl font-bold tracking-tight ${editandoId ? 'text-[#b91c1c]' : 'text-slate-900'}`}>
                         {editandoId ? 
                           (vistaActiva === 'equipo' ? "Editando Miembro" : (vistaActiva === 'informes' ? "Editando Informe" : (vistaActiva === 'incidencia' ? "Editando Documento" : (vistaActiva === 'articulos' ? "Editando Artículo" : (vistaActiva === 'comunicaciones' ? "Editando Noticia o Comunicado" : "Editando Publicación"))))) : 
                           (vistaActiva === "articulos" ? "Redactar Nuevo Artículo" : (vistaActiva === "libros" ? "Registrar Nuevo Libro" : (vistaActiva === 'equipo' ? "Agregar Miembro" : (vistaActiva === 'informes' ? "Cargar Nuevo Informe" : (vistaActiva === 'incidencia' ? "Cargar Nuevo Documento" : (vistaActiva === 'comunicaciones' ? "Crear Noticia o Comunicado" : "Crear Nueva Publicación"))))))
                         }
                       </h2>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {vistaActiva === "articulos" ? 
-                          "Utiliza el editor visual para redactar contenido académico con formato." :
-                          `Módulo: ${
-                            vistaActiva === "comunicaciones" ? "Noticias y Comunicados" :
-                            vistaActiva === "libros" ? "Tienda Editorial" :
-                            vistaActiva === "informes" ? "Informes Anuales" :
-                            vistaActiva === "incidencia" ? "Incidencia Internacional" :
-                            vistaActiva === "cursos" ? "Cursos y Talleres" :
-                            "Equipo de Trabajo"
-                          }`
-                        }
-                      </p>
                     </div>
-                    {editandoId && <span className="bg-red-50 text-main-red text-xs font-bold px-3 py-1 rounded-full border border-red-100">MODO EDICIÓN</span>}
+                    {editandoId && (
+                      <span className="bg-red-50 text-[#b91c1c] text-[11px] font-bold px-2.5 py-1 rounded-[6px] border border-red-200">
+                        MODO EDICIÓN
+                      </span>
+                    )}
                   </header>
 
                   <form onSubmit={handleSubmit} className="space-y-6">
                     {/* FORMULARIO PARA EQUIPO */}
                     {vistaActiva === 'equipo' && (<>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <AdminTextField label="Nombre Completo" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
                         <AdminTextField label="Cargo" value={cargo} onChange={(e) => setCargo(e.target.value)} required />
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <AdminTextField label="Orden (número para ordenar)" type="number" value={orden} onChange={(e) => setOrden(e.target.value)} required />
                         <FormControl size="small" fullWidth>
                           <InputLabel id="pais-label">Sección (País)</InputLabel>
@@ -1881,7 +2014,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     {/* FORMULARIO ESPECÍFICO PARA ARTÍCULOS */}
                     {vistaActiva === "articulos" && (
                       <div className="space-y-6">
-                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-6">
+                        <div className="bg-slate-50/60 p-5 rounded-[10px] border border-slate-200 space-y-5">
                           <AdminTextField 
                             label="Título del Artículo *"
                             value={titulo}
@@ -1904,13 +2037,13 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                               onChange={(e) => setAutor(e.target.value)}
                               placeholder="Ej: Dr. Fabián Salvioli"
                             />
-                            <p className="text-xs text-gray-500 mt-1.5 ml-1">
+                            <p className="text-xs text-slate-500 mt-1.5 ml-1">
                               Si se deja en blanco, se usará el nombre de tu usuario.
                             </p>
                           </div>
 
                           <div>
-                            <label className="block text-sm font-bold text-gray-800 mb-2">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
                               Contenido del Artículo
                             </label>
                             <RichTextEditor 
@@ -1921,17 +2054,17 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                           <div className="md:col-span-2">
                             <div className="flex justify-between items-end mb-1.5">
-                              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                 Resumen corto para catálogo (Opcional)
                               </label>
                               <button 
                                 type="button" 
                                 onClick={handleAutoResumen} 
                                 disabled={generandoResumen} 
-                                className="text-xs font-semibold text-main-blue hover:text-light-blue bg-blue-50 hover:bg-blue-100 py-1 px-2.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                                className="text-xs font-semibold text-slate-800 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 py-1 px-2.5 rounded-[6px] transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
                               >
                                 {generandoResumen ? "Generando..." : "✨ Auto-completar con PIDA"}
                               </button>
@@ -1961,20 +2094,20 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
                     {/* FORMULARIO PARA NOTICIAS, LIBROS, INFORMES, CURSOS E INCIDENCIA */}
                     {vistaActiva !== 'equipo' && vistaActiva !== 'articulos' && (<>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                       {vistaActiva !== "informes" && (
                         <div className={(vistaActiva === "libros") ? "md:col-span-1" : "md:col-span-2"}>
                           {vistaActiva === "comunicaciones" ? (
                             <div>
-                              <div className="flex justify-between items-center mb-1">
-                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <div className="flex justify-between items-center mb-1.5">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                   Título de la Noticia / Comunicado *
                                 </label>
                                 <button 
                                   type="button" 
                                   onClick={handleAutoResumen} 
                                   disabled={generandoResumen} 
-                                  className="text-xs font-semibold text-main-blue hover:text-light-blue bg-blue-50 hover:bg-blue-100 py-1 px-2.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                                  className="text-xs font-semibold text-slate-800 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 py-1 px-2.5 rounded-[6px] transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
                                 >
                                   {generandoResumen ? "Generando..." : "✨ Auto-título con PIDA"}
                                 </button>
@@ -2042,21 +2175,21 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     </div>
 
                     {vistaActiva === "comunicaciones" && (
-                      <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200">
+                      <div className="bg-slate-50 p-4 rounded-l-none rounded-r-[8px] border border-slate-200 border-l-[3px] border-l-slate-700">
                         <AdminTextField 
                           label="Enlace de Video (Opcional - YouTube o Vimeo)"
                           value={videoUrl}
                           onChange={(e) => setVideoUrl(e.target.value)}
                           placeholder="Ej: https://www.youtube.com/watch?v=... o https://youtu.be/..."
                         />
-                        <p className="text-xs text-gray-500 mt-1.5 ml-1">
+                        <p className="text-xs text-slate-500 mt-1.5 ml-1">
                           Si introduces un enlace de video, se mostrará en el reproductor de la noticia.
                         </p>
                       </div>
                     )}
 
                     {vistaActiva === "cursos" && (
-                      <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 bg-orange-50/50 p-6 rounded-2xl border border-orange-100">
+                      <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-5 bg-slate-50 p-5 rounded-l-none rounded-r-[8px] border border-slate-200 border-l-[3px] border-l-[#0f766e]">
                         <AdminTextField 
                           label="Enlace de Inscripción (Opcional - Google Forms, Zoom, etc.)"
                           type="url"
@@ -2064,7 +2197,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                           onChange={(e) => setEnlaceInscripcion(e.target.value)}
                           placeholder="https://forms.gle/..."
                         />
-                        <div className="flex items-center gap-2 bg-white p-4 rounded-xl shadow-xs border border-orange-100">
+                        <div className="flex items-center gap-2 bg-white p-3.5 rounded-[8px] border border-slate-200">
                           <FormControl size="small" fullWidth>
                             <InputLabel id="estado-inscripcion-label">Estado de Inscripción</InputLabel>
                             <Select
@@ -2086,7 +2219,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     )}
 
                     {vistaActiva === "libros" && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                           <AdminTextField 
                             label="Autor del Libro"
@@ -2112,14 +2245,16 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
                     {vistaActiva !== "informes" && vistaActiva !== "articulos" && (
                     <div>
-                      <div className="flex justify-between items-end mb-1.5">
-                        <div className="w-full flex justify-end">
-                          {vistaActiva !== "cursos" && (
-                            <button type="button" onClick={handleAutoResumen} disabled={generandoResumen} className="text-xs font-semibold text-main-blue hover:text-light-blue bg-blue-50 hover:bg-blue-100 py-1.5 px-3 rounded-lg transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50 mb-2">
-                              {generandoResumen ? "Generando..." : "✨ Auto-completar con PIDA"}
-                            </button>
-                          )}
-                        </div>
+                      <div className="flex justify-between items-end mb-2">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                          Síntesis Editorial
+                        </span>
+                        {vistaActiva !== "cursos" && (
+                          <button type="button" onClick={handleAutoResumen} disabled={generandoResumen} className="text-[11px] font-bold text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 py-1.5 px-3 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50">
+                            <Sparkles size={13} className="text-[#b91c1c]" />
+                            {generandoResumen ? "Generando con IA..." : "Auto-completar con PIDA"}
+                          </button>
+                        )}
                       </div>
                       <AdminTextField 
                         label={vistaActiva === "incidencia" ? "Resumen / Descripción" : "Resumen corto"}
@@ -2135,28 +2270,28 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     )}
 
                     {vistaActiva === "comunicaciones" && (
-                      <div className="bg-gray-50/80 p-5 rounded-xl border border-dashed border-gray-300">
+                      <div className="bg-slate-50/90 p-5 rounded-l-none rounded-r-[10px] border border-slate-200 border-l-[3px] border-l-slate-700">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-3">
                           <div>
-                            <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                              Adjuntar Documentos (Para enlazar)
+                            <h3 className="text-[13px] font-extrabold text-slate-900 flex items-center gap-2">
+                              Adjuntar Documentos Públicos (Para enlazar)
                             </h3>
-                            <p className="text-xs text-gray-500">Sube un archivo para copiar su enlace público.</p>
+                            <p className="text-xs text-slate-500">Sube un archivo al repositorio público para copiar su URL directa.</p>
                           </div>
-                          <label htmlFor="input-doc-adjunto" className={`text-xs bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg font-semibold shadow-xs cursor-pointer transition-colors whitespace-nowrap ${subiendoArchivo ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                            {subiendoArchivo ? "Subiendo..." : "+ Subir archivo"}
+                          <label htmlFor="input-doc-adjunto" className={`text-xs bg-white border border-slate-200 text-slate-800 hover:bg-slate-100 px-3.5 py-2 rounded-lg font-bold shadow-2xs cursor-pointer transition-colors whitespace-nowrap ${subiendoArchivo ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            {subiendoArchivo ? "Subiendo..." : "+ Subir documento"}
                           </label>
                           <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={handleSubirDocumento} className="sr-only" id="input-doc-adjunto" />
                         </div>
 
                         {archivosAdjuntos.length > 0 && (
-                          <ul className="space-y-2" aria-label="Documentos adjuntados">
+                          <ul className="space-y-2 mt-3" aria-label="Documentos adjuntados">
                             {archivosAdjuntos.map((archivo, index) => (
-                              <li key={index} className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-gray-100 shadow-xs">
-                                <span className="text-xs font-medium text-gray-600 truncate mr-3 flex items-center gap-2">
+                              <li key={index} className="flex justify-between items-center bg-white p-2.5 rounded-l-none rounded-r-lg border border-slate-200 border-l-[3px] border-l-slate-900">
+                                <span className="text-xs font-semibold text-slate-700 truncate mr-3 flex items-center gap-2">
                                   📄 {archivo.nombre}
                                 </span>
-                                <button type="button" onClick={() => copiarEnlaceDocumento(archivo.nombre, archivo.url)} className="text-[10px] uppercase tracking-wider bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1 px-2.5 rounded transition-colors shrink-0">Copiar Enlace</button>
+                                <button type="button" onClick={() => copiarEnlaceDocumento(archivo.nombre, archivo.url)} className="text-[10px] uppercase tracking-wider bg-slate-900 hover:bg-slate-800 text-white font-bold py-1 px-2.5 rounded-md transition-colors shrink-0 cursor-pointer">Copiar URL</button>
                               </li>
                             ))}
                           </ul>
@@ -2165,9 +2300,9 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     )}
 
                     {(vistaActiva === "libros" || vistaActiva === "informes" || vistaActiva === "incidencia") && (
-                      <div className="bg-blue-50/50 p-5 rounded-xl border border-dashed border-blue-200">
-                        <label className="block text-sm font-semibold text-main-blue mb-2">Archivo PDF *</label>
-                        <p className="text-xs text-gray-500 mb-4">Sube el documento final en formato PDF.</p>
+                      <div className="bg-slate-50 p-5 rounded-l-none rounded-r-[10px] border border-slate-200 border-l-[3px] border-l-slate-900">
+                        <label className="block text-[13px] font-extrabold text-slate-900 mb-1">Documento Oficial en PDF *</label>
+                        <p className="text-xs text-slate-500 mb-3.5">Sube el archivo final verificado en formato PDF para descarga pública.</p>
                         
                         <input 
                           type="file" 
@@ -2190,13 +2325,13 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                             }
                           }}
                         />
-                        <div className="flex items-center gap-3">
-                          <label htmlFor="input-archivo-pdf" className="inline-block bg-white border border-gray-300 text-main-blue px-4 py-2 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors shadow-xs">
-                            Seleccionar PDF...
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label htmlFor="input-archivo-pdf" className="inline-block bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors">
+                            Seleccionar archivo PDF...
                           </label>
                           {(archivoLibroNombre || archivoLibroAnterior || archivoInformeNombre || archivoInformeAnterior || archivoIncidenciaNombre || archivoIncidenciaAnterior) && (
-                            <span className="text-xs text-gray-600 font-medium truncate max-w-50 md:max-w-xs bg-white px-3 py-2 rounded-md border border-gray-200">
-                              {archivoLibroNombre || archivoInformeNombre || archivoIncidenciaNombre || "Archivo guardado (puedes reemplazarlo)"}
+                            <span className="text-xs text-slate-700 font-semibold truncate max-w-50 md:max-w-xs bg-white px-3 py-1.5 rounded-md border border-slate-200">
+                              {archivoLibroNombre || archivoInformeNombre || archivoIncidenciaNombre || "Archivo PDF vinculado (reemplazable)"}
                             </span>
                           )}
                         </div>
@@ -2205,8 +2340,8 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
                     {vistaActiva === "comunicaciones" && (
                       <div id="editor-cuerpo-noticia">
-                        <label className="block text-sm font-bold text-gray-800 mb-2">
-                          Cuerpo de la Noticia *
+                        <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-2">
+                          Cuerpo Editorial de la Publicación *
                         </label>
                         <RichTextEditor 
                           value={contenido}
@@ -2219,7 +2354,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     {vistaActiva !== "informes" && vistaActiva !== "cursos" && vistaActiva !== "incidencia" && vistaActiva !== "articulos" && vistaActiva !== "comunicaciones" && (
                     <div>
                       <AdminTextField 
-                        label={vistaActiva === "libros" ? "Descripción Larga" : "Cuerpo del texto"}
+                        label={vistaActiva === "libros" ? "Descripción Larga / Sinopsis" : "Cuerpo del texto"}
                         required
                         multiline
                         rows={10}
@@ -2233,34 +2368,37 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
                     {/* MULTIMEDIA */}
                     {vistaActiva !== "incidencia" && (
-                    <div className="bg-white border border-gray-200 rounded-xl p-6">
-                      <h3 className="text-sm font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Archivos Multimedia</h3>
+                    <div className="bg-slate-50/60 border border-slate-200 rounded-xl p-5">
+                      <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-4 border-b border-slate-200 pb-2.5 flex items-center gap-2">
+                        <ImageIcon size={14} className="text-slate-700" /> Activos Multimedia y Portada
+                      </h3>
                       
-                      <div id="seccion-portada-principal" className={`mb-6 p-4 rounded-xl transition-all ${errorPortada ? 'border-2 border-red-500 bg-red-50/50 ring-2 ring-red-200' : ''}`}>
-                        <label className={`block text-xs font-semibold uppercase tracking-wider mb-3 ${errorPortada ? 'text-red-700 font-bold' : 'text-gray-500'}`}>
-                          {vistaActiva === "cursos" ? "Flyer o Portada del Curso *" : (vistaActiva === "libros" ? "Portada del Libro *" : (vistaActiva === "informes" ? "Portada del Informe *" : "Portada principal *"))}
+                      <div id="seccion-portada-principal" className={`mb-5 p-4 rounded-l-none rounded-r-[10px] transition-all ${errorPortada ? 'border border-red-300 border-l-[3px] border-l-red-600 bg-red-50/60' : 'bg-white border border-slate-200 border-l-[3px] border-l-slate-900'}`}>
+                        <label className={`block text-[11px] font-extrabold uppercase tracking-wider mb-3 ${errorPortada ? 'text-red-700' : 'text-slate-700'}`}>
+                          {vistaActiva === "cursos" ? "Flyer o Portada del Curso *" : (vistaActiva === "libros" ? "Portada del Libro *" : (vistaActiva === "informes" ? "Portada del Informe *" : "Imagen de Portada Principal *"))}
                         </label>
                         {errorPortada && (
-                          <p className="text-xs text-red-600 font-bold mb-3 flex items-center gap-1">
-                            ⚠️ Por favor selecciona una imagen para la portada.
+                          <p className="text-xs text-red-600 font-bold mb-3 flex items-center gap-1.5">
+                            ⚠️ Selecciona una imagen de portada antes de publicar.
                           </p>
                         )}
                         <div className="flex flex-col sm:flex-row items-start gap-4">
                           {mainImagePreviewUrl ? (
-                            <div className="flex flex-col items-center gap-2">
+                            <div className="flex flex-col items-center gap-1.5">
                               <div className="relative group inline-block">
-                                <img src={mainImagePreviewUrl} alt="Vista previa" className="h-28 w-40 object-cover rounded-lg shadow-xs border border-gray-200 block mx-auto" />
-                                <button type="button" onClick={() => { setImagenPrincipal(null); setMainImagePreviewUrl(imagenPrincipalAnterior); }} className="absolute -top-2 -right-2 bg-white text-gray-700 rounded-full p-1 shadow hover:bg-red-50 hover:text-main-red opacity-0 group-hover:opacity-100 transition-opacity">
+                                <img src={mainImagePreviewUrl} alt="Vista previa" className="h-28 w-44 object-cover rounded-lg border border-slate-200 block mx-auto shadow-2xs" />
+                                <button type="button" onClick={() => { setImagenPrincipal(null); setMainImagePreviewUrl(imagenPrincipalAnterior); }} className="absolute -top-2 -right-2 bg-slate-900 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center shadow hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                                   ✕
                                 </button>
                               </div>
-                              <span className="text-xs text-gray-500 font-medium truncate max-w-40 text-center" title={imagenPrincipal ? imagenPrincipal.name : extraerNombreDesdeUrl(mainImagePreviewUrl)}>
+                              <span className="text-[11px] text-slate-500 font-medium truncate max-w-44 text-center" title={imagenPrincipal ? imagenPrincipal.name : extraerNombreDesdeUrl(mainImagePreviewUrl)}>
                                 {imagenPrincipal ? imagenPrincipal.name : extraerNombreDesdeUrl(mainImagePreviewUrl)}
                               </span>
                             </div>
                           ) : (
-                            <div className="h-28 w-40 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center">
-                              <span className="text-xs text-gray-400 font-medium">Sin imagen</span>
+                            <div className="h-28 w-44 bg-slate-50 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center gap-1 shrink-0">
+                              <ImageIcon size={20} className="text-slate-400" />
+                              <span className="text-[11px] text-slate-400 font-semibold">Sin portada</span>
                             </div>
                           )}
                           <div className="flex-1">
@@ -2271,41 +2409,47 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                               className="sr-only" 
                               id="input-portada-principal" 
                             />
-                            <label htmlFor="input-portada-principal" className="text-sm bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium cursor-pointer inline-block hover:bg-gray-50 transition-colors shadow-xs">Examinar archivos...</label>
-                            <p className="text-xs text-gray-400 mt-2">Formatos recomendados: JPG, PNG. Se optimizará automáticamente a WebP.</p>
+                            <label htmlFor="input-portada-principal" className="text-xs bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-lg font-bold cursor-pointer inline-block transition-colors">
+                              Seleccionar imagen de portada...
+                            </label>
+                            <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                              Formatos soportados: JPG, PNG, WebP. El sistema convierte y comprime automáticamente a WebP de alta densidad.
+                            </p>
                           </div>
                         </div>
                       </div>
 
                       {(vistaActiva === "comunicaciones" || vistaActiva === "cursos") && (
                         <div>
-                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Galería / Carrusel</label>
+                          <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-2.5">Galería / Carrusel Secundario</label>
                           <input type="file" accept="image/*" multiple onChange={handleAgregarImagenes} className="sr-only" id="input-imagenes-carrusel" />
-                          <label htmlFor="input-imagenes-carrusel" className="text-sm bg-white border border-dashed border-gray-300 text-main-blue w-full text-center py-4 rounded-lg font-medium cursor-pointer block hover:bg-blue-50 transition-colors mb-4">+ Cargar múltiples imágenes</label>
+                          <label htmlFor="input-imagenes-carrusel" className="text-xs bg-white border border-dashed border-slate-300 text-slate-700 hover:text-slate-900 hover:border-slate-400 w-full text-center py-3.5 rounded-lg font-bold cursor-pointer block hover:bg-slate-50 transition-colors mb-4">
+                            + Añadir múltiples fotografías a la galería
+                          </label>
                           
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                             {carruselExistente.map((url, i) => (
-                              <div key={`old-${i}`} className="flex flex-col bg-white p-2 rounded-lg border border-gray-200 shadow-xs gap-2">
+                              <div key={`old-${i}`} className="flex flex-col bg-white p-2 rounded-lg border border-slate-200 gap-1.5">
                                 <div className="relative group w-full h-24 rounded overflow-hidden">
                                   <img src={url} className="w-full h-full object-cover" alt="Carrusel" />
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <button type="button" onClick={() => setCarruselExistente(prev => prev.filter((_, idx) => idx !== i))} className="text-white hover:text-red-400 font-bold text-xs bg-black/50 px-2 py-1 rounded">Eliminar</button>
+                                  <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <button type="button" onClick={() => setCarruselExistente(prev => prev.filter((_, idx) => idx !== i))} className="text-white hover:text-red-300 font-bold text-[11px] bg-slate-900/80 px-2.5 py-1 rounded cursor-pointer">Eliminar</button>
                                   </div>
                                 </div>
-                                <span className="text-[10px] font-medium text-gray-500 truncate text-center">{extraerNombreDesdeUrl(url)}</span>
+                                <span className="text-[10px] font-medium text-slate-500 truncate text-center">{extraerNombreDesdeUrl(url)}</span>
                               </div>
                             ))}
 
                             {imagenesCarrusel.map((f, i) => (
-                              <div key={`new-${i}`} className="flex flex-col bg-green-50 p-2 rounded-lg border border-green-200 shadow-xs gap-2">
+                              <div key={`new-${i}`} className="flex flex-col bg-emerald-50/60 p-2 rounded-lg border border-emerald-200 gap-1.5">
                                 <div className="relative group w-full h-24 rounded overflow-hidden">
                                   <img src={URL.createObjectURL(f)} className="w-full h-full object-cover" alt="Nueva carrusel" />
-                                  <span className="absolute top-1 left-1 bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">Nueva</span>
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <button type="button" onClick={() => setImagenesCarrusel(prev => prev.filter((_, idx) => idx !== i))} className="text-white hover:text-red-400 font-bold text-xs bg-black/50 px-2 py-1 rounded">Quitar</button>
+                                  <span className="absolute top-1 left-1 bg-emerald-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">Nueva</span>
+                                  <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <button type="button" onClick={() => setImagenesCarrusel(prev => prev.filter((_, idx) => idx !== i))} className="text-white hover:text-red-300 font-bold text-[11px] bg-slate-900/80 px-2.5 py-1 rounded cursor-pointer">Quitar</button>
                                   </div>
                                 </div>
-                                <span className="text-[10px] font-medium text-green-700 truncate text-center">{f.name}</span>
+                                <span className="text-[10px] font-semibold text-emerald-800 truncate text-center">{f.name}</span>
                               </div>
                             ))}
                           </div>
@@ -2316,52 +2460,53 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
                     {/* TAGS Y PERSISTENCIA */}
                     {vistaActiva === "comunicaciones" && (
-                      <div className="bg-white border border-gray-200 rounded-xl p-6">
-                        <h3 className="text-sm font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Clasificación y Visibilidad</h3>
-                        <div className="mb-6">
-                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Etiquetas (Tags)</label>
-                          <div className="flex flex-wrap gap-2">
+                      <div className="bg-slate-50/60 border border-slate-200 rounded-xl p-5">
+                        <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-4 border-b border-slate-200 pb-2.5">
+                          Taxonomía y Visibilidad en Portada
+                        </h3>
+                        <div className="mb-5">
+                          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2.5">Etiquetas Temáticas (Tags)</label>
+                          <div className="flex flex-wrap gap-1.5">
                             {TAGS_DISPONIBLES.map(tag => {
                               const isSelected = tagsSeleccionados.includes(tag);
                               return (
-                                <Chip
+                                <button
+                                  type="button"
                                   key={tag}
-                                  label={tag}
                                   onClick={() => {
                                     setTagsSeleccionados(prev => 
                                       isSelected ? prev.filter(t => t !== tag) : [...prev, tag]
                                     );
                                   }}
-                                  color={isSelected ? "primary" : "default"}
-                                  variant={isSelected ? "filled" : "outlined"}
-                                  sx={{ 
-                                    fontWeight: 'bold', 
-                                    borderRadius: '8px', 
-                                    transition: 'all 0.2s ease',
-                                    '&:hover': { transform: 'scale(1.03)' }
-                                  }}
-                                />
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                                    isSelected
+                                      ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900'
+                                  }`}
+                                >
+                                  {tag}
+                                </button>
                               );
                             })}
                           </div>
                         </div>
 
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-4">
+                        <div className="bg-white p-4 rounded-l-none rounded-r-[10px] border border-slate-200 border-l-[3px] border-l-[#b91c1c]">
                           <FormControlLabel
                             control={
                               <Checkbox
                                 checked={persistente}
                                 onChange={(e) => setPersistente(e.target.checked)}
-                                color="secondary" 
+                                sx={{ color: '#94a3b8', '&.Mui-checked': { color: '#b91c1c' } }}
                               />
                             }
                             label={
                               <Box>
-                                <span className="text-sm font-bold text-gray-700 block">
-                                  Fijar noticia en el Carrusel de Inicio (Máximo 3)
+                                <span className="text-xs font-extrabold text-slate-900 block">
+                                  Fijar publicación en el Carrusel Principal de Inicio (Máximo 3)
                                 </span>
-                                <span className="text-xs text-gray-400 font-normal">
-                                  Las noticias fijadas siempre aparecerán de primeras en la portada pública.
+                                <span className="text-[11px] text-slate-500 font-normal">
+                                  Las publicaciones fijadas mantienen prioridad editorial en la portada de iiresodh.org.
                                 </span>
                               </Box>
                             }
@@ -2371,12 +2516,12 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                       </div>
                     )}
 
-                    <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
-                      <button type="button" onClick={handleCancel} className="w-full sm:w-1/3 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 font-semibold py-3.5 rounded-xl transition-colors cursor-pointer">
-                        Cancelar
+                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-3 border-t border-slate-100">
+                      <button type="button" onClick={handleCancel} className="w-full sm:w-1/3 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 text-xs font-bold py-3.5 rounded-xl transition-colors cursor-pointer">
+                        Cancelar / Limpiar
                       </button>
-                      <button type="submit" disabled={loading} className={`w-full sm:w-2/3 text-white font-bold py-3.5 rounded-xl transition-all shadow-xs flex justify-center items-center gap-2 cursor-pointer ${editandoId ? 'bg-main-red hover:bg-red-700' : 'bg-main-blue hover:bg-light-blue'} ${loading ? 'opacity-70 cursor-wait' : ''}`}>
-                        {loading ? "Procesando..." : (editandoId ? "Actualizar Cambios" : "Publicar Ahora")}
+                      <button type="submit" disabled={loading} className={`w-full sm:w-2/3 text-white text-xs font-extrabold uppercase tracking-wider py-3.5 rounded-xl transition-all shadow-xs flex justify-center items-center gap-2 cursor-pointer ${editandoId ? 'bg-[#b91c1c] hover:bg-red-800' : 'bg-slate-900 hover:bg-slate-800'} ${loading ? 'opacity-70 cursor-wait' : ''}`}>
+                        {loading ? "Procesando publicación..." : (editandoId ? "Guardar Cambios Editoriales" : "Publicar en Portal Oficial")}
                       </button>
                     </div>
                   </form>
@@ -2385,23 +2530,31 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
               {/* LISTA LATERAL DERECHA CON SCROLL INFINITO */}
               <div className="lg:col-span-4">
-                <section className="bg-white p-6 rounded-2xl shadow-xs border border-gray-200 lg:sticky lg:top-24">
-                  <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    Publicaciones Recientes
-                  </h2>
+                <section className="bg-white p-5 rounded-l-none rounded-r-[12px] shadow-[0_1px_3px_rgba(15,23,42,0.03)] border border-slate-200 border-l-[3px] border-l-slate-900 lg:sticky lg:top-24">
+                  <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-100">
+                    <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                      Repositorio Publicado
+                    </h2>
+                    <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md tabular-nums">
+                      {listaItems.length} ítems
+                    </span>
+                  </div>
 
-                  <div className="mb-4 flex flex-col gap-2">
-                    <input
-                      type="text"
-                      placeholder="Buscar por palabra o nombre..."
-                      className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-main-blue focus:ring-1 focus:ring-main-blue transition-colors"
-                      value={busquedaTexto}
-                      onChange={(e) => setBusquedaTexto(e.target.value)}
-                    />
+                  <div className="mb-3.5 flex flex-col gap-2">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Filtrar por título o nombre..."
+                        className="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-slate-900 transition-colors"
+                        value={busquedaTexto}
+                        onChange={(e) => setBusquedaTexto(e.target.value)}
+                      />
+                    </div>
                     {vistaActiva !== 'equipo' && vistaActiva !== 'informes' && vistaActiva !== 'incidencia' && (
                       <input
                         type="date"
-                        className="w-full text-sm px-3 py-2 text-gray-600 border border-gray-200 rounded-lg focus:outline-none focus:border-main-blue transition-colors"
+                        className="w-full text-xs px-3 py-2 text-slate-600 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-slate-900 transition-colors tabular-nums"
                         value={busquedaFecha}
                         onChange={(e) => setBusquedaFecha(e.target.value)}
                       />
@@ -2409,29 +2562,29 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                   </div>
 
                   <div 
-                    className="space-y-3 max-h-[65vh] overflow-y-auto custom-scrollbar pr-1 relative"
+                    className="space-y-2.5 max-h-[65vh] overflow-y-auto custom-scrollbar pr-1 relative"
                     onScroll={handleScrollLista}
                   >
                     {listaItems.length === 0 && !cargandoLista ? (
-                      <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        <p className="text-xs text-gray-500 font-medium">Bandeja vacía o sin resultados</p>
+                      <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <p className="text-xs text-slate-500 font-semibold">Sin registros en esta vista</p>
                       </div>
                     ) : (
                       listaItems.map((n) => {
                         if (vistaActiva === 'informes') {
                           return (
-                            <article key={n.id} className={`group relative overflow-hidden rounded-xl border transition-all duration-300 h-32 flex flex-col justify-end p-4 ${editandoId === n.id ? 'border-main-red shadow-xs ring-2 ring-red-100' : 'border-gray-200 hover:border-main-blue'}`}>
+                            <article key={n.id} className={`group relative overflow-hidden rounded-l-none rounded-r-[10px] border border-l-[3px] transition-all duration-200 h-28 flex flex-col justify-end p-3.5 ${editandoId === n.id ? 'border-red-300 border-l-[#b91c1c] ring-2 ring-red-100' : 'border-slate-200 border-l-slate-900 hover:border-slate-400'}`}>
                               <div className="absolute inset-0 bg-cover bg-top" style={{ backgroundImage: `url(${n.imagenPrincipalUrl || 'https://via.placeholder.com/400x300?text=Sin+Portada'})` }}></div>
-                              <div className="absolute inset-0 bg-linear-to-t from-main-blue via-main-blue/70 to-transparent opacity-90"></div>
+                              <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-slate-900/75 to-transparent"></div>
                               
                               <div className="relative z-10 w-full flex justify-between items-end">
                                 <div>
-                                  <span className="text-[10px] font-black uppercase text-white/70 tracking-widest block mb-0.5">Gestión</span>
-                                  <h3 className="text-white font-bold text-base leading-none">Año {n.año}</h3>
+                                  <span className="text-[9px] font-extrabold uppercase text-slate-300 tracking-widest block mb-0.5">Memoria Anual</span>
+                                  <h3 className="text-white font-extrabold text-sm leading-none tabular-nums">Ejercicio {n.año}</h3>
                                 </div>
-                                <div className="flex gap-2">
-                                  <button type="button" onClick={() => handleEditarItem(n)} className="bg-white/20 hover:bg-white text-white hover:text-main-blue px-2.5 py-1 rounded text-xs font-bold transition-colors">Editar</button>
-                                  <button type="button" onClick={() => pedirConfirmacionBorrado(n.id, `Informe Anual ${n.año}`)} className="bg-main-red/80 hover:bg-main-red text-white px-2 py-1 rounded text-xs transition-colors">✕</button>
+                                <div className="flex gap-1.5">
+                                  <button type="button" onClick={() => handleEditarItem(n)} className="bg-white/95 hover:bg-white text-slate-900 px-2.5 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer">Editar</button>
+                                  <button type="button" onClick={() => pedirConfirmacionBorrado(n.id, `Informe Anual ${n.año}`)} className="bg-red-600/90 hover:bg-red-600 text-white px-2 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer">✕</button>
                                 </div>
                               </div>
                             </article>
@@ -2439,13 +2592,13 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                         }
 
                         return (
-                          <article key={n.id} className={`group flex flex-col p-3.5 rounded-xl border transition-all duration-200 ${editandoId === n.id ? 'bg-red-50 border-main-red' : n.persistente ? 'bg-blue-50/40 border-main-blue/30' : 'bg-white border-gray-200 hover:border-main-blue/40'}`}>
-                            <div className="flex gap-3 items-start mb-3">
-                              <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-gray-100 border border-gray-200 flex items-center justify-center">
+                          <article key={n.id} className={`group flex flex-col p-3 rounded-l-none rounded-r-[10px] border border-l-[3px] transition-all duration-150 ${editandoId === n.id ? 'bg-red-50/50 border-red-200 border-l-[#b91c1c]' : n.persistente ? 'bg-amber-50/30 border-slate-200 border-l-amber-600' : 'bg-white border-slate-200 border-l-slate-800 hover:border-slate-300'}`}>
+                            <div className="flex gap-2.5 items-start mb-2.5">
+                              <div className="relative w-10 h-10 rounded-md overflow-hidden shrink-0 bg-slate-100 border border-slate-200 flex items-center justify-center">
                                 {(n.imagenPrincipalUrl || n.fotoUrl) ? (
                                   <img src={n.imagenPrincipalUrl || n.fotoUrl} className="w-full h-full object-cover" alt="Miniatura" />
                                 ) : (
-                                  <span className="text-[9px] font-bold text-gray-400">DOC</span>
+                                  <span className="text-[9px] font-extrabold text-slate-400">DOC</span>
                                 )}
                               </div>
                               
@@ -2453,26 +2606,26 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                                 <div className="flex flex-col gap-0.5">
                                   <div className="flex items-center gap-1.5">
                                     {n.persistente && (
-                                      <span className="text-[8px] font-black text-main-blue uppercase bg-white px-1 py-0.2 rounded border border-main-blue/30">Fijada</span>
+                                      <span className="text-[8px] font-extrabold text-amber-800 uppercase bg-amber-100 px-1.5 py-0.5 rounded">Fijada</span>
                                     )}
-                                    <h3 className="font-semibold text-xs text-gray-800 line-clamp-2 leading-snug" title={n.titulo || n.nombre}>{n.titulo || n.nombre}</h3>
+                                    <h3 className="font-bold text-xs text-slate-900 line-clamp-2 leading-snug" title={n.titulo || n.nombre}>{n.titulo || n.nombre}</h3>
                                   </div>
-                                  <div className="flex items-center justify-between gap-1 mt-0.5">
-                                    <p className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                                      {vistaActiva === 'equipo' ? `Orden: ${n.orden} - ${n.cargo}` : `/${obtenerColeccionActiva()}/${n.slug || n.id}`}
+                                  <div className="flex items-center justify-between gap-1 mt-1">
+                                    <p className="text-[10px] text-slate-400 truncate max-w-[140px] tabular-nums">
+                                      {vistaActiva === 'equipo' ? `#${n.orden} · ${n.cargo}` : `/${obtenerColeccionActiva()}/${n.slug || n.id}`}
                                     </p>
-                                    <div className="flex items-center gap-1 shrink-0" title="Estado de idiomas">
-                                      <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-gray-100 text-gray-600">ES</span>
-                                      <span className={`text-[8px] font-bold px-1 py-0.2 rounded ${n.titulo_en || n.nombre_en ? 'bg-emerald-100 text-emerald-700 font-extrabold' : 'bg-gray-100 text-gray-400'}`} title={n.titulo_en || n.nombre_en ? "Traducido al inglés" : "Pendiente inglés"}>EN</span>
-                                      <span className={`text-[8px] font-bold px-1 py-0.2 rounded ${n.titulo_fr || n.nombre_fr ? 'bg-indigo-100 text-indigo-700 font-extrabold' : 'bg-gray-100 text-gray-400'}`} title={n.titulo_fr || n.nombre_fr ? "Traducido al francés" : "Pendiente francés"}>FR</span>
+                                    <div className="flex items-center gap-1 shrink-0" title="Estado de traducciones">
+                                      <span className="text-[8px] font-extrabold px-1 py-0.2 rounded bg-slate-100 text-slate-700">ES</span>
+                                      <span className={`text-[8px] font-extrabold px-1 py-0.2 rounded ${n.titulo_en || n.nombre_en ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-50 text-slate-300'}`} title={n.titulo_en || n.nombre_en ? "Traducido al inglés" : "Pendiente inglés"}>EN</span>
+                                      <span className={`text-[8px] font-extrabold px-1 py-0.2 rounded ${n.titulo_fr || n.nombre_fr ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-50 text-slate-300'}`} title={n.titulo_fr || n.nombre_fr ? "Traducido al francés" : "Pendiente francés"}>FR</span>
                                     </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex gap-2 w-full">
-                              <button type="button" onClick={() => handleEditarItem(n)} className="flex-1 bg-white border border-gray-200 text-gray-600 hover:text-main-blue hover:border-main-blue py-1 rounded text-xs font-semibold transition-colors">Editar</button>
-                              <button type="button" onClick={() => pedirConfirmacionBorrado(n.id, n.titulo || n.nombre)} className="px-2.5 bg-white border border-gray-200 text-gray-400 hover:text-main-red hover:border-main-red py-1 rounded text-xs transition-colors">✕</button>
+                            <div className="flex gap-1.5 w-full pt-1.5 border-t border-slate-100">
+                              <button type="button" onClick={() => handleEditarItem(n)} className="flex-1 bg-slate-50 hover:bg-slate-900 text-slate-700 hover:text-white border border-slate-200 hover:border-slate-900 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer">Editar</button>
+                              <button type="button" onClick={() => pedirConfirmacionBorrado(n.id, n.titulo || n.nombre)} className="px-2.5 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-400 hover:text-red-600 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer">✕</button>
                             </div>
                           </article>
                         );
@@ -2481,7 +2634,7 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     
                     {cargandoLista && (
                       <div className="flex justify-center py-4">
-                        <CircularProgress size={20} />
+                        <CircularProgress size={20} sx={{ color: '#0f172a' }} />
                       </div>
                     )}
                   </div>
@@ -2493,27 +2646,35 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
         {/* ADMINISTRACIÓN WEB (TITULOS DEL HOME, GESTIÓN DE ROLES Y AUDITORÍA) */}
         {vistaActiva === "adminWeb" && (
-          <div className="animate-fade-in-up">
-            <button onClick={() => setVistaActiva("inicio")} className="mb-6 flex items-center gap-2 text-gray-500 font-medium hover:text-main-blue transition-colors cursor-pointer group">
-              <div className="bg-white p-1.5 rounded-full shadow-xs border border-gray-200 transition-all">
-                <ArrowLeft size={16} />
-              </div>
-              Regresar al menú de módulos web
-            </button>
+          <div className="animate-fade-in-up space-y-6">
+            <div className="flex items-center justify-between bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-2xs">
+              <button onClick={() => setVistaActiva("inicio")} className="flex items-center gap-2 text-slate-700 hover:text-slate-900 font-bold text-xs transition-colors cursor-pointer">
+                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <ArrowLeft size={14} />
+                </div>
+                Volver al catálogo CMS
+              </button>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                Configuración Global, Permisos y Auditoría Web
+              </span>
+            </div>
 
             {/* CONFIGURACIÓN VISUAL HOME */}
-            <section className="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-gray-200 mb-8">
-              <header className="mb-6 flex justify-between items-center">
+            <section className="bg-white p-6 md:p-8 rounded-l-none rounded-r-[12px] shadow-[0_1px_3px_rgba(15,23,42,0.03)] border border-slate-200 border-l-[3px] border-l-slate-900">
+              <header className="mb-6 pb-4 border-b border-slate-100 flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold tracking-tight text-gray-800">Configuración Visual (Home)</h2>
-                  <p className="text-xs text-gray-500 mt-1">Modifica el lema y título principal mostrado en la portada pública de iiresodh.org.</p>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#b91c1c] block mb-1">
+                    Portada Pública · iiresodh.org
+                  </span>
+                  <h2 className="text-lg font-extrabold tracking-tight text-slate-900">Titulares Multilingües de Portada (Home)</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Define el lema institucional principal en español, inglés y francés.</p>
                 </div>
               </header>
               {cargandoConfig ? (
-                <div className="flex justify-center p-4"><CircularProgress /></div>
+                <div className="flex justify-center p-4"><CircularProgress size={24} sx={{ color: '#0f172a' }} /></div>
               ) : (
                 <form onSubmit={guardarConfiguracionVisual} className="space-y-4">
-                  <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-4">
+                  <div className="bg-slate-50/70 p-5 rounded-xl border border-slate-200 space-y-4">
                     <AdminTextField 
                       label="Título Principal de la Portada (Español)" 
                       multiline 
@@ -2541,9 +2702,9 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     />
                   </div>
                   <div className="flex justify-end">
-                    <Button type="submit" variant="contained" disabled={guardandoConfig} sx={{ px: 4, py: 1.2, bgcolor: '#1D3557', textTransform: 'none', borderRadius: 2 }}>
-                      {guardandoConfig ? "Guardando..." : "Guardar Textos de Portada"}
-                    </Button>
+                    <button type="submit" disabled={guardandoConfig} className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50">
+                      {guardandoConfig ? "Guardando..." : "Guardar Titulares de Portada"}
+                    </button>
                   </div>
                 </form>
               )}
@@ -2551,18 +2712,21 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
             {/* GESTIÓN DE PERMISOS DE USUARIOS (SOLO WEBMASTER) */}
             {auth.currentUser?.email === "webmaster@iiresodh.org" && (
-              <section className="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-gray-200 mb-8">
-                <header className="mb-6">
-                  <h2 className="text-xl font-bold tracking-tight text-gray-800">
-                    Gestión de Permisos de Usuarios Web
+              <section className="bg-white p-6 md:p-8 rounded-l-none rounded-r-[12px] shadow-[0_1px_3px_rgba(15,23,42,0.03)] border border-slate-200 border-l-[3px] border-l-[#0f766e]">
+                <header className="mb-6 pb-4 border-b border-slate-100">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#0f766e] block mb-1">
+                    Control de Acceso Editorial
+                  </span>
+                  <h2 className="text-lg font-extrabold tracking-tight text-slate-900">
+                    Permisos de Editores del Portal Web
                   </h2>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Autoriza a otros miembros institucionales (@iiresodh.org) y define qué secciones pueden editar en la web.
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Habilita cuentas institucionales (@iiresodh.org) y asigna permisos granulares por colección.
                   </p>
                 </header>
 
-                <form onSubmit={handleAgregarAdmin} className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-8 space-y-5">
-                  <h3 className="text-sm font-bold text-gray-700">Autorizar Nuevo Usuario en la Web</h3>
+                <form onSubmit={handleAgregarAdmin} className="bg-slate-50/70 p-5 rounded-xl border border-slate-200 mb-6 space-y-4">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">Autorizar Nuevo Editor</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div className="md:col-span-2">
                       <AdminTextField 
@@ -2575,15 +2739,15 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                       />
                     </div>
                     <div>
-                      <Button type="submit" variant="contained" disabled={loading} fullWidth sx={{ py: 1.5, bgcolor: '#1D3557', textTransform: 'none', borderRadius: 2 }}>
-                        {loading ? "Autorizando..." : "Autorizar Usuario"}
-                      </Button>
+                      <button type="submit" disabled={loading} className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50">
+                        {loading ? "Autorizando..." : "Autorizar Editor Web"}
+                      </button>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold text-gray-600">Módulos permitidos:</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  <div className="space-y-2 pt-1">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Módulos habilitados:</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                       {Object.keys(nuevoPermisos).map(key => (
                         <FormControlLabel
                           key={key}
@@ -2592,10 +2756,11 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                               size="small"
                               checked={nuevoPermisos[key]} 
                               onChange={e => setNuevoPermisos({ ...nuevoPermisos, [key]: e.target.checked })}
+                              sx={{ color: '#94a3b8', '&.Mui-checked': { color: '#0f172a' } }}
                             />
                           }
                           label={
-                            <span className="text-xs font-medium text-gray-700 capitalize">
+                            <span className="text-xs font-semibold text-slate-700 capitalize">
                               {key === "comunicaciones" ? "Noticias" : key === "adminWeb" ? "Admin Web" : key === "auditoria" ? "Auditoría" : key}
                             </span>
                           }
@@ -2605,67 +2770,70 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                   </div>
                 </form>
 
-                <h3 className="text-sm font-bold text-gray-700 mb-3">Usuarios Web Autorizados</h3>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-3">Editores Autorizados</h3>
                 {cargandoAdmins ? (
-                  <div className="flex justify-center p-6"><CircularProgress /></div>
+                  <div className="flex justify-center p-6"><CircularProgress size={24} sx={{ color: '#0f172a' }} /></div>
                 ) : usuariosAdmins.length > 0 ? (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase">
-                          <th className="p-3">Usuario</th>
-                          <th className="p-3">Módulos Permitidos</th>
-                          <th className="p-3 text-center">Estado</th>
-                          <th className="p-3 text-center">Acciones</th>
+                        <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                          <th className="p-3.5">Cuenta Institucional</th>
+                          <th className="p-3.5">Colecciones Habilitadas</th>
+                          <th className="p-3.5 text-center">Estado</th>
+                          <th className="p-3.5 text-center">Acción</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
+                      <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                         {usuariosAdmins.map(u => (
-                          <tr key={u.email} className="hover:bg-gray-50/50">
-                            <td className="p-3 font-bold text-main-blue">{u.email}</td>
-                            <td className="p-3">
+                          <tr key={u.email} className="hover:bg-slate-50/70">
+                            <td className="p-3.5 font-bold text-slate-900">{u.email}</td>
+                            <td className="p-3.5">
                               <div className="flex flex-wrap gap-1">
                                 {Object.keys(nuevoPermisos).map(key => {
                                   const tienePermiso = u.permisos?.[key] ?? false;
                                   return (
-                                    <Chip 
+                                    <button
+                                      type="button"
                                       key={key}
-                                      label={key === "comunicaciones" ? "Noticias" : key === "adminWeb" ? "Admin Web" : key === "auditoria" ? "Auditoría" : key}
                                       onClick={() => handleTogglePermisoAdmin(u.email, key, tienePermiso)}
-                                      color={tienePermiso ? "primary" : "default"}
-                                      variant={tienePermiso ? "filled" : "outlined"}
-                                      size="small"
-                                      sx={{ fontSize: '9px', height: '22px' }}
-                                    />
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer border ${
+                                        tienePermiso
+                                          ? 'bg-slate-900 text-white border-slate-900'
+                                          : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+                                      }`}
+                                    >
+                                      {key === "comunicaciones" ? "Noticias" : key === "adminWeb" ? "Admin Web" : key === "auditoria" ? "Auditoría" : key}
+                                    </button>
                                   );
                                 })}
                               </div>
                             </td>
-                            <td className="p-3 text-center">
-                              <Button 
-                                size="small"
-                                variant="outlined"
-                                color={u.activo || u.active ? "success" : "error"}
+                            <td className="p-3.5 text-center">
+                              <button
+                                type="button"
                                 onClick={() => handleToggleActivoAdmin(u.email, u.activo || u.active)}
-                                sx={{ textTransform: 'none', borderRadius: 2, fontSize: '11px', py: 0.3 }}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold border cursor-pointer ${
+                                  u.activo || u.active
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-red-50 text-red-700 border-red-200'
+                                }`}
                               >
-                                {u.activo || u.active ? "Activo" : "Inactivo"}
-                              </Button>
+                                {u.activo || u.active ? "Activo" : "Suspendido"}
+                              </button>
                             </td>
-                            <td className="p-3 text-center">
-                              <Button 
-                                size="small" 
-                                color="error" 
-                                variant="contained"
+                            <td className="p-3.5 text-center">
+                              <button
+                                type="button"
                                 onClick={() => {
                                   if(window.confirm(`¿Estás seguro de que deseas revocar permanentemente el acceso para ${u.email}?`)) {
                                     handleEliminarAdmin(u.email);
                                   }
                                 }}
-                                sx={{ textTransform: 'none', borderRadius: 2, fontSize: '11px', py: 0.3 }}
+                                className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white hover:bg-red-50 text-red-600 border border-red-200 transition-colors cursor-pointer"
                               >
                                 Revocar
-                              </Button>
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -2673,8 +2841,8 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                     </table>
                   </div>
                 ) : (
-                  <p className="text-center text-gray-400 py-6 text-xs italic border border-dashed border-gray-200 rounded-xl">
-                    No hay otros usuarios administradores registrados en la web.
+                  <p className="text-center text-slate-400 py-6 text-xs border border-dashed border-slate-200 rounded-xl">
+                    No hay editores adicionales registrados.
                   </p>
                 )}
               </section>
@@ -2682,26 +2850,30 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
             {/* AUDITORÍA */}
             {misPermisos.auditoria && (
-              <section className="bg-white p-6 md:p-8 rounded-2xl shadow-xs border border-gray-200">
-                <header className="mb-6">
-                  <h2 className="text-xl font-bold tracking-tight text-gray-800">
-                    Auditoría de Actividad Web
+              <section className="bg-white p-6 md:p-8 rounded-l-none rounded-r-[12px] shadow-[0_1px_3px_rgba(15,23,42,0.03)] border border-slate-200 border-l-[3px] border-l-slate-700">
+                <header className="mb-5 pb-4 border-b border-slate-100">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 block mb-1">
+                    Trazabilidad de Operaciones
+                  </span>
+                  <h2 className="text-lg font-extrabold tracking-tight text-slate-900">
+                    Bitácora de Auditoría del Portal Público
                   </h2>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Historial de publicaciones y modificaciones realizadas en el sitio público.
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Registro cronológico de altas, ediciones y bajas en las colecciones de iiresodh.org.
                   </p>
                 </header>
 
-                <div className="flex flex-col sm:flex-row gap-3 mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex flex-col sm:flex-row gap-3 mb-5 p-4 bg-slate-50 rounded-xl border border-slate-200">
                   <FormControl size="small" fullWidth>
-                    <InputLabel id="filtro-usuario-label">Usuario</InputLabel>
+                    <InputLabel id="filtro-usuario-label">Editor</InputLabel>
                     <Select
                       labelId="filtro-usuario-label"
                       value={filtroUsuario}
-                      label="Usuario"
+                      label="Editor"
                       onChange={(e) => setFiltroUsuario(e.target.value)}
+                      sx={{ bgcolor: '#fff', borderRadius: '8px', fontSize: '0.82rem' }}
                     >
-                      <MenuItem value="todos"><em>Todos los usuarios</em></MenuItem>
+                      <MenuItem value="todos"><em>Todos los editores</em></MenuItem>
                       {usuariosUnicos.map(em => (
                         <MenuItem key={em} value={em}>{em}</MenuItem>
                       ))}
@@ -2709,51 +2881,64 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
                   </FormControl>
 
                   <FormControl size="small" fullWidth>
-                    <InputLabel id="orden-actividad-label">Orden</InputLabel>
+                    <InputLabel id="orden-actividad-label">Orden cronológico</InputLabel>
                     <Select
                       labelId="orden-actividad-label"
                       value={ordenActividad}
-                      label="Orden"
+                      label="Orden cronológico"
                       onChange={(e) => setOrdenActividad(e.target.value)}
+                      sx={{ bgcolor: '#fff', borderRadius: '8px', fontSize: '0.82rem' }}
                     >
                       <MenuItem value="desc">Más recientes primero</MenuItem>
                       <MenuItem value="asc">Más antiguos primero</MenuItem>
                     </Select>
                   </FormControl>
 
-                  <Button onClick={() => cargarActividades(false)} variant="contained" disabled={cargandoActividades && !cargandoMas} sx={{ py: 1, px: 3, bgcolor: '#1D3557', textTransform: 'none', borderRadius: 2, whiteSpace: 'nowrap' }}>
-                    {cargandoActividades && !cargandoMas ? 'Cargando...' : 'Cargar'}
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => cargarActividades(false)}
+                    disabled={cargandoActividades && !cargandoMas}
+                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50"
+                  >
+                    {cargandoActividades && !cargandoMas ? 'Consultando...' : 'Consultar Bitácora'}
+                  </button>
                 </div>
 
-                <div className="space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+                <div className="space-y-2.5 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
                   {cargandoActividades && !cargandoMas ? (
-                    <div className="text-center py-10"><CircularProgress size={30} /></div>
+                    <div className="text-center py-10"><CircularProgress size={26} sx={{ color: '#0f172a' }} /></div>
                   ) : actividades.length > 0 ? (
                     actividades.map(act => (
-                      <div key={act.id} className="p-3.5 rounded-lg bg-gray-50 border border-gray-100 flex justify-between items-start">
+                      <div key={act.id} className="p-3.5 rounded-l-none rounded-r-lg bg-slate-50/80 border border-slate-200 border-l-[3px] border-l-slate-900 flex justify-between items-start">
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-xs text-main-blue wrap-break-word">{act.accion}</p>
+                          <p className="font-bold text-xs text-slate-900 wrap-break-word">{act.accion}</p>
                           {act.detalles && (
-                            <p className="text-[11px] text-gray-500 mt-1 pl-2 border-l-2 border-gray-200 italic">{act.detalles}</p>
+                            <p className="text-[11px] text-slate-600 mt-1 pl-2.5 border-l-2 border-slate-300 italic">{act.detalles}</p>
                           )}
-                          <p className="text-[10px] text-gray-400 mt-1">{act.usuarioEmail}</p>
+                          <p className="text-[10px] font-semibold text-slate-500 mt-1">{act.usuarioEmail}</p>
                         </div>
-                        <p className="text-[10px] text-gray-400 font-medium shrink-0 ml-3">
+                        <p className="text-[10px] text-slate-500 font-bold shrink-0 ml-3 tabular-nums">
                           {act.timestamp?.toDate ? act.timestamp.toDate().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                         </p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-center text-gray-400 py-8 text-xs">No hay actividades para mostrar. Presiona "Cargar" para consultar la bitácora.</p>
+                    <p className="text-center text-slate-400 py-8 text-xs border border-dashed border-slate-200 rounded-xl">
+                      Presiona "Consultar Bitácora" para cargar los eventos de auditoría.
+                    </p>
                   )}
                 </div>
 
                 {actividades.length > 0 && hayMasActividades && (
-                  <div className="mt-6 text-center">
-                    <Button onClick={() => cargarActividades(true)} variant="outlined" disabled={cargandoMas} sx={{ textTransform: 'none', borderRadius: 2, fontSize: '12px' }}>
-                      {cargandoMas ? 'Cargando...' : 'Cargar más actividades'}
-                    </Button>
+                  <div className="mt-5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => cargarActividades(true)}
+                      disabled={cargandoMas}
+                      className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      {cargandoMas ? 'Cargando...' : 'Cargar eventos anteriores'}
+                    </button>
                   </div>
                 )}
               </section>
@@ -2763,19 +2948,29 @@ export default function AdminPanelWeb({ onVolver, currentUserEmail, userRole }) 
 
         {/* ESTADÍSTICAS */}
         {vistaActiva === "estadisticas" && (
-          <div className="animate-fade-in-up">
-            <button onClick={() => setVistaActiva("inicio")} className="mb-6 flex items-center gap-2 text-gray-500 font-medium hover:text-main-blue transition-colors cursor-pointer group">
-              <div className="bg-white p-1.5 rounded-full shadow-xs border border-gray-200 transition-all">
-                <ArrowLeft size={16} />
-              </div>
-              Regresar al menú
-            </button>
+          <div className="animate-fade-in-up space-y-6">
+            <div className="flex items-center justify-between bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-2xs">
+              <button onClick={() => setVistaActiva("inicio")} className="flex items-center gap-2 text-slate-700 hover:text-slate-900 font-bold text-xs transition-colors cursor-pointer">
+                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <ArrowLeft size={14} />
+                </div>
+                Volver al catálogo CMS
+              </button>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                Analítica y Telemetría Web
+              </span>
+            </div>
 
-            <section className="bg-white p-8 rounded-2xl shadow-xs border border-gray-200 text-center py-16">
-              <h2 className="text-xl font-bold text-gray-800 mb-2">Estadísticas del Sitio Web</h2>
-              <p className="text-sm text-gray-500 mb-6">Módulo de visualización analítica conectado a Google Analytics.</p>
-              <div className="p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200 max-w-md mx-auto">
-                <p className="text-xs text-gray-400">Panel en fase de integración con métricas consolidadas.</p>
+            <section className="bg-white p-8 rounded-l-none rounded-r-[12px] shadow-[0_1px_3px_rgba(15,23,42,0.03)] border border-slate-200 border-l-[3px] border-l-slate-900 text-center py-14">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center mx-auto mb-3">
+                <BarChart3 size={22} />
+              </div>
+              <h2 className="text-lg font-extrabold text-slate-900 mb-1">Telemetría y Alcance Editorial</h2>
+              <p className="text-xs text-slate-500 mb-6 max-w-md mx-auto">
+                Visualización de tráfico, lecturas e impacto internacional conectada a Google Analytics 4 de iiresodh.org.
+              </p>
+              <div className="p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 max-w-md mx-auto">
+                <p className="text-xs font-semibold text-slate-500">Módulo de sincronización analítica activa.</p>
               </div>
             </section>
           </div>

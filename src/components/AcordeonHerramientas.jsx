@@ -45,23 +45,24 @@ export default function AcordeonHerramientas({
         disableGutters
         elevation={0}
         sx={{
-          borderRadius: '0 0 14px 14px !important',
-          border: '1px solid #DCE4EE',
-          borderTop: '3px solid #1D3557',
-          bgcolor: '#FFFFFF',
-          boxShadow: '0 8px 28px -6px rgba(29, 53, 87, 0.07)',
+          borderRadius: '0 12px 12px 0 !important',
+          border: '1px solid #e2e8f0',
+          borderLeft: '3px solid #0f172a',
+          bgcolor: '#ffffff',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
           overflow: 'hidden',
           '&:before': { display: 'none' }
         }}
       >
         <AccordionSummary
-          expandIcon={<ChevronDown size={20} color="#1D3557" />}
+          expandIcon={<ChevronDown size={18} color="#0f172a" />}
           sx={{
             px: { xs: 2, sm: 3 },
-            py: 1.4,
-            bgcolor: isOpen ? 'rgba(29, 53, 87, 0.02)' : '#FFFFFF',
-            borderBottom: isOpen ? '1px solid #E2E8F0' : 'none',
-            '&:hover': { bgcolor: 'rgba(29, 53, 87, 0.035)' }
+            py: 1.25,
+            bgcolor: '#ffffff',
+            borderBottom: isOpen ? '1px solid #f1f5f9' : 'none',
+            transition: 'background-color 0.15s ease',
+            '&:hover': { bgcolor: '#f8fafc' }
           }}
         >
           <Box
@@ -78,18 +79,18 @@ export default function AcordeonHerramientas({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75 }}>
               <Box
                 sx={{
-                  p: 1.25,
-                  borderRadius: '8px 8px 0 0',
-                  bgcolor: '#1D3557',
-                  color: '#FFFFFF',
-                  borderBottom: '2px solid #B92F32',
+                  width: 38,
+                  height: 38,
+                  borderRadius: '9px',
+                  bgcolor: '#0f172a',
+                  color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 4px 12px rgba(29, 53, 87, 0.16)'
+                  flexShrink: 0
                 }}
               >
-                <MessageSquare size={20} />
+                <MessageSquare size={18} />
               </Box>
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
@@ -98,28 +99,30 @@ export default function AcordeonHerramientas({
                     sx={{
                       fontFamily: '"Plus Jakarta Sans", sans-serif',
                       fontWeight: 800,
-                      color: '#1D3557',
-                      fontSize: { xs: '1rem', sm: '1.12rem' },
-                      letterSpacing: '-0.01em'
+                      color: '#0f172a',
+                      fontSize: { xs: '0.95rem', sm: '1.05rem' },
+                      letterSpacing: '-0.02em',
+                      lineHeight: 1.2
                     }}
                   >
                     Espacio de Trabajo & Agenda Institucional
                   </Typography>
                   <Chip
-                    label="Canales • Proyectos • Calendario • Google Drive"
+                    label="Canales · Proyectos · Calendario · Google Drive"
                     size="small"
                     sx={{
-                      bgcolor: 'rgba(69, 123, 157, 0.1)',
-                      color: '#1D3557',
-                      border: '1px solid rgba(69, 123, 157, 0.25)',
+                      bgcolor: '#f8fafc',
+                      color: '#334155',
+                      border: '1px solid #e2e8f0',
                       fontWeight: 700,
-                      fontSize: '0.69rem',
+                      fontSize: '0.68rem',
                       height: 22,
+                      borderRadius: '6px',
                       display: { xs: 'none', md: 'inline-flex' }
                     }}
                   />
                 </Box>
-                <Typography variant="caption" sx={{ color: '#475569', fontSize: '0.78rem' }}>
+                <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.76rem', display: 'block', mt: 0.2 }}>
                   Coordinación interna en tiempo real, seguimiento de proyectos, agenda híbrida y repositorio Drive
                 </Typography>
               </Box>
@@ -127,35 +130,37 @@ export default function AcordeonHerramientas({
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
               {user && (
-                <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1, px: 1.2, py: 0.4, borderRadius: '6px', bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                   <Avatar
                     src={user.photoURL}
-                    sx={{ width: 24, height: 24, fontSize: '0.75rem', bgcolor: '#1D3557' }}
+                    sx={{ width: 20, height: 20, fontSize: '0.68rem', fontWeight: 800, bgcolor: '#0f172a' }}
                   >
                     {user.displayName ? user.displayName.charAt(0) : 'U'}
                   </Avatar>
-                  <Typography variant="caption" sx={{ color: '#475569', fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: '#334155', fontWeight: 600, fontSize: '0.72rem' }}>
                     {user.email}
                   </Typography>
                 </Box>
               )}
               <Chip
-                icon={<ShieldCheck size={13} color="#1D3557" />}
-                label="Workspace Activo"
+                icon={<ShieldCheck size={13} color="#0f766e" />}
+                label="En línea"
                 size="small"
                 sx={{
-                  bgcolor: '#F8FAF8',
-                  color: '#1D3557',
-                  border: '1px solid #CBD5E1',
+                  bgcolor: '#f0fdf4',
+                  color: '#0f766e',
+                  border: '1px solid #bbf7d0',
                   fontWeight: 700,
-                  fontSize: '0.72rem'
+                  fontSize: '0.7rem',
+                  height: 24,
+                  borderRadius: '6px'
                 }}
               />
             </Box>
           </Box>
         </AccordionSummary>
 
-        <AccordionDetails sx={{ p: { xs: 0.5, sm: 1.5 }, bgcolor: '#F8FAF8' }}>
+        <AccordionDetails sx={{ p: { xs: 0.5, sm: 1.5 }, bgcolor: '#f8fafc' }}>
           <EspacioTrabajoSlack
             initialSection={activeSection}
             userRole={userRole}

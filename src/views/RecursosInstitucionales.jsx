@@ -260,233 +260,546 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
     )
   );
 
+  const totalReglamentos = recursos.filter((r) => (r.seccion || 'grafico') === 'reglamento').length;
+  const totalGraficos = recursos.filter((r) => (r.seccion || 'grafico') === 'grafico').length;
+
   return (
-    <Box sx={{ maxWidth: 1300, mx: 'auto', p: { xs: 1, md: 2 } }}>
-      
-      {/* CABECERA DE LA VISTA */}
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', sm: 'row' },
-        justifyContent: 'space-between', 
-        alignItems: { xs: 'stretch', sm: 'center' }, 
-        gap: 2, 
-        mb: { xs: 2.5, sm: 4 } 
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2 } }}>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowLeft size={18} />}
-            onClick={onVolver}
-            sx={{
-              textTransform: 'none',
-              borderRadius: 2,
-              borderColor: '#cbd5e1',
-              color: '#334155',
-              fontWeight: 600,
-              flexShrink: 0,
-              '&:hover': { borderColor: '#94a3b8', bgcolor: 'rgba(0,0,0,0.03)' }
-            }}
-          >
-            Volver
-          </Button>
+    <Box
+      sx={{
+        maxWidth: 1320,
+        mx: 'auto',
+        px: { xs: 1, sm: 2, md: 3 },
+        py: { xs: 1.5, md: 2.5 },
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+      }}
+    >
+      {/* ============================================================== */}
+      {/* 1. CABECERA EJECUTIVA + STRIP DE MÉTRICAS EN LÍNEA             */}
+      {/* ============================================================== */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', md: 'center' },
+          gap: 2,
+          pb: 2.5,
+          mb: 2.5,
+          borderBottom: '1px solid #e2e8f0'
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75 }}>
+          <Tooltip title="Volver al Hub">
+            <IconButton
+              onClick={onVolver}
+              size="small"
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                bgcolor: '#ffffff',
+                color: '#334155',
+                flexShrink: 0,
+                '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1', color: '#0f172a' }
+              }}
+            >
+              <ArrowLeft size={16} />
+            </IconButton>
+          </Tooltip>
+
           <Box>
-            <Typography variant="h5" fontWeight="bold" color="primary.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.15rem', sm: '1.45rem' } }}>
-              <FolderArchive size={24} color="#1a365d" />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.3 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.66rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: '#64748b'
+                }}
+              >
+                Repositorio Oficial · IIRESODH
+              </Typography>
+              <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: '#cbd5e1' }} />
+              <Typography
+                sx={{
+                  fontSize: '0.66rem',
+                  fontWeight: 600,
+                  color: '#0f766e',
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                {recursos.length} activos publicados
+              </Typography>
+            </Box>
+
+            <Typography
+              sx={{
+                fontSize: { xs: '1.2rem', sm: '1.4rem' },
+                fontWeight: 700,
+                color: '#0f172a',
+                letterSpacing: '-0.025em',
+                lineHeight: 1.2
+              }}
+            >
               Centro de Recursos Institucionales
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              Identidad visual oficial, material de diseño y reglamentos internos de IIRESODH
             </Typography>
           </Box>
         </Box>
 
-        {esAdmin && (
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => {
-              setSeccion(tabActual === 0 ? 'reglamento' : 'grafico');
-              setModalSubidaOpen(true);
-            }}
+        {/* Strip compacto de contadores + Acción Principal */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            flexWrap: 'wrap',
+            width: { xs: '100%', md: 'auto' },
+            justifyContent: { xs: 'space-between', md: 'flex-end' }
+          }}
+        >
+          <Box
             sx={{
-              textTransform: 'none',
-              borderRadius: 2,
-              bgcolor: '#1a365d',
-              fontWeight: 'bold',
-              alignSelf: { xs: 'stretch', sm: 'center' },
-              boxShadow: '0 4px 12px rgba(26, 54, 93, 0.25)',
-              '&:hover': { bgcolor: '#0f233c' }
+              display: 'inline-flex',
+              alignItems: 'center',
+              bgcolor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              px: 1.5,
+              py: 0.6,
+              gap: 1.75
             }}
           >
-            Subir Recurso
-          </Button>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: '#64748b'
+                }}
+              >
+                Normativas
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                {totalReglamentos}
+              </Typography>
+            </Box>
+
+            <Box sx={{ width: '1px', height: 14, bgcolor: '#e2e8f0' }} />
+
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: '#64748b'
+                }}
+              >
+                Identidad
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                {totalGraficos}
+              </Typography>
+            </Box>
+          </Box>
+
+          {esAdmin && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={15} />}
+              onClick={() => {
+                setSeccion(tabActual === 0 ? 'reglamento' : 'grafico');
+                setModalSubidaOpen(true);
+              }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: '8px',
+                bgcolor: '#0f172a',
+                color: '#ffffff',
+                fontWeight: 600,
+                fontSize: '0.78rem',
+                px: 1.75,
+                height: 34,
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+              }}
+            >
+              Subir Recurso
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      {/* ============================================================== */}
+      {/* 2. BARRA DE COMANDO: CONTROL SEGMENTADO + BÚSQUEDA + FILTROS   */}
+      {/* ============================================================== */}
+      <Box
+        sx={{
+          bgcolor: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '10px',
+          p: { xs: 1.25, sm: 1.5 },
+          mb: 3,
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)'
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'stretch', md: 'center' },
+            justifyContent: 'space-between',
+            gap: 1.5
+          }}
+        >
+          {/* Selector Segmentado Estilo Linear */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              bgcolor: '#f1f5f9',
+              p: 0.45,
+              borderRadius: '8px',
+              gap: 0.45,
+              minWidth: { md: 420 }
+            }}
+          >
+            <Box
+              onClick={() => {
+                setTabActual(0);
+                setCategoriaFiltro('todas');
+              }}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.8,
+                py: 0.65,
+                px: 1.25,
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.77rem',
+                fontWeight: tabActual === 0 ? 600 : 500,
+                bgcolor: tabActual === 0 ? '#ffffff' : 'transparent',
+                color: tabActual === 0 ? '#0f172a' : '#64748b',
+                boxShadow: tabActual === 0 ? '0 1px 2px rgba(15, 23, 42, 0.06)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <BookOpen size={14} />
+              <span>Reglamentos y Normativas</span>
+              <Box
+                component="span"
+                sx={{
+                  px: 0.65,
+                  py: 0.05,
+                  borderRadius: '5px',
+                  bgcolor: tabActual === 0 ? '#f1f5f9' : 'rgba(148,163,184,0.2)',
+                  color: tabActual === 0 ? '#0f172a' : '#64748b',
+                  fontSize: '0.67rem',
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                {totalReglamentos}
+              </Box>
+            </Box>
+
+            <Box
+              onClick={() => {
+                setTabActual(1);
+                setCategoriaFiltro('todas');
+              }}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.8,
+                py: 0.65,
+                px: 1.25,
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.77rem',
+                fontWeight: tabActual === 1 ? 600 : 500,
+                bgcolor: tabActual === 1 ? '#ffffff' : 'transparent',
+                color: tabActual === 1 ? '#0f172a' : '#64748b',
+                boxShadow: tabActual === 1 ? '0 1px 2px rgba(15, 23, 42, 0.06)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Palette size={14} />
+              <span>Identidad y Material Gráfico</span>
+              <Box
+                component="span"
+                sx={{
+                  px: 0.65,
+                  py: 0.05,
+                  borderRadius: '5px',
+                  bgcolor: tabActual === 1 ? '#f1f5f9' : 'rgba(148,163,184,0.2)',
+                  color: tabActual === 1 ? '#0f172a' : '#64748b',
+                  fontSize: '0.67rem',
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                {totalGraficos}
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Buscador de Precisión */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              bgcolor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              px: 1.25,
+              height: 36,
+              minWidth: { xs: '100%', md: 280 },
+              flexGrow: 1,
+              maxWidth: { md: 360 },
+              transition: 'all 0.15s ease',
+              '&:focus-within': {
+                bgcolor: '#ffffff',
+                borderColor: '#0f172a',
+                boxShadow: '0 0 0 2px rgba(15, 23, 42, 0.05)'
+              }
+            }}
+          >
+            <Search size={14} color="#64748b" style={{ flexShrink: 0 }} />
+            <TextField
+              variant="standard"
+              fullWidth
+              placeholder="Filtrar por título, categoría o descripción..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              InputProps={{
+                disableUnderline: true,
+                sx: {
+                  ml: 1,
+                  fontSize: '0.79rem',
+                  color: '#0f172a',
+                  '& input::placeholder': { color: '#94a3b8', opacity: 1 }
+                }
+              }}
+            />
+          </Box>
+        </Box>
+
+        {/* Píldoras de Categoría si existen categorías */}
+        {categoriasFiltro.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              flexWrap: 'wrap',
+              mt: 1.25,
+              pt: 1.25,
+              borderTop: '1px solid #f1f5f9'
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.07em',
+                color: '#94a3b8',
+                mr: 0.5
+              }}
+            >
+              Categoría:
+            </Typography>
+            <Box
+              onClick={() => setCategoriaFiltro('todas')}
+              sx={{
+                px: 1.1,
+                py: 0.35,
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                bgcolor: categoriaFiltro === 'todas' ? '#0f172a' : '#f8fafc',
+                color: categoriaFiltro === 'todas' ? '#ffffff' : '#475569',
+                border: '1px solid',
+                borderColor: categoriaFiltro === 'todas' ? '#0f172a' : '#e2e8f0',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              Todas ({recursosFiltrados.length})
+            </Box>
+            {categoriasFiltro.map((cat) => {
+              const active = categoriaFiltro === cat;
+              return (
+                <Box
+                  key={cat}
+                  onClick={() => setCategoriaFiltro(cat)}
+                  sx={{
+                    px: 1.1,
+                    py: 0.35,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    bgcolor: active ? '#0f172a' : '#f8fafc',
+                    color: active ? '#ffffff' : '#475569',
+                    border: '1px solid',
+                    borderColor: active ? '#0f172a' : '#e2e8f0',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      borderColor: active ? '#0f172a' : '#cbd5e1',
+                      bgcolor: active ? '#0f172a' : '#f1f5f9'
+                    }
+                  }}
+                >
+                  {cat}
+                </Box>
+              );
+            })}
+          </Box>
         )}
       </Box>
 
-      {/* PESTAÑAS (TABS) */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          borderRadius: 3, 
-          border: '1px solid #e2e8f0', 
-          bgcolor: '#ffffff', 
-          mb: 3, 
-          overflow: 'hidden' 
-        }}
-      >
-        <Tabs
-          value={tabActual}
-          onChange={(e, v) => {
-            setTabActual(v);
-            setCategoriaFiltro('todas');
-          }}
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-          textColor="primary"
-          indicatorColor="primary"
-          sx={{
-            px: { xs: 1, sm: 2 },
-            borderBottom: '1px solid #e2e8f0',
-            '& .MuiTab-root': {
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: { xs: '0.85rem', sm: '0.95rem' },
-              py: 1.8,
-              minHeight: 50
-            }
-          }}
-        >
-          <Tab 
-            icon={<BookOpen size={18} />} 
-            iconPosition="start" 
-            label="Reglamentos & Normativas Internas" 
-          />
-          <Tab 
-            icon={<Palette size={18} />} 
-            iconPosition="start" 
-            label="Material Gráfico & Identidad" 
-          />
-        </Tabs>
-
-        {/* BARRA DE BÚSQUEDA Y FILTRO DE CATEGORÍAS */}
-        <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', bgcolor: '#f8fafc' }}>
-          <TextField
-            size="small"
-            placeholder="Buscar por título o descripción..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={18} color="#94a3b8" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ 
-              minWidth: { xs: '100%', sm: 260 }, 
-              flexGrow: { xs: 1, sm: 0 },
-              bgcolor: '#ffffff',
-              borderRadius: 2,
-              '& .MuiOutlinedInput-root': { borderRadius: 2 }
-            }}
-          />
-
-          {categoriasFiltro.length > 0 && (
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 }, bgcolor: '#ffffff', borderRadius: 2 }}>
-              <InputLabel>Categoría</InputLabel>
-              <Select
-                value={categoriaFiltro}
-                label="Categoría"
-                onChange={(e) => setCategoriaFiltro(e.target.value)}
-                sx={{ borderRadius: 2 }}
-              >
-                <MenuItem value="todas">Todas las categorías</MenuItem>
-                {categoriasFiltro.map((cat) => (
-                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', fontWeight: 500 }}>
-            {recursosFiltrados.length} {recursosFiltrados.length === 1 ? 'recurso encontrado' : 'recursos encontrados'}
-          </Typography>
-        </Box>
-      </Paper>
-
-      {/* CONTENIDO: MATERIAL GRÁFICO (TAB 1) */}
+      {/* ============================================================== */}
+      {/* 3. CONTENIDO: MATERIAL GRÁFICO & IDENTIDAD (TAB 1)             */}
+      {/* ============================================================== */}
       {tabActual === 1 && (
         <Box>
           {loading ? (
             <Box sx={{ py: 8, textAlign: 'center' }}>
-              <LinearProgress sx={{ maxWidth: 300, mx: 'auto', borderRadius: 1 }} />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Cargando material gráfico oficial...
+              <LinearProgress sx={{ maxWidth: 260, mx: 'auto', borderRadius: 1, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#0f172a' } }} />
+              <Typography sx={{ mt: 1.5, fontSize: '0.78rem', color: '#64748b' }}>
+                Sincronizando catálogo de identidad visual...
               </Typography>
             </Box>
           ) : recursosFiltrados.length === 0 ? (
-            <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3, border: '1px dashed #cbd5e1', bgcolor: 'rgba(255,255,255,0.7)' }}>
-              <Palette size={48} color="#94a3b8" style={{ marginBottom: 12 }} />
-              <Typography variant="h6" fontWeight="bold" color="text.secondary">
-                No hay recursos gráficos disponibles
+            <Box
+              sx={{
+                p: 6,
+                textAlign: 'center',
+                borderRadius: '10px',
+                border: '1px dashed #cbd5e1',
+                bgcolor: '#ffffff'
+              }}
+            >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '10px',
+                  bgcolor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 1.5
+                }}
+              >
+                <Palette size={20} color="#64748b" />
+              </Box>
+              <Typography sx={{ fontSize: '0.92rem', fontWeight: 700, color: '#0f172a' }}>
+                Sin recursos gráficos en esta vista
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 450, mx: 'auto' }}>
-                {busqueda || categoriaFiltro !== 'todas' 
-                  ? 'No se encontraron resultados con los filtros actuales.' 
-                  : esAdmin 
-                    ? 'Comienza subiendo los logos institucionales, isotipos o material gráfico con el botón "Subir Recurso".' 
-                    : 'Aún no se han publicado recursos gráficos en esta sección.'}
+              <Typography sx={{ fontSize: '0.78rem', color: '#64748b', mt: 0.5, maxWidth: 420, mx: 'auto' }}>
+                {busqueda || categoriaFiltro !== 'todas'
+                  ? 'No se encontraron coincidencias para los filtros seleccionados.'
+                  : esAdmin
+                  ? 'Publica logotipos oficiales, isotipos y plantillas institucionales con el botón superior.'
+                  : 'Aún no se han publicado activos gráficos en esta categoría.'}
               </Typography>
               {esAdmin && !busqueda && categoriaFiltro === 'todas' && (
                 <Button
                   variant="contained"
-                  startIcon={<UploadCloud size={18} />}
+                  size="small"
+                  startIcon={<UploadCloud size={15} />}
                   onClick={() => {
                     setSeccion('grafico');
                     setModalSubidaOpen(true);
                   }}
-                  sx={{ mt: 3, textTransform: 'none', borderRadius: 2, bgcolor: '#1a365d' }}
+                  sx={{
+                    mt: 2.5,
+                    textTransform: 'none',
+                    borderRadius: '7px',
+                    bgcolor: '#0f172a',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    boxShadow: 'none',
+                    '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+                  }}
                 >
                   Subir primer recurso gráfico
                 </Button>
               )}
-            </Paper>
+            </Box>
           ) : (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
+                gap: 2.25
+              }}
+            >
               {recursosFiltrados.map((rec) => {
-                const esImagen = rec.tipoMime?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'svg', 'webp'].includes(rec.extension);
+                const esImagen =
+                  rec.tipoMime?.startsWith('image/') ||
+                  ['png', 'jpg', 'jpeg', 'svg', 'webp'].includes(rec.extension);
                 return (
-                  <Card
+                  <Box
                     key={rec.id}
                     sx={{
-                      borderRadius: 3,
+                      // Coherencia arquitectónica: barra lateral sutil con radio cero a la izquierda
+                      borderRadius: '0 10px 10px 0',
                       border: '1px solid #e2e8f0',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
+                      borderLeft: '3px solid #0f766e',
+                      bgcolor: '#ffffff',
                       display: 'flex',
                       flexDirection: 'column',
-                      transition: 'all 0.2s',
-                      bgcolor: '#ffffff',
+                      overflow: 'hidden',
+                      transition: 'all 0.18s ease',
                       '&:hover': {
-                        transform: 'translateY(-3px)',
-                        boxShadow: '0 8px 24px rgba(26, 54, 93, 0.08)',
-                        borderColor: '#cbd5e1'
+                        borderColor: '#cbd5e1',
+                        borderLeftColor: '#0f172a',
+                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)'
                       }
                     }}
                   >
-                    {/* ÁREA DE PREVIEW VISUAL */}
+                    {/* Lienzo de Previsualización con Retícula de Transparencia */}
                     <Box
                       sx={{
-                        height: 180,
-                        bgcolor: '#f1f5f9',
+                        height: 164,
+                        bgcolor: '#f8fafc',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        p: 2,
+                        p: 2.5,
                         position: 'relative',
                         borderBottom: '1px solid #f1f5f9',
-                        backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)',
-                        backgroundSize: '12px 12px'
+                        backgroundImage: 'radial-gradient(#cbd5e1 0.75px, transparent 0.75px)',
+                        backgroundSize: '14px 14px'
                       }}
                     >
                       {esImagen ? (
@@ -497,68 +810,112 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
                             maxHeight: '100%',
                             maxWidth: '100%',
                             objectFit: 'contain',
-                            display: 'block'
+                            display: 'block',
+                            filter: 'drop-shadow(0 2px 6px rgba(15,23,42,0.08))'
                           }}
                         />
                       ) : (
                         <Box sx={{ textAlign: 'center' }}>
-                          <ImageIcon size={48} color="#94a3b8" />
-                          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1, textTransform: 'uppercase', fontWeight: 'bold' }}>
+                          <ImageIcon size={36} color="#94a3b8" />
+                          <Typography
+                            sx={{
+                              mt: 0.75,
+                              fontSize: '0.68rem',
+                              textTransform: 'uppercase',
+                              fontWeight: 700,
+                              letterSpacing: '0.06em',
+                              color: '#64748b'
+                            }}
+                          >
                             {rec.extension || 'ARCHIVO'}
                           </Typography>
                         </Box>
                       )}
 
-                      {/* BADGE DE CATEGORÍA */}
                       {rec.categoria && (
-                        <Chip
-                          label={rec.categoria}
-                          size="small"
+                        <Box
                           sx={{
                             position: 'absolute',
                             top: 10,
                             left: 10,
-                            bgcolor: 'rgba(26, 54, 93, 0.85)',
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: '5px',
+                            bgcolor: 'rgba(15, 23, 42, 0.82)',
                             color: '#ffffff',
                             fontWeight: 600,
-                            fontSize: '0.72rem',
+                            fontSize: '0.66rem',
+                            letterSpacing: '0.03em',
                             backdropFilter: 'blur(4px)'
                           }}
-                        />
+                        >
+                          {rec.categoria}
+                        </Box>
                       )}
+
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          bottom: 8,
+                          right: 10,
+                          px: 0.75,
+                          py: 0.15,
+                          borderRadius: '4px',
+                          bgcolor: 'rgba(255,255,255,0.9)',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '0.64rem',
+                          fontWeight: 700,
+                          color: '#334155',
+                          textTransform: 'uppercase',
+                          fontVariantNumeric: 'tabular-nums'
+                        }}
+                      >
+                        {rec.extension || 'FILE'}
+                        {rec.tamanoBytes ? ` · ${formatTamano(rec.tamanoBytes)}` : ''}
+                      </Box>
                     </Box>
 
-                    {/* DETALLES DEL RECURSO */}
-                    <CardContent sx={{ p: 2.5, flexGrow: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="bold" color="text.primary" gutterBottom sx={{ lineHeight: 1.3 }}>
+                    {/* Metadatos del Activo */}
+                    <Box sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                      <Typography
+                        sx={{
+                          fontSize: '0.88rem',
+                          fontWeight: 700,
+                          color: '#0f172a',
+                          letterSpacing: '-0.01em',
+                          lineHeight: 1.3,
+                          mb: 0.5
+                        }}
+                      >
                         {rec.titulo}
                       </Typography>
                       {rec.descripcion && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontSize: '0.85rem' }}>
+                        <Typography
+                          sx={{
+                            fontSize: '0.76rem',
+                            color: '#64748b',
+                            lineHeight: 1.45,
+                            mb: 1
+                          }}
+                        >
                           {rec.descripcion}
                         </Typography>
                       )}
-                      
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 'auto' }}>
-                        <Chip 
-                          label={rec.extension?.toUpperCase() || 'FILE'} 
-                          size="small" 
-                          variant="outlined" 
-                          sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#1a365d', borderColor: '#cbd5e1' }} 
-                        />
-                        {rec.tamanoBytes && (
-                          <Typography variant="caption" color="text.secondary">
-                            {formatTamano(rec.tamanoBytes)}
-                          </Typography>
-                        )}
-                      </Box>
-                    </CardContent>
+                    </Box>
 
-                    <Divider />
-
-                    {/* BOTONES DE ACCIÓN */}
-                    <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
+                    {/* Barra Inferior de Acciones */}
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 1.15,
+                        bgcolor: '#f8fafc',
+                        borderTop: '1px solid #f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                         <Button
                           size="small"
                           variant="contained"
@@ -567,51 +924,61 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
                           target="_blank"
                           rel="noopener noreferrer"
                           download={rec.nombreArchivo || rec.titulo}
-                          startIcon={<Download size={15} />}
+                          startIcon={<Download size={13} />}
                           sx={{
                             textTransform: 'none',
-                            bgcolor: '#1a365d',
+                            bgcolor: '#0f172a',
+                            color: '#ffffff',
                             fontWeight: 600,
-                            fontSize: '0.8rem',
-                            borderRadius: 1.5,
-                            '&:hover': { bgcolor: '#0f233c' }
+                            fontSize: '0.73rem',
+                            height: 28,
+                            px: 1.25,
+                            borderRadius: '6px',
+                            boxShadow: 'none',
+                            '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
                           }}
                         >
                           Descargar
                         </Button>
 
-                        <Tooltip title={copiadoId === rec.id ? '¡Enlace copiado!' : 'Copiar enlace directo'}>
+                        <Tooltip title={copiadoId === rec.id ? 'Enlace copiado' : 'Copiar URL directa'}>
                           <IconButton
                             size="small"
                             onClick={() => handleCopiarEnlace(rec.id, rec.archivoUrl)}
                             sx={{
+                              width: 28,
+                              height: 28,
                               border: '1px solid #e2e8f0',
-                              borderRadius: 1.5,
-                              color: copiadoId === rec.id ? '#16a34a' : '#64748b'
+                              borderRadius: '6px',
+                              bgcolor: '#ffffff',
+                              color: copiadoId === rec.id ? '#059669' : '#475569',
+                              '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' }
                             }}
                           >
-                            {copiadoId === rec.id ? <Check size={16} /> : <Copy size={16} />}
+                            {copiadoId === rec.id ? <Check size={13} /> : <Copy size={13} />}
                           </IconButton>
                         </Tooltip>
                       </Box>
 
                       {esAdmin && (
-                        <Tooltip title="Eliminar recurso">
+                        <Tooltip title="Eliminar activo">
                           <IconButton
                             size="small"
                             onClick={() => setItemAEliminar(rec)}
                             sx={{
-                              color: '#ef4444',
-                              borderRadius: 1.5,
-                              '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.08)' }
+                              width: 28,
+                              height: 28,
+                              color: '#94a3b8',
+                              borderRadius: '6px',
+                              '&:hover': { color: '#dc2626', bgcolor: '#fef2f2' }
                             }}
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={14} />
                           </IconButton>
                         </Tooltip>
                       )}
                     </Box>
-                  </Card>
+                  </Box>
                 );
               })}
             </Box>
@@ -619,113 +986,187 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
         </Box>
       )}
 
-      {/* CONTENIDO: REGLAMENTOS Y NORMATIVAS (TAB 0) */}
+      {/* ============================================================== */}
+      {/* 4. CONTENIDO: REGLAMENTOS Y NORMATIVAS (TAB 0)                 */}
+      {/* ============================================================== */}
       {tabActual === 0 && (
         <Box>
           {loading ? (
             <Box sx={{ py: 8, textAlign: 'center' }}>
-              <LinearProgress sx={{ maxWidth: 300, mx: 'auto', borderRadius: 1 }} />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Cargando reglamentos internos...
+              <LinearProgress sx={{ maxWidth: 260, mx: 'auto', borderRadius: 1, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#0f172a' } }} />
+              <Typography sx={{ mt: 1.5, fontSize: '0.78rem', color: '#64748b' }}>
+                Sincronizando repositorio normativo...
               </Typography>
             </Box>
           ) : recursosFiltrados.length === 0 ? (
-            <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3, border: '1px dashed #cbd5e1', bgcolor: 'rgba(255,255,255,0.7)' }}>
-              <BookOpen size={48} color="#94a3b8" style={{ marginBottom: 12 }} />
-              <Typography variant="h6" fontWeight="bold" color="text.secondary">
-                No hay reglamentos o normativas registradas
+            <Box
+              sx={{
+                p: 6,
+                textAlign: 'center',
+                borderRadius: '10px',
+                border: '1px dashed #cbd5e1',
+                bgcolor: '#ffffff'
+              }}
+            >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '10px',
+                  bgcolor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 1.5
+                }}
+              >
+                <BookOpen size={20} color="#64748b" />
+              </Box>
+              <Typography sx={{ fontSize: '0.92rem', fontWeight: 700, color: '#0f172a' }}>
+                No hay reglamentos o normativas en esta vista
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 450, mx: 'auto' }}>
-                {busqueda || categoriaFiltro !== 'todas' 
-                  ? 'No se encontraron documentos con los filtros actuales.' 
-                  : esAdmin 
-                    ? 'Comienza publicando los reglamentos internos, manuales y políticas institucionales con el botón "Subir Recurso".' 
-                    : 'Aún no se han publicado reglamentos en esta sección.'}
+              <Typography sx={{ fontSize: '0.78rem', color: '#64748b', mt: 0.5, maxWidth: 420, mx: 'auto' }}>
+                {busqueda || categoriaFiltro !== 'todas'
+                  ? 'No se encontraron documentos con los filtros actuales.'
+                  : esAdmin
+                  ? 'Publica reglamentos internos, manuales operativos y protocolos institucionales.'
+                  : 'Aún no se han publicado documentos normativos en esta sección.'}
               </Typography>
               {esAdmin && !busqueda && categoriaFiltro === 'todas' && (
                 <Button
                   variant="contained"
-                  startIcon={<UploadCloud size={18} />}
+                  size="small"
+                  startIcon={<UploadCloud size={15} />}
                   onClick={() => {
                     setSeccion('reglamento');
                     setModalSubidaOpen(true);
                   }}
-                  sx={{ mt: 3, textTransform: 'none', borderRadius: 2, bgcolor: '#1a365d' }}
+                  sx={{
+                    mt: 2.5,
+                    textTransform: 'none',
+                    borderRadius: '7px',
+                    bgcolor: '#0f172a',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    boxShadow: 'none',
+                    '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+                  }}
                 >
                   Subir primer reglamento
                 </Button>
               )}
-            </Paper>
+            </Box>
           ) : (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
               {recursosFiltrados.map((rec) => {
                 const esPdf = rec.extension === 'pdf' || rec.tipoMime?.includes('pdf');
                 return (
-                  <Card
+                  <Box
                     key={rec.id}
                     sx={{
-                      borderRadius: 3,
+                      // Coherencia arquitectónica: barra lateral izquierda con radio cero
+                      borderRadius: '0 10px 10px 0',
                       border: '1px solid #e2e8f0',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
-                      p: 2.5,
+                      borderLeft: esPdf ? '3px solid #b91c1c' : '3px solid #0f172a',
+                      bgcolor: '#ffffff',
+                      p: 2.25,
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      bgcolor: '#ffffff',
-                      transition: 'all 0.2s',
+                      transition: 'all 0.18s ease',
                       '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 20px rgba(26, 54, 93, 0.06)',
-                        borderColor: '#cbd5e1'
+                        borderColor: '#cbd5e1',
+                        boxShadow: '0 6px 20px rgba(15, 23, 42, 0.05)'
                       }
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.75 }}>
                       <Box
                         sx={{
-                          p: 1.5,
-                          borderRadius: 2,
-                          bgcolor: esPdf ? 'rgba(239, 68, 68, 0.08)' : 'rgba(26, 54, 93, 0.08)',
-                          color: esPdf ? '#ef4444' : '#1a365d',
+                          width: 40,
+                          height: 40,
+                          borderRadius: '8px',
+                          bgcolor: esPdf ? '#fef2f2' : '#f8fafc',
+                          border: '1px solid',
+                          borderColor: esPdf ? '#fecaca' : '#e2e8f0',
+                          color: esPdf ? '#dc2626' : '#0f172a',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center'
+                          justifyContent: 'center',
+                          flexShrink: 0
                         }}
                       >
-                        <FileText size={28} />
+                        <FileText size={19} />
                       </Box>
 
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                          <Typography variant="subtitle1" fontWeight="bold" color="text.primary">
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4, flexWrap: 'wrap' }}>
+                          <Typography
+                            sx={{
+                              fontSize: '0.9rem',
+                              fontWeight: 700,
+                              color: '#0f172a',
+                              letterSpacing: '-0.01em'
+                            }}
+                          >
                             {rec.titulo}
                           </Typography>
                           {rec.categoria && (
-                            <Chip 
-                              label={rec.categoria} 
-                              size="small" 
-                              sx={{ fontSize: '0.72rem', height: 20, bgcolor: '#f1f5f9', fontWeight: 600 }} 
-                            />
+                            <Box
+                              sx={{
+                                px: 0.85,
+                                py: 0.15,
+                                borderRadius: '5px',
+                                fontSize: '0.66rem',
+                                fontWeight: 600,
+                                bgcolor: '#f1f5f9',
+                                color: '#475569'
+                              }}
+                            >
+                              {rec.categoria}
+                            </Box>
                           )}
                         </Box>
 
                         {rec.descripcion && (
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.875rem' }}>
+                          <Typography
+                            sx={{
+                              fontSize: '0.78rem',
+                              color: '#475569',
+                              mb: 1,
+                              lineHeight: 1.45
+                            }}
+                          >
                             {rec.descripcion}
                           </Typography>
                         )}
 
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: 'text.secondary', fontSize: '0.78rem', flexWrap: 'wrap' }}>
-                          <span>Archivo: <strong>{rec.nombreArchivo || `${rec.titulo}.${rec.extension}`}</strong></span>
-                          {rec.tamanoBytes && <span>• {formatTamano(rec.tamanoBytes)}</span>}
-                        </Box>
+                        <Typography
+                          sx={{
+                            fontSize: '0.7rem',
+                            color: '#94a3b8',
+                            fontVariantNumeric: 'tabular-nums'
+                          }}
+                        >
+                          {rec.nombreArchivo || `${rec.titulo}.${rec.extension || 'pdf'}`}
+                          {rec.tamanoBytes ? ` · ${formatTamano(rec.tamanoBytes)}` : ''}
+                        </Typography>
                       </Box>
                     </Box>
 
-                    <Divider sx={{ my: 2 }} />
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        mt: 2,
+                        pt: 1.5,
+                        borderTop: '1px solid #f1f5f9'
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexWrap: 'wrap' }}>
                         <Button
                           size="small"
                           variant="contained"
@@ -733,17 +1174,21 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
                           href={rec.archivoUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          startIcon={<ExternalLink size={15} />}
+                          startIcon={<ExternalLink size={13} />}
                           sx={{
                             textTransform: 'none',
-                            bgcolor: '#1a365d',
+                            bgcolor: '#0f172a',
+                            color: '#ffffff',
                             fontWeight: 600,
-                            fontSize: '0.8rem',
-                            borderRadius: 1.5,
-                            '&:hover': { bgcolor: '#0f233c' }
+                            fontSize: '0.73rem',
+                            height: 28,
+                            px: 1.25,
+                            borderRadius: '6px',
+                            boxShadow: 'none',
+                            '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
                           }}
                         >
-                          Ver Documento
+                          Abrir Documento
                         </Button>
 
                         <Button
@@ -752,18 +1197,37 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
                           component="a"
                           href={rec.archivoUrl}
                           download={rec.nombreArchivo || rec.titulo}
-                          startIcon={<Download size={15} />}
+                          startIcon={<Download size={13} />}
                           sx={{
                             textTransform: 'none',
                             fontWeight: 600,
-                            fontSize: '0.8rem',
-                            borderRadius: 1.5,
-                            borderColor: '#cbd5e1',
-                            color: '#334155'
+                            fontSize: '0.73rem',
+                            height: 28,
+                            px: 1.25,
+                            borderRadius: '6px',
+                            borderColor: '#e2e8f0',
+                            color: '#334155',
+                            '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc', color: '#0f172a' }
                           }}
                         >
                           Descargar
                         </Button>
+
+                        <Tooltip title={copiadoId === rec.id ? 'Enlace copiado' : 'Copiar enlace'}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleCopiarEnlace(rec.id, rec.archivoUrl)}
+                            sx={{
+                              width: 28,
+                              height: 28,
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              color: copiadoId === rec.id ? '#059669' : '#64748b'
+                            }}
+                          >
+                            {copiadoId === rec.id ? <Check size={13} /> : <Copy size={13} />}
+                          </IconButton>
+                        </Tooltip>
                       </Box>
 
                       {esAdmin && (
@@ -772,17 +1236,19 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
                             size="small"
                             onClick={() => setItemAEliminar(rec)}
                             sx={{
-                              color: '#ef4444',
-                              borderRadius: 1.5,
-                              '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.08)' }
+                              width: 28,
+                              height: 28,
+                              color: '#94a3b8',
+                              borderRadius: '6px',
+                              '&:hover': { color: '#dc2626', bgcolor: '#fef2f2' }
                             }}
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={14} />
                           </IconButton>
                         </Tooltip>
                       )}
                     </Box>
-                  </Card>
+                  </Box>
                 );
               })}
             </Box>
@@ -790,28 +1256,60 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
         </Box>
       )}
 
-      {/* DIÁLOGO MODAL: SUBIR RECURSO (SOLO ADMINISTRADORES) */}
+      {/* ============================================================== */}
+      {/* DIÁLOGO MODAL: SUBIR RECURSO (SOLO ADMINISTRADORES)            */}
+      {/* ============================================================== */}
       <Dialog
         open={modalSubidaOpen}
         onClose={handleCerrarModalSubida}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 45px rgba(15, 23, 42, 0.14)',
+            m: { xs: 1.5, sm: 3 }
+          }
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main', pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <UploadCloud size={24} color="#1a365d" />
-          Subir Nuevo Recurso Institucional
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: '0.96rem',
+            color: '#0f172a',
+            borderBottom: '1px solid #e2e8f0',
+            px: 3,
+            py: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25
+          }}
+        >
+          <Box
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: '7px',
+              bgcolor: '#0f172a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <UploadCloud size={15} color="#ffffff" />
+          </Box>
+          Publicar Recurso Institucional
         </DialogTitle>
 
         <form onSubmit={handleGuardarRecurso}>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.25, p: 3 }}>
             {errorModal && (
-              <Alert severity="error" sx={{ borderRadius: 2 }}>
+              <Alert severity="error" sx={{ borderRadius: '8px', fontSize: '0.78rem' }}>
                 {errorModal}
               </Alert>
             )}
 
-            {/* SELECCIÓN DE SECCIÓN */}
             <FormControl fullWidth size="small">
               <InputLabel>Sección Destino</InputLabel>
               <Select
@@ -823,24 +1321,26 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
                 }}
                 disabled={subiendo}
               >
-                <MenuItem value="reglamento">Reglamentos & Normativas Internas</MenuItem>
-                <MenuItem value="grafico">Material Gráfico & Identidad Visual</MenuItem>
+                <MenuItem value="reglamento">Reglamentos y Normativas Internas</MenuItem>
+                <MenuItem value="grafico">Identidad y Material Gráfico</MenuItem>
               </Select>
             </FormControl>
 
-            {/* TÍTULO */}
             <TextField
               fullWidth
               size="small"
               label="Título del Recurso"
-              placeholder={seccion === 'grafico' ? 'Ej: Logo Oficial Horizontal - Blanco' : 'Ej: Reglamento Interno de Trabajo 2026'}
+              placeholder={
+                seccion === 'grafico'
+                  ? 'Ej: Logotipo Oficial Horizontal (Blanco)'
+                  : 'Ej: Reglamento Interno de Trabajo 2026'
+              }
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               required
               disabled={subiendo}
             />
 
-            {/* CATEGORÍA */}
             <FormControl fullWidth size="small">
               <InputLabel>Categoría</InputLabel>
               <Select
@@ -850,95 +1350,128 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
                 disabled={subiendo}
               >
                 {(seccion === 'grafico' ? categoriasGraficas : categoriasReglamentos).map((cat) => (
-                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                  <MenuItem key={cat} value={cat}>
+                    {cat}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
 
-            {/* DESCRIPCIÓN */}
             <TextField
               fullWidth
               size="small"
               multiline
               rows={2}
               label="Descripción o Indicaciones de Uso (Opcional)"
-              placeholder={seccion === 'grafico' ? 'Ej: Usar sobre fondos oscuros; formato con transparencia.' : 'Ej: Versión aprobada por Junta Directiva.'}
+              placeholder={
+                seccion === 'grafico'
+                  ? 'Ej: Versión vectorial con fondo transparente para fondos oscuros.'
+                  : 'Ej: Documento vigente aprobado por Junta Directiva.'
+              }
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               disabled={subiendo}
             />
 
-            {/* SELECTOR DE ARCHIVO */}
             <Box>
-              <Typography variant="body2" fontWeight="600" color="text.secondary" gutterBottom>
-                Archivo a Subir (se guardará en Firebase Storage):
+              <Typography
+                sx={{
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: '#64748b',
+                  mb: 0.75
+                }}
+              >
+                Archivo fuente (máx. 40 MB)
               </Typography>
               <Button
                 variant="outlined"
                 component="label"
                 fullWidth
                 disabled={subiendo}
-                startIcon={<UploadCloud size={20} />}
+                startIcon={<UploadCloud size={17} />}
                 sx={{
-                  py: 2,
-                  border: '2px dashed #cbd5e1',
-                  borderRadius: 2.5,
+                  py: 1.75,
+                  border: '1px dashed #cbd5e1',
+                  borderRadius: '8px',
                   textTransform: 'none',
                   bgcolor: '#f8fafc',
-                  color: '#334155',
+                  color: '#0f172a',
+                  fontSize: '0.8rem',
                   fontWeight: 600,
-                  '&:hover': { bgcolor: '#f1f5f9', borderColor: '#94a3b8' }
+                  '&:hover': { bgcolor: '#f1f5f9', borderColor: '#0f172a' }
                 }}
               >
-                {archivoSeleccionado ? archivoSeleccionado.name : 'Seleccionar archivo del equipo...'}
+                {archivoSeleccionado ? archivoSeleccionado.name : 'Seleccionar archivo del dispositivo...'}
                 <input
                   type="file"
                   hidden
                   onChange={handleSeleccionarArchivo}
                   accept={
-                    seccion === 'grafico' 
-                      ? 'image/*,.svg,.ai,.eps,.pdf,.webp' 
+                    seccion === 'grafico'
+                      ? 'image/*,.svg,.ai,.eps,.pdf,.webp'
                       : '.pdf,.doc,.docx,.odt,.rtf'
                   }
                 />
               </Button>
             </Box>
 
-            {/* PREVISUALIZACIÓN DE IMAGEN */}
             {previewUrl && (
-              <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: '#f1f5f9', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1, fontWeight: 'bold' }}>
-                  Previsualización de imagen:
-                </Typography>
+              <Box
+                sx={{
+                  textAlign: 'center',
+                  p: 1.5,
+                  bgcolor: '#f8fafc',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0'
+                }}
+              >
                 <img
                   src={previewUrl}
                   alt="Vista previa"
-                  style={{ maxHeight: 120, maxWidth: '100%', objectFit: 'contain' }}
+                  style={{ maxHeight: 110, maxWidth: '100%', objectFit: 'contain' }}
                 />
               </Box>
             )}
 
-            {/* PROGRESO DE SUBIDA */}
             {subiendo && (
-              <Box sx={{ width: '100%', mt: 1 }}>
+              <Box sx={{ width: '100%' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="caption" fontWeight="bold" color="primary.main">
-                    Subiendo a Firebase Storage...
+                  <Typography sx={{ fontSize: '0.73rem', fontWeight: 600, color: '#0f172a' }}>
+                    Subiendo archivo...
                   </Typography>
-                  <Typography variant="caption" fontWeight="bold" color="primary.main">
+                  <Typography
+                    sx={{
+                      fontSize: '0.73rem',
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      fontVariantNumeric: 'tabular-nums'
+                    }}
+                  >
                     {progresoSubida}%
                   </Typography>
                 </Box>
-                <LinearProgress variant="determinate" value={progresoSubida} sx={{ height: 8, borderRadius: 2 }} />
+                <LinearProgress
+                  variant="determinate"
+                  value={progresoSubida}
+                  sx={{
+                    height: 6,
+                    borderRadius: 1,
+                    bgcolor: '#e2e8f0',
+                    '& .MuiLinearProgress-bar': { bgcolor: '#0f172a' }
+                  }}
+                />
               </Box>
             )}
           </DialogContent>
 
-          <DialogActions sx={{ p: 2.5, pt: 1 }}>
-            <Button 
-              onClick={handleCerrarModalSubida} 
+          <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+            <Button
+              onClick={handleCerrarModalSubida}
               disabled={subiendo}
-              sx={{ textTransform: 'none', color: '#64748b' }}
+              sx={{ textTransform: 'none', color: '#64748b', fontSize: '0.78rem', fontWeight: 600 }}
             >
               Cancelar
             </Button>
@@ -948,44 +1481,92 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
               disabled={subiendo || !archivoSeleccionado}
               sx={{
                 textTransform: 'none',
-                bgcolor: '#1a365d',
-                fontWeight: 'bold',
-                borderRadius: 2,
-                px: 3,
-                '&:hover': { bgcolor: '#0f233c' }
+                bgcolor: '#0f172a',
+                color: '#ffffff',
+                fontWeight: 600,
+                fontSize: '0.78rem',
+                borderRadius: '7px',
+                px: 2.25,
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
               }}
             >
-              {subiendo ? 'Guardando...' : 'Subir Recurso'}
+              {subiendo ? 'Publicando...' : 'Publicar Recurso'}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
 
-      {/* DIÁLOGO MODAL: CONFIRMACIÓN DE ELIMINACIÓN */}
+      {/* ============================================================== */}
+      {/* DIÁLOGO MODAL: CONFIRMACIÓN DE ELIMINACIÓN                     */}
+      {/* ============================================================== */}
       <Dialog
         open={Boolean(itemAEliminar)}
         onClose={() => !eliminando && setItemAEliminar(null)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 40px rgba(15, 23, 42, 0.14)',
+            m: { xs: 1.5, sm: 3 }
+          }
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 'bold', color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AlertCircle size={22} color="#dc2626" />
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            color: '#0f172a',
+            borderBottom: '1px solid #f1f5f9',
+            px: 2.5,
+            py: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25
+          }}
+        >
+          <Box
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: '7px',
+              bgcolor: '#fef2f2',
+              border: '1px solid #fecaca',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <AlertCircle size={16} color="#dc2626" />
+          </Box>
           Confirmar Eliminación
         </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            ¿Está seguro de que desea eliminar el recurso <strong>"{itemAEliminar?.titulo}"</strong>?
+        <DialogContent sx={{ px: 2.5, py: 2.25 }}>
+          <Typography sx={{ fontSize: '0.83rem', color: '#334155', mb: 1.5, lineHeight: 1.5 }}>
+            ¿Confirmas eliminar el recurso <strong>"{itemAEliminar?.titulo}"</strong>?
           </Typography>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-            Esta acción eliminará el archivo físico de Firebase Storage y su registro permanente en la Intranet.
-          </Typography>
+          <Box
+            sx={{
+              p: 1.5,
+              bgcolor: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderLeft: '3px solid #d97706',
+              borderRadius: '0 8px 8px 0',
+              fontSize: '0.75rem',
+              color: '#92400e',
+              lineHeight: 1.45
+            }}
+          >
+            Esta acción eliminará el archivo de Firebase Storage y dejará registro en los <strong>Logs de Auditoría</strong>.
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button 
-            onClick={() => setItemAEliminar(null)} 
+        <DialogActions sx={{ px: 2.5, py: 1.75, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+          <Button
+            onClick={() => setItemAEliminar(null)}
             disabled={eliminando}
-            sx={{ textTransform: 'none' }}
+            sx={{ textTransform: 'none', color: '#64748b', fontSize: '0.78rem', fontWeight: 600 }}
           >
             Cancelar
           </Button>
@@ -994,13 +1575,20 @@ export default function RecursosInstitucionales({ onVolver, currentUserEmail, us
             variant="contained"
             color="error"
             disabled={eliminando}
-            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 'bold' }}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '7px',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              bgcolor: '#dc2626',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#b91c1c', boxShadow: 'none' }
+            }}
           >
             {eliminando ? 'Eliminando...' : 'Eliminar Definitivamente'}
           </Button>
         </DialogActions>
       </Dialog>
-
     </Box>
   );
 }
