@@ -1857,156 +1857,259 @@ export default function WhatsappInterface({
     }
   };
 
+  const totalNoLeidos = chats.reduce((acc, c) => acc + (Number(c.no_leidos) || 0), 0);
+  const conteoChatsConNoLeidos = chats.filter((c) => (c.no_leidos || 0) > 0).length;
+
   return (
-    <Box sx={{ 
-      height: 'calc(100vh - 110px)', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      bgcolor: '#f0f2f5', 
-      borderRadius: 2, 
-      overflow: 'hidden', 
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
-    }}>
+    <Box
+      sx={{
+        height: { xs: 'calc(100dvh - 76px)', sm: 'calc(100dvh - 88px)', md: 'calc(100vh - 104px)' },
+        minHeight: { xs: 480, md: 600 },
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: '#ffffff',
+        borderRadius: { xs: '8px', md: '12px' },
+        overflow: 'hidden',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.03)',
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+      }}
+    >
       {/* Audio oculto para llamadas WebRTC en vivo */}
       <audio ref={remoteAudioRef} autoPlay style={{ display: 'none' }} />
-      
-      {/* 🚀 BARRA DE ESTADO MULTIUSUARIO & META API */}
-      <Box sx={{ 
-        bgcolor: '#ffffff', 
-        px: 2.5, 
-        py: 1.2, 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        borderBottom: '1px solid #e2e8f0',
-        flexWrap: 'wrap',
-        gap: 1
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <IconButton onClick={onVolver} size="small" sx={{ color: '#475569', '&:hover': { bgcolor: '#f1f5f9' } }}>
-            <ArrowLeft size={20} />
-          </IconButton>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: '#25D366' }}>
-              <MessageCircle size={18} color="#fff" />
-            </Avatar>
-            <Typography variant="subtitle1" fontWeight="700" color="#1e293b" sx={{ fontSize: '15px' }}>
-              WhatsApp Business API
-            </Typography>
+
+      {/* ============================================================== */}
+      {/* 1. BARRA INSTITUCIONAL SUPERIOR (OCULTA EN MÓVIL SI HAY CHAT)  */}
+      {/* ============================================================== */}
+      <Box
+        sx={{
+          bgcolor: '#ffffff',
+          px: { xs: 1.5, sm: 2, md: 2.5 },
+          py: { xs: 1, md: 1.15 },
+          display: { xs: selectedChat ? 'none' : 'flex', md: 'flex' },
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid #e2e8f0',
+          flexWrap: 'wrap',
+          gap: 1
+        }}
+      >
+        {/* Identidad y Estado Multi-Operador */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 }, minWidth: 0 }}>
+          {onVolver && (
+            <Tooltip title="Volver">
+              <IconButton
+                onClick={onVolver}
+                size="small"
+                sx={{
+                  width: 30,
+                  height: 30,
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '7px',
+                  color: '#334155',
+                  '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1', color: '#0f172a' }
+                }}
+              >
+                <ArrowLeft size={15} />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+            <Box
+              sx={{
+                width: 28,
+                height: 28,
+                borderRadius: '7px',
+                bgcolor: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                position: 'relative'
+              }}
+            >
+              <MessageCircle size={15} color="#10b981" />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: -2,
+                  right: -2,
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: tieneApiConectada ? '#10b981' : '#f59e0b',
+                  border: '1.5px solid #ffffff'
+                }}
+              />
+            </Box>
+
+            <Box sx={{ minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography
+                   sx={{
+                    fontSize: { xs: '0.86rem', md: '0.92rem' },
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.2,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  WhatsApp Business
+                </Typography>
+                <Box
+                  sx={{
+                    display: { xs: 'none', sm: 'inline-flex' },
+                    alignItems: 'center',
+                    gap: 0.6,
+                    px: 0.9,
+                    py: 0.2,
+                    borderRadius: '5px',
+                    bgcolor: '#f8fafc',
+                    border: '1px solid #e2e8f0'
+                  }}
+                >
+                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#10b981' }} />
+                  <Typography
+                    sx={{
+                      fontSize: '0.66rem',
+                      fontWeight: 600,
+                      color: '#475569',
+                      letterSpacing: '0.02em'
+                    }}
+                  >
+                    Multi-operador · {userName}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
           </Box>
-          <Chip 
-            label="Multi-Usuario Activo" 
-            size="small" 
-            sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 600, fontSize: '11px', height: '22px' }} 
-          />
-          <Chip 
-            label={`Atendiendo como: ${userName}`} 
-            size="small" 
-            variant="outlined"
-            sx={{ borderColor: '#cbd5e1', color: '#475569', fontSize: '11px', height: '22px' }} 
-          />
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          {/* 🎛️ INTERRUPTOR DE RECEPCIÓN DE LLAMADAS WEB VS TELÉFONO FÍSICO (+506 4081-6188) */}
+        {/* Controles Operativos: Enrutamiento de Voz y Configuración Meta API */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexWrap: 'wrap' }}>
+          {/* Interruptor de Recepción de Llamadas Web vs Teléfono Físico */}
           <Tooltip
             title={
               recepcionVozWebActiva
-                ? 'Haz clic para PAUSAR las llamadas en la Web y que suene únicamente el teléfono físico (+506 4081-6188)'
-                : 'En Pausa: Las llamadas entran al teléfono físico (+506 4081-6188). Haz clic para volver a recibir llamadas en la Web'
+                ? 'Llamadas activas en navegador. Clic para desviar al teléfono físico (+506 4081-6188)'
+                : 'Llamadas desviadas al teléfono físico (+506 4081-6188). Clic para recibir en navegador'
             }
           >
             <Button
               size="small"
-              variant="outlined"
               disabled={cambiandoModoVoz}
               onClick={handleToggleRecepcionVozWeb}
               startIcon={
                 recepcionVozWebActiva ? (
-                  <Volume2 size={15} color="#15803d" />
+                  <Volume2 size={14} color="#047857" />
                 ) : (
-                  <VolumeX size={15} color="#b45309" />
+                  <VolumeX size={14} color="#b45309" />
                 )
               }
               sx={{
                 textTransform: 'none',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                borderRadius: 2,
-                px: 1.4,
-                py: 0.4,
-                bgcolor: recepcionVozWebActiva ? '#f0fdf4' : '#fffbeb',
-                borderColor: recepcionVozWebActiva ? '#86efac' : '#fde68a',
-                color: recepcionVozWebActiva ? '#166534' : '#92400e',
+                fontSize: '0.73rem',
+                fontWeight: 600,
+                height: 30,
+                borderRadius: '7px',
+                px: { xs: 1, sm: 1.35 },
+                bgcolor: recepcionVozWebActiva ? '#ecfdf5' : '#fffbeb',
+                border: '1px solid',
+                borderColor: recepcionVozWebActiva ? '#a7f3d0' : '#fde68a',
+                color: recepcionVozWebActiva ? '#065f46' : '#92400e',
+                boxShadow: 'none',
                 '&:hover': {
-                  bgcolor: recepcionVozWebActiva ? '#dcfce7' : '#fef3c7',
-                  borderColor: recepcionVozWebActiva ? '#4ade80' : '#fcd34d'
+                  bgcolor: recepcionVozWebActiva ? '#d1fae5' : '#fef3c7',
+                  borderColor: recepcionVozWebActiva ? '#6ee7b7' : '#fcd34d'
                 }
               }}
             >
-              {cambiandoModoVoz
-                ? 'Cambiando...'
-                : recepcionVozWebActiva
-                ? '📞 Llamadas Web: Activas (Pausar)'
-                : '⏸️ Llamadas Web en Pausa (Suena Teléfono Físico)'}
+              {cambiandoModoVoz ? (
+                'Actualizando...'
+              ) : (
+                <>
+                  <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' } }}>
+                    {recepcionVozWebActiva
+                      ? 'Llamadas Web: Activas'
+                      : 'Llamadas: Teléfono Físico'}
+                  </Box>
+                  <Box component="span" sx={{ display: { xs: 'inline', lg: 'none' } }}>
+                    {recepcionVozWebActiva ? 'Voz: Web' : 'Voz: Físico'}
+                  </Box>
+                </>
+              )}
             </Button>
           </Tooltip>
 
-          <Tooltip title={tieneApiConectada ? "Meta Cloud API conectada en vivo" : "Pendiente de ingresar llaves de Meta"}>
-            <Chip 
-              icon={tieneApiConectada ? <ShieldCheck size={14} color="#16a34a" /> : <Clock size={14} color="#d97706" />}
-              label={tieneApiConectada ? "API Meta Conectada" : "Modo En Espera de Llaves"}
+          {/* Estado API + Acceso a Configuración Unificado */}
+          <Tooltip
+            title={
+              esAdmin
+                ? 'Configurar credenciales y webhook de Meta Cloud API'
+                : tieneApiConectada
+                ? 'Meta Cloud API conectada en línea'
+                : 'Pendiente de llaves de Meta API'
+            }
+          >
+            <Button
               size="small"
               onClick={esAdmin ? () => setOpenConfigModal(true) : undefined}
-              sx={{ 
-                cursor: esAdmin ? 'pointer' : 'default',
-                bgcolor: tieneApiConectada ? '#dcfce7' : '#fef3c7', 
-                color: tieneApiConectada ? '#15803d' : '#b45309',
-                fontWeight: 600,
-                fontSize: '11px',
-                height: '24px'
-              }}
-            />
-          </Tooltip>
-
-          {esAdmin && (
-            <Button 
-              variant="contained" 
-              size="small" 
-              startIcon={<Settings size={15} />}
-              onClick={() => setOpenConfigModal(true)}
-              sx={{ 
-                bgcolor: '#0f766e', 
-                color: '#fff', 
-                fontSize: '12px',
+              startIcon={
+                tieneApiConectada ? (
+                  <ShieldCheck size={14} color="#10b981" />
+                ) : (
+                  <Clock size={14} color="#f59e0b" />
+                )
+              }
+              endIcon={esAdmin ? <Settings size={13} color="#64748b" /> : null}
+              sx={{
                 textTransform: 'none',
+                fontSize: '0.73rem',
                 fontWeight: 600,
-                boxShadow: 'none',
-                '&:hover': { bgcolor: '#115e59' } 
+                height: 30,
+                borderRadius: '7px',
+                px: { xs: 1, sm: 1.25 },
+                bgcolor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                color: '#334155',
+                cursor: esAdmin ? 'pointer' : 'default',
+                '&:hover': esAdmin
+                  ? { bgcolor: '#f1f5f9', borderColor: '#cbd5e1', color: '#0f172a' }
+                  : {}
               }}
             >
-              Conexión Meta API
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {tieneApiConectada ? 'Meta API' : 'En Espera'}
+              </Box>
             </Button>
-          )}
+          </Tooltip>
         </Box>
       </Box>
 
       {/* Alerta Temporal si existe notificación */}
       {notificacion && (
-        <Alert 
-          severity={notificacion.tipo} 
-          onClose={() => setNotificacion(null)} 
-          sx={{ borderRadius: 0, py: 0.8, fontSize: '13px', alignItems: 'center' }}
+        <Alert
+          severity={notificacion.tipo}
+          onClose={() => setNotificacion(null)}
+          sx={{
+            borderRadius: 0,
+            py: 0.5,
+            px: 2,
+            fontSize: '0.78rem',
+            alignItems: 'center',
+            borderBottom: '1px solid #e2e8f0'
+          }}
           action={
             esAdmin && notificacion.tipo === 'warning' ? (
-              <Button 
-                color="inherit" 
-                size="small" 
+              <Button
+                color="inherit"
+                size="small"
                 onClick={() => setOpenConfigModal(true)}
-                sx={{ textTransform: 'none', fontWeight: 700, textDecoration: 'underline' }}
+                sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.74rem' }}
               >
-                ⚙️ Conexión Meta API
+                Configurar API
               </Button>
             ) : undefined
           }
@@ -2019,32 +2122,34 @@ export default function WhatsappInterface({
       {llamadaEntrante && (
         <Box
           sx={{
-            bgcolor: enLlamadaWebRTC ? '#065f46' : '#1e293b',
-            color: 'white',
-            px: 3,
-            py: 1.5,
+            bgcolor: '#0f172a',
+            color: '#f8fafc',
+            px: { xs: 2, md: 3 },
+            py: 1.25,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: 1.5,
-            borderBottom: '2px solid #10b981'
+            borderBottom: '1px solid #1e293b',
+            borderLeft: '4px solid #10b981',
+            borderRadius: 0
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: '#10b981', width: 36, height: 36 }}>
-              {enLlamadaWebRTC ? <PhoneCall size={18} /> : <PhoneIncoming size={18} />}
+            <Avatar sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', width: 34, height: 34 }}>
+              {enLlamadaWebRTC ? <PhoneCall size={17} /> : <PhoneIncoming size={17} />}
             </Avatar>
             <Box>
-              <Typography variant="subtitle2" fontWeight="700" sx={{ color: '#ecfdf5' }}>
+              <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em' }}>
                 {enLlamadaWebRTC
-                  ? `🟢 Llamada de Voz WhatsApp en Curso con +${llamadaEntrante.from || 'Cliente'}`
-                  : `📲 Llamada Entrante de WhatsApp: +${llamadaEntrante.from || 'Cliente'}`}
+                  ? `Llamada en curso · +${llamadaEntrante.from || 'Contacto'}`
+                  : `Llamada entrante de WhatsApp · +${llamadaEntrante.from || 'Contacto'}`}
               </Typography>
-              <Typography variant="caption" sx={{ color: '#a7f3d0', display: 'block' }}>
+              <Typography sx={{ fontSize: '0.72rem', color: '#94a3b8' }}>
                 {enLlamadaWebRTC
-                  ? `Atendida desde el navegador por ${llamadaEntrante.atendida_por || userName}`
-                  : 'Puedes contestar aquí con tu micrófono o desviarla para que la atiendan en el teléfono físico (+506 4081-6188)'}
+                  ? `Atendida en navegador por ${llamadaEntrante.atendida_por || userName}`
+                  : 'Contesta con tu micrófono o desvía a la línea física (+506 4081-6188)'}
               </Typography>
             </Box>
           </Box>
@@ -2055,32 +2160,39 @@ export default function WhatsappInterface({
                 <Button
                   size="small"
                   variant="contained"
-                  startIcon={<PhoneCall size={15} />}
+                  startIcon={<PhoneCall size={14} />}
                   onClick={() => handleContestarLlamadaWebRTC(llamadaEntrante)}
                   sx={{
                     bgcolor: '#10b981',
-                    color: 'white',
-                    fontWeight: 700,
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    height: 30,
+                    borderRadius: '6px',
                     textTransform: 'none',
-                    '&:hover': { bgcolor: '#059669' }
+                    boxShadow: 'none',
+                    '&:hover': { bgcolor: '#059669', boxShadow: 'none' }
                   }}
                 >
-                  Contestar en Web
+                  Contestar
                 </Button>
                 <Button
                   size="small"
                   variant="outlined"
-                  startIcon={<PhoneOff size={15} />}
+                  startIcon={<PhoneOff size={14} />}
                   onClick={() => handleRechazarODesviarLlamada(llamadaEntrante)}
                   sx={{
-                    borderColor: '#fca5a5',
-                    color: '#fecaca',
-                    fontWeight: 700,
+                    borderColor: '#475569',
+                    color: '#cbd5e1',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    height: 30,
+                    borderRadius: '6px',
                     textTransform: 'none',
-                    '&:hover': { bgcolor: 'rgba(239,68,68,0.2)', borderColor: '#f87171' }
+                    '&:hover': { bgcolor: 'rgba(239,68,68,0.15)', borderColor: '#ef4444', color: '#fca5a5' }
                   }}
                 >
-                  Desviar a Teléfono Físico / Rechazar
+                  Desviar / Rechazar
                 </Button>
               </>
             ) : (
@@ -2088,31 +2200,38 @@ export default function WhatsappInterface({
                 <Button
                   size="small"
                   variant="outlined"
-                  startIcon={micSilenciado ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                  startIcon={micSilenciado ? <VolumeX size={14} /> : <Volume2 size={14} />}
                   onClick={handleToggleMuteMic}
                   sx={{
-                    borderColor: 'rgba(255,255,255,0.5)',
-                    color: 'white',
+                    borderColor: '#475569',
+                    color: '#f8fafc',
                     textTransform: 'none',
+                    fontSize: '0.75rem',
+                    height: 30,
+                    borderRadius: '6px',
                     fontWeight: 600
                   }}
                 >
-                  {micSilenciado ? 'Activar Micrófono' : 'Silenciar Micrófono'}
+                  {micSilenciado ? 'Reactivar Mic' : 'Silenciar'}
                 </Button>
                 <Button
                   size="small"
                   variant="contained"
-                  startIcon={<PhoneOff size={15} />}
+                  startIcon={<PhoneOff size={14} />}
                   onClick={handleColgarLlamadaWebRTC}
                   sx={{
                     bgcolor: '#dc2626',
-                    color: 'white',
-                    fontWeight: 700,
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    height: 30,
+                    borderRadius: '6px',
                     textTransform: 'none',
-                    '&:hover': { bgcolor: '#b91c1c' }
+                    boxShadow: 'none',
+                    '&:hover': { bgcolor: '#b91c1c', boxShadow: 'none' }
                   }}
                 >
-                  Colgar Llamada
+                  Finalizar
                 </Button>
               </>
             )}
@@ -2120,339 +2239,627 @@ export default function WhatsappInterface({
         </Box>
       )}
 
-      {/* ÁREA PRINCIPAL: BANDEJA IZQUIERDA + CONVERSACIÓN DERECHA */}
-      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-        
+      {/* ============================================================== */}
+      {/* 2. ÁREA PRINCIPAL: BANDEJA IZQUIERDA + CONVERSACIÓN DERECHA    */}
+      {/* ============================================================== */}
+      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', position: 'relative' }}>
         {/* ============================================================== */}
-        {/* SIDEBAR DE CHATS                                              */}
+        {/* SIDEBAR DE CHATS (100% EN MÓVIL CUANDO NO HAY CHAT ACTIVO)     */}
         {/* ============================================================== */}
-        <Box sx={{ 
-          width: { xs: '100%', md: '380px' }, 
-          borderRight: '1px solid #e2e8f0', 
-          bgcolor: 'white', 
-          display: { xs: selectedChat ? 'none' : 'flex', md: 'flex' }, 
-          flexDirection: 'column' 
-        }}>
-          
-          {/* Header del Sidebar */}
-          <Box sx={{ bgcolor: '#f8fafc', p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' }}>
-            <Typography variant="subtitle2" fontWeight="700" color="#334155">
-              Conversaciones ({chatsFiltrados.length})
-            </Typography>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<Plus size={16} />}
-              onClick={() => setOpenNuevoChatModal(true)}
-              sx={{ 
-                bgcolor: '#25D366', 
-                color: 'white', 
-                fontSize: '12px', 
-                textTransform: 'none',
-                fontWeight: 600,
-                boxShadow: 'none',
-                '&:hover': { bgcolor: '#20bd5a' } 
+        <Box
+          sx={{
+            width: { xs: '100%', md: 340, lg: 370 },
+            flexShrink: 0,
+            borderRight: { xs: 'none', md: '1px solid #e2e8f0' },
+            bgcolor: '#ffffff',
+            display: { xs: selectedChat ? 'none' : 'flex', md: 'flex' },
+            flexDirection: 'column',
+            height: '100%'
+          }}
+        >
+          {/* Cabecera del Sidebar + Buscador + Control Segmentado */}
+          <Box sx={{ px: 2, pt: 1.75, pb: 1.5, borderBottom: '1px solid #f1f5f9', bgcolor: '#ffffff' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.25 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Typography
+                  sx={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.07em',
+                    color: '#64748b'
+                  }}
+                >
+                  Bandeja de Entrada
+                </Typography>
+                <Box
+                  sx={{
+                    px: 0.75,
+                    py: 0.1,
+                    borderRadius: '5px',
+                    bgcolor: '#f1f5f9',
+                    color: '#334155',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {chatsFiltrados.length}
+                </Box>
+              </Box>
+
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<Plus size={14} />}
+                onClick={() => setOpenNuevoChatModal(true)}
+                sx={{
+                  bgcolor: '#0f172a',
+                  color: '#ffffff',
+                  fontSize: '0.74rem',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  height: 28,
+                  px: 1.25,
+                  borderRadius: '6px',
+                  boxShadow: 'none',
+                  '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+                }}
+              >
+                Nuevo Chat
+              </Button>
+            </Box>
+
+            {/* Buscador Minimalista */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                bgcolor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                px: 1.25,
+                height: 35,
+                transition: 'all 0.15s ease',
+                '&:focus-within': {
+                  bgcolor: '#ffffff',
+                  borderColor: '#0f172a',
+                  boxShadow: '0 0 0 2px rgba(15, 23, 42, 0.06)'
+                }
               }}
             >
-              Nuevo Chat
-            </Button>
-          </Box>
-
-          {/* Búsqueda y Filtros */}
-          <Box sx={{ p: 1.5, borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#f1f5f9', borderRadius: 2, px: 1.5, py: 0.6 }}>
-              <Search size={16} color="#64748b" />
-              <TextField 
-                placeholder="Buscar por nombre, número o texto..."
+              <Search size={14} color="#64748b" style={{ flexShrink: 0 }} />
+              <TextField
+                placeholder="Buscar contacto, número o mensaje..."
                 variant="standard"
                 fullWidth
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{ disableUnderline: true, sx: { ml: 1, fontSize: '13px' } }}
+                InputProps={{
+                  disableUnderline: true,
+                  sx: {
+                    ml: 1,
+                    fontSize: '0.78rem',
+                    color: '#0f172a',
+                    '& input::placeholder': { color: '#94a3b8', opacity: 1 }
+                  }
+                }}
               />
             </Box>
 
-            {/* Filtros Rápidos */}
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-              <Chip 
-                label="Todos" 
-                size="small" 
-                clickable 
+            {/* Selector Segmentado: Todos vs No leídos */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 0.5,
+                mt: 1.15,
+                p: 0.4,
+                bgcolor: '#f1f5f9',
+                borderRadius: '7px'
+              }}
+            >
+              <Box
                 onClick={() => setFiltroTab('todos')}
-                sx={{ 
-                  fontSize: '11px', 
-                  bgcolor: filtroTab === 'todos' ? '#0f172a' : '#f1f5f9', 
-                  color: filtroTab === 'todos' ? '#fff' : '#475569' 
-                }} 
-              />
-              <Chip 
-                label={`No leídos (${chats.filter(c => (c.no_leidos || 0) > 0).length})`} 
-                size="small" 
-                clickable 
+                sx={{
+                  textAlign: 'center',
+                  py: 0.5,
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontSize: '0.73rem',
+                  fontWeight: filtroTab === 'todos' ? 600 : 500,
+                  bgcolor: filtroTab === 'todos' ? '#ffffff' : 'transparent',
+                  color: filtroTab === 'todos' ? '#0f172a' : '#64748b',
+                  boxShadow: filtroTab === 'todos' ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Todos ({chats.length})
+              </Box>
+              <Box
                 onClick={() => setFiltroTab('no_leidos')}
-                sx={{ 
-                  fontSize: '11px', 
-                  bgcolor: filtroTab === 'no_leidos' ? '#25D366' : '#f1f5f9', 
-                  color: filtroTab === 'no_leidos' ? '#fff' : '#475569' 
-                }} 
-              />
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 0.6,
+                  py: 0.5,
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontSize: '0.73rem',
+                  fontWeight: filtroTab === 'no_leidos' ? 600 : 500,
+                  bgcolor: filtroTab === 'no_leidos' ? '#ffffff' : 'transparent',
+                  color: filtroTab === 'no_leidos' ? '#0f172a' : '#64748b',
+                  boxShadow: filtroTab === 'no_leidos' ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>No leídos</span>
+                {conteoChatsConNoLeidos > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      px: 0.6,
+                      py: 0.05,
+                      borderRadius: '10px',
+                      bgcolor: '#10b981',
+                      color: '#ffffff',
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums',
+                      lineHeight: 1.3
+                    }}
+                  >
+                    {totalNoLeidos}
+                  </Box>
+                )}
+              </Box>
             </Box>
           </Box>
 
           {/* Lista de Chats con Firestore en tiempo real */}
-          <List sx={{ flexGrow: 1, overflowY: 'auto', p: 0 }}>
+          <List sx={{ flexGrow: 1, overflowY: 'auto', px: 1, py: 0.75 }}>
             {loadingChats ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6, gap: 1.5 }}>
-                <CircularProgress size={24} sx={{ color: '#25D366' }} />
-                <Typography variant="caption" color="text.secondary">Sincronizando chats...</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 7, gap: 1.25 }}>
+                <CircularProgress size={20} sx={{ color: '#0f172a' }} />
+                <Typography sx={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  Sincronizando conversaciones...
+                </Typography>
               </Box>
             ) : chatsFiltrados.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 8, px: 3 }}>
-                <MessageCircle size={36} color="#cbd5e1" style={{ margin: '0 auto 12px' }} />
-                <Typography variant="subtitle2" color="#64748b" fontWeight="600">
-                  {searchTerm ? 'No se encontraron conversaciones' : 'No hay chats activos aún'}
-                </Typography>
-                <Typography variant="caption" color="#94a3b8" sx={{ display: 'block', mt: 0.5 }}>
-                  Haz clic en "+ Nuevo Chat" para iniciar la primera conversación desde el número institucional.
-                </Typography>
-                <Button 
-                  size="small" 
-                  variant="outlined" 
-                  onClick={() => setOpenNuevoChatModal(true)} 
-                  sx={{ mt: 2, fontSize: '11px', textTransform: 'none' }}
+              <Box sx={{ textAlign: 'center', py: 7, px: 2.5 }}>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '10px',
+                    bgcolor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: 'auto',
+                    mb: 1.5
+                  }}
                 >
-                  Iniciar Chat Ahora
+                  <MessageCircle size={18} color="#64748b" />
+                </Box>
+                <Typography sx={{ fontSize: '0.82rem', color: '#334155', fontWeight: 600 }}>
+                  {searchTerm ? 'Sin coincidencias para tu búsqueda' : 'Bandeja sin conversaciones'}
+                </Typography>
+                <Typography sx={{ fontSize: '0.74rem', color: '#94a3b8', mt: 0.5, mb: 2, lineHeight: 1.45 }}>
+                  Inicia una conversación desde la línea institucional de IIRESODH.
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setOpenNuevoChatModal(true)}
+                  sx={{
+                    fontSize: '0.74rem',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    borderColor: '#cbd5e1',
+                    color: '#0f172a'
+                  }}
+                >
+                  + Iniciar Conversación
                 </Button>
               </Box>
             ) : (
-              chatsFiltrados.map((contact, index) => (
-                <React.Fragment key={contact.id}>
-                  <ListItem 
-                    button 
+              chatsFiltrados.map((contact) => {
+                const isSelected = selectedChat?.id === contact.id;
+                const hasUnread = (contact.no_leidos || 0) > 0;
+                const hasLeftBar = isSelected || hasUnread;
+
+                return (
+                  <ListItem
+                    key={contact.id}
+                    button
                     onClick={() => setSelectedChat(contact)}
                     secondaryAction={
                       esAdmin ? (
-                        <Tooltip title="Eliminar conversación (Solo Administradores)">
-                          <IconButton 
-                            edge="end" 
+                        <Tooltip title="Eliminar conversación">
+                          <IconButton
+                            edge="end"
                             size="small"
                             onClick={(e) => {
                               e.stopPropagation();
                               setChatAEliminar(contact);
                               setOpenDeleteChatModal(true);
                             }}
-                            sx={{ 
-                              color: '#94a3b8', 
+                            sx={{
+                              color: '#94a3b8',
                               mr: -0.5,
-                              opacity: { xs: 1, md: 0 },
-                              transition: 'opacity 0.2s',
-                              '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' }
+                              opacity: { xs: 0.7, md: 0 },
+                              transition: 'all 0.15s ease',
+                              '&:hover': { color: '#dc2626', bgcolor: '#fef2f2', opacity: 1 }
                             }}
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={14} />
                           </IconButton>
                         </Tooltip>
                       ) : null
                     }
-                    sx={{ 
-                      bgcolor: selectedChat?.id === contact.id ? '#f1f5f9' : 'transparent',
-                      borderLeft: selectedChat?.id === contact.id ? '4px solid #25D366' : '4px solid transparent',
-                      '&:hover': { bgcolor: '#f8fafc', '& .MuiIconButton-root': { opacity: 1 } },
-                      py: 1.2
+                    sx={{
+                      mb: 0.4,
+                      px: 1.25,
+                      py: 1.1,
+                      // Regla arquitectónica del sitio: lado con barra de color lleva radio cero
+                      borderRadius: hasLeftBar ? '0 8px 8px 0' : '8px',
+                      borderLeft: isSelected
+                        ? '3px solid #0f172a'
+                        : hasUnread
+                        ? '3px solid #10b981'
+                        : '3px solid transparent',
+                      bgcolor: isSelected ? '#f1f5f9' : hasUnread ? 'rgba(16, 185, 129, 0.04)' : 'transparent',
+                      transition: 'all 0.15s ease',
+                      '&:hover': {
+                        bgcolor: isSelected ? '#f1f5f9' : '#f8fafc',
+                        '& .MuiIconButton-root': { opacity: 1 }
+                      }
                     }}
                   >
-                    <ListItemAvatar>
-                      <Badge 
-                        color="success" 
-                        badgeContent={contact.no_leidos || 0} 
-                        invisible={!contact.no_leidos}
-                        sx={{ '& .MuiBadge-badge': { bgcolor: '#25D366', color: '#fff', fontWeight: 'bold' } }}
+                    <ListItemAvatar sx={{ minWidth: 48 }}>
+                      <Badge
+                        badgeContent={contact.no_leidos || 0}
+                        invisible={!hasUnread}
+                        sx={{
+                          '& .MuiBadge-badge': {
+                            bgcolor: '#10b981',
+                            color: '#ffffff',
+                            fontWeight: 700,
+                            fontSize: '0.64rem',
+                            minWidth: 18,
+                            height: 18,
+                            fontVariantNumeric: 'tabular-nums',
+                            border: '1.5px solid #ffffff'
+                          }
+                        }}
                       >
-                        <Avatar sx={{ bgcolor: '#cfe9e2', color: '#0f766e', fontWeight: 700, width: 42, height: 42 }}>
+                        <Avatar
+                          sx={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: '9px',
+                            bgcolor: isSelected ? '#0f172a' : hasUnread ? '#ecfdf5' : '#f1f5f9',
+                            color: isSelected ? '#ffffff' : hasUnread ? '#047857' : '#334155',
+                            fontWeight: 700,
+                            fontSize: '0.84rem',
+                            border: '1px solid',
+                            borderColor: isSelected ? '#0f172a' : hasUnread ? '#a7f3d0' : '#e2e8f0'
+                          }}
+                        >
                           {(contact.nombre || contact.telefono || '?').charAt(0).toUpperCase()}
                         </Avatar>
                       </Badge>
                     </ListItemAvatar>
-                    <ListItemText 
+
+                    <ListItemText
+                      sx={{ my: 0, pr: esAdmin ? 2 : 0 }}
                       primary={
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="subtitle2" fontWeight={contact.no_leidos ? "700" : "600"} color="#0f172a" noWrap sx={{ maxWidth: '180px' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1 }}>
+                          <Typography
+                            noWrap
+                            sx={{
+                              fontSize: '0.82rem',
+                              fontWeight: hasUnread || isSelected ? 700 : 600,
+                              color: '#0f172a',
+                              letterSpacing: '-0.01em'
+                            }}
+                          >
                             {contact.nombre || `+${contact.telefono}`}
                           </Typography>
-                          <Typography variant="caption" color={contact.no_leidos ? "#25D366" : "text.secondary"} fontWeight={contact.no_leidos ? "700" : "normal"}>
+                          <Typography
+                            sx={{
+                              fontSize: '0.67rem',
+                              fontWeight: hasUnread ? 700 : 500,
+                              color: hasUnread ? '#059669' : '#94a3b8',
+                              fontVariantNumeric: 'tabular-nums',
+                              flexShrink: 0
+                            }}
+                          >
                             {formatearFecha(contact.ultima_fecha)}
                           </Typography>
                         </Box>
-                      } 
+                      }
                       secondary={
-                        <Box sx={{ mt: 0.3 }}>
-                          <Typography variant="body2" color={contact.no_leidos ? "#0f172a" : "#64748b"} fontWeight={contact.no_leidos ? "600" : "normal"} noWrap sx={{ fontSize: '12px' }}>
-                            {contact.ultimo_agente && contact.ultimo_mensaje ? (
-                              <span style={{ color: '#0284c7', fontWeight: 600 }}>{contact.ultimo_agente === userName ? 'Tú: ' : `${contact.ultimo_agente}: `}</span>
-                            ) : null}
-                            {contact.ultimo_mensaje || 'Conversación iniciada'}
-                          </Typography>
-                        </Box>
-                      } 
+                        <Typography
+                          noWrap
+                          sx={{
+                            mt: 0.25,
+                            fontSize: '0.75rem',
+                            color: hasUnread ? '#1e293b' : '#64748b',
+                            fontWeight: hasUnread ? 600 : 400,
+                            lineHeight: 1.35
+                          }}
+                        >
+                          {contact.ultimo_agente && contact.ultimo_mensaje ? (
+                            <Box component="span" sx={{ color: '#0f172a', fontWeight: 600 }}>
+                              {contact.ultimo_agente === userName ? 'Tú: ' : `${contact.ultimo_agente}: `}
+                            </Box>
+                          ) : null}
+                          {contact.ultimo_mensaje || 'Conversación iniciada'}
+                        </Typography>
+                      }
                     />
                   </ListItem>
-                  {index < chatsFiltrados.length - 1 && <Divider component="li" sx={{ ml: 8 }} />}
-                </React.Fragment>
-              ))
+                );
+              })
             )}
           </List>
         </Box>
 
         {/* ============================================================== */}
-        {/* ÁREA DE CONVERSACIÓN PRINCIPAL                                 */}
+        {/* ÁREA DE CONVERSACIÓN PRINCIPAL (ADAPTATIVA DESKTOP Y CELULAR)  */}
         {/* ============================================================== */}
-        <Box sx={{ 
-          flexGrow: 1, 
-          display: { xs: selectedChat ? 'flex' : 'none', md: 'flex' }, 
-          flexDirection: 'column', 
-          bgcolor: '#efeae2', 
-          backgroundImage: 'radial-gradient(circle, #e2ded5 10%, transparent 11%)', 
-          backgroundSize: '20px 20px',
-          position: 'relative' 
-        }}>
+        <Box
+          sx={{
+            flexGrow: 1,
+            minWidth: 0,
+            display: { xs: selectedChat ? 'flex' : 'none', md: 'flex' },
+            flexDirection: 'column',
+            bgcolor: '#f8fafc',
+            backgroundImage: 'radial-gradient(#cbd5e1 0.75px, transparent 0.75px)',
+            backgroundSize: '18px 18px',
+            position: 'relative',
+            height: '100%'
+          }}
+        >
           {selectedChat ? (
             <>
-              {/* Header del Chat Seleccionado */}
-              <Box sx={{ 
-                bgcolor: '#ffffff', 
-                px: 2.5, 
-                py: 1.5, 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                borderBottom: '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <IconButton onClick={() => setSelectedChat(null)} sx={{ display: { md: 'none' }, mr: 0.5 }}>
-                    <ArrowLeft size={20} />
+              {/* Header del Chat Seleccionado (1 sola fila limpia en móvil y desktop) */}
+              <Box
+                sx={{
+                  bgcolor: 'rgba(255, 255, 255, 0.94)',
+                  backdropFilter: 'blur(8px)',
+                  px: { xs: 1.25, sm: 2, md: 2.5 },
+                  py: { xs: 1, md: 1.25 },
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderBottom: '1px solid #e2e8f0',
+                  gap: 1,
+                  zIndex: 2
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.25 }, minWidth: 0 }}>
+                  <IconButton
+                    onClick={() => setSelectedChat(null)}
+                    size="small"
+                    sx={{
+                      display: { md: 'none' },
+                      width: 32,
+                      height: 32,
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '7px',
+                      color: '#0f172a',
+                      flexShrink: 0
+                    }}
+                  >
+                    <ArrowLeft size={16} />
                   </IconButton>
-                  <Avatar sx={{ bgcolor: '#0f766e', color: '#fff', fontWeight: 700 }}>
+
+                  <Avatar
+                    sx={{
+                      width: { xs: 34, md: 36 },
+                      height: { xs: 34, md: 36 },
+                      borderRadius: '9px',
+                      bgcolor: '#0f172a',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.84rem',
+                      flexShrink: 0
+                    }}
+                  >
                     {(selectedChat.nombre || selectedChat.telefono || '?').charAt(0).toUpperCase()}
                   </Avatar>
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="700" color="#1e293b" sx={{ fontSize: '15px' }}>
+
+                  <Box sx={{ minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography
+                        noWrap
+                        sx={{
+                          fontSize: { xs: '0.84rem', md: '0.9rem' },
+                          fontWeight: 700,
+                          color: '#0f172a',
+                          letterSpacing: '-0.01em'
+                        }}
+                      >
                         {selectedChat.nombre || `+${selectedChat.telefono}`}
                       </Typography>
-                      <Tooltip title="Editar nombre del contacto">
-                        <IconButton 
-                          size="small" 
+                      <Tooltip title="Renombrar contacto">
+                        <IconButton
+                          size="small"
                           onClick={() => {
                             setEditNombreContacto(selectedChat.nombre || '');
                             setOpenEditContactoModal(true);
                           }}
-                          sx={{ p: 0.3, color: '#94a3b8', '&:hover': { color: '#0f766e' } }}
+                          sx={{ p: 0.3, color: '#94a3b8', '&:hover': { color: '#0f172a' } }}
                         >
-                          <Edit3 size={14} />
+                          <Edit3 size={13} />
                         </IconButton>
                       </Tooltip>
                     </Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Phone size={11} /> +{selectedChat.telefono} • Canal Oficial WhatsApp
+                    <Typography
+                      noWrap
+                      sx={{
+                        fontSize: '0.7rem',
+                        color: '#64748b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        fontVariantNumeric: 'tabular-nums'
+                      }}
+                    >
+                      <Phone size={10} /> +{selectedChat.telefono}
+                      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                        · Línea Oficial IIRESODH
+                      </Box>
                     </Typography>
                   </Box>
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Tooltip title="Solicitar permiso de llamada de voz nativa de WhatsApp al contacto">
+                {/* Acciones de Conversación: Compactas en celular, etiquetadas en escritorio */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 0.75 }, flexShrink: 0 }}>
+                  <Tooltip title="Solicitar permiso de llamada de voz de WhatsApp">
                     <Button
                       size="small"
-                      variant="outlined"
-                      startIcon={isSending ? <CircularProgress size={12} /> : <PhoneCall size={14} />}
                       disabled={isSending}
                       onClick={handleSolicitarPermisoLlamadaWhatsApp}
                       sx={{
-                        fontSize: '11px',
+                        minWidth: { xs: 32, sm: 'auto' },
+                        height: 30,
+                        px: { xs: 0.75, sm: 1.15 },
+                        borderRadius: '7px',
+                        fontSize: '0.73rem',
                         textTransform: 'none',
-                        borderColor: '#10b981',
-                        color: '#047857',
+                        border: '1px solid #e2e8f0',
+                        bgcolor: '#ffffff',
+                        color: '#0f172a',
                         fontWeight: 600,
-                        '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' }
+                        gap: 0.6,
+                        '&:hover': { borderColor: '#10b981', bgcolor: '#ecfdf5', color: '#047857' }
                       }}
                     >
-                      Solicitar Llamada
+                      {isSending ? <CircularProgress size={13} /> : <PhoneCall size={14} color="#059669" />}
+                      <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' } }}>
+                        Llamar
+                      </Box>
                     </Button>
                   </Tooltip>
 
-                  <Tooltip title="Crear Sala de Voz / Google Meet en 1 clic y enviar invitación por WhatsApp">
+                  <Tooltip title="Crear sala Google Meet en 1 clic y enviar invitación al chat">
                     <Button
                       size="small"
-                      variant="outlined"
-                      startIcon={creandoSalaMeet ? <CircularProgress size={12} /> : <Video size={14} />}
                       disabled={creandoSalaMeet}
                       onClick={handleEnviarSalaVozMeet}
                       sx={{
-                        fontSize: '11px',
+                        minWidth: { xs: 32, sm: 'auto' },
+                        height: 30,
+                        px: { xs: 0.75, sm: 1.15 },
+                        borderRadius: '7px',
+                        fontSize: '0.73rem',
                         textTransform: 'none',
-                        borderColor: '#3b82f6',
-                        color: '#1d4ed8',
+                        border: '1px solid #e2e8f0',
+                        bgcolor: '#ffffff',
+                        color: '#0f172a',
                         fontWeight: 600,
-                        '&:hover': { borderColor: '#2563eb', bgcolor: '#eff6ff' }
+                        gap: 0.6,
+                        '&:hover': { borderColor: '#3b82f6', bgcolor: '#eff6ff', color: '#1d4ed8' }
                       }}
                     >
-                      Sala Voz/Meet
+                      {creandoSalaMeet ? <CircularProgress size={13} /> : <Video size={14} color="#2563eb" />}
+                      <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' } }}>
+                        Google Meet
+                      </Box>
                     </Button>
                   </Tooltip>
 
-                  <Button 
-                    size="small"
-                    variant="outlined"
-                    startIcon={<Sparkles size={14} />}
-                    onClick={(e) => setAnchorElRespuestas(e.currentTarget)}
-                    sx={{ 
-                      fontSize: '11px', 
-                      textTransform: 'none', 
-                      borderColor: '#cbd5e1', 
-                      color: '#334155',
-                      '&:hover': { borderColor: '#25D366', bgcolor: '#f0fdf4' }
-                    }}
-                  >
-                    Respuestas Rápidas
-                  </Button>
+                  <Tooltip title="Plantillas de respuestas rápidas">
+                    <Button
+                      size="small"
+                      onClick={(e) => setAnchorElRespuestas(e.currentTarget)}
+                      sx={{
+                        minWidth: { xs: 32, sm: 'auto' },
+                        height: 30,
+                        px: { xs: 0.75, sm: 1.15 },
+                        borderRadius: '7px',
+                        fontSize: '0.73rem',
+                        textTransform: 'none',
+                        border: '1px solid #e2e8f0',
+                        bgcolor: '#ffffff',
+                        color: '#334155',
+                        fontWeight: 600,
+                        gap: 0.6,
+                        '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc', color: '#0f172a' }
+                      }}
+                    >
+                      <Sparkles size={14} color="#0f766e" />
+                      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                        Respuestas
+                      </Box>
+                    </Button>
+                  </Tooltip>
 
                   {esAdmin && (
-                    <Tooltip title="Eliminar conversación (Solo Administradores)">
-                      <IconButton 
+                    <Tooltip title="Eliminar conversación">
+                      <IconButton
                         size="small"
                         onClick={() => {
                           setChatAEliminar(selectedChat);
                           setOpenDeleteChatModal(true);
                         }}
-                        sx={{ 
-                          color: '#94a3b8', 
-                          p: 0.8,
-                          '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' } 
+                        sx={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: '7px',
+                          border: '1px solid #e2e8f0',
+                          bgcolor: '#ffffff',
+                          color: '#94a3b8',
+                          '&:hover': { color: '#dc2626', bgcolor: '#fef2f2', borderColor: '#fecaca' }
                         }}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </IconButton>
                     </Tooltip>
                   )}
                 </Box>
               </Box>
 
-              {/* Mensajes del Chat en Tiempo Real */}
-              <Box sx={{ 
-                flexGrow: 1, 
-                overflowY: 'auto', 
-                p: 3, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: 1.5 
-              }}>
+              {/* Lienzo de Mensajes en Tiempo Real */}
+              <Box
+                sx={{
+                  flexGrow: 1,
+                  overflowY: 'auto',
+                  px: { xs: 1.5, sm: 2.5, md: 3.5 },
+                  py: { xs: 2, md: 2.5 },
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.15
+                }}
+              >
                 {loadingMensajes ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                    <CircularProgress size={24} sx={{ color: '#0f766e' }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                    <CircularProgress size={22} sx={{ color: '#0f172a' }} />
                   </Box>
                 ) : mensajesChat.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 6 }}>
-                    <Chip label="No hay mensajes previos en esta conversación" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.85)' }} />
+                    <Box
+                      sx={{
+                        display: 'inline-block',
+                        px: 2,
+                        py: 0.75,
+                        borderRadius: '8px',
+                        bgcolor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        fontWeight: 500
+                      }}
+                    >
+                      Sin mensajes previos en este expediente de conversación
+                    </Box>
                   </Box>
                 ) : (
                   mensajesChat.map((msg) => {
@@ -2470,41 +2877,62 @@ export default function WhatsappInterface({
                       (typeof msg.texto === 'string' && msg.texto.startsWith('🏷️ Sticker'));
                     const esImagen = msg.tipo === 'image' || msg.raw_type === 'image';
                     const esAudio = msg.tipo === 'audio' || msg.raw_type === 'audio';
+                    const esStickerVisualSinFondo = esSticker && Boolean(mediaSrc);
 
                     return (
-                      <Box 
-                        key={msg.id} 
-                        sx={{ 
-                          alignSelf: esMiMensaje ? 'flex-end' : 'flex-start', 
-                          bgcolor: esMiMensaje ? '#d9fdd3' : '#ffffff', 
-                          p: esSticker ? 1.1 : 1.5, 
-                          borderRadius: 2.5, 
-                          maxWidth: { xs: '85%', md: '68%' }, 
-                          boxShadow: '0 1px 1px rgba(11,20,26,.12)',
+                      <Box
+                        key={msg.id}
+                        sx={{
+                          alignSelf: esMiMensaje ? 'flex-end' : 'flex-start',
+                          bgcolor: esStickerVisualSinFondo
+                            ? 'transparent'
+                            : esMiMensaje
+                            ? '#ecfdf5'
+                            : '#ffffff',
+                          px: esSticker ? 1 : { xs: 1.4, md: 1.65 },
+                          py: esSticker ? 0.75 : 1.15,
+                          // Regla de coherencia: burbuja entrante lleva barra lateral sutil y radio cero a la izquierda
+                          borderRadius: esStickerVisualSinFondo
+                            ? '12px'
+                            : esMiMensaje
+                            ? '12px 12px 2px 12px'
+                            : '0 12px 12px 0',
+                          border: esStickerVisualSinFondo
+                            ? 'none'
+                            : esMiMensaje
+                            ? '1px solid #bbf7d0'
+                            : '1px solid #e2e8f0',
+                          borderLeft: esStickerVisualSinFondo
+                            ? 'none'
+                            : esMiMensaje
+                            ? '1px solid #bbf7d0'
+                            : '3px solid #0f766e',
+                          maxWidth: { xs: '88%', sm: '78%', md: '66%' },
+                          boxShadow: esStickerVisualSinFondo
+                            ? 'none'
+                            : '0 1px 2px rgba(15, 23, 42, 0.04)',
                           position: 'relative',
-                          mb: msg.reaccion_cliente ? 1 : 0
+                          mb: msg.reaccion_cliente ? 1.25 : 0
                         }}
                       >
-                        {/* 👤 ATRIBUCIÓN MULTI-AGENTE: Muestra qué operador de IIRESODH respondió */}
-                        {esMiMensaje && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                            <Chip 
-                              size="small" 
-                              icon={<User size={11} color="#0369a1" />}
-                              label={msg.agente_nombre === userName ? 'Tú' : msg.agente_nombre || 'Operador'}
-                              sx={{ 
-                                height: '18px', 
-                                fontSize: '10px', 
-                                fontWeight: 700, 
-                                bgcolor: '#e0f2fe', 
-                                color: '#0369a1',
-                                '& .MuiChip-icon': { ml: '4px' }
+                        {/* Atribución Multi-Agente Minimalista */}
+                        {esMiMensaje && !esStickerVisualSinFondo && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.35 }}>
+                            <Typography
+                              sx={{
+                                fontSize: '0.66rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                color: '#047857'
                               }}
-                            />
+                            >
+                              {msg.agente_nombre === userName ? 'Tú' : msg.agente_nombre || 'Operador'}
+                            </Typography>
                           </Box>
                         )}
 
-                        {/* 🏷️ RENDERIZADO VISUAL DE STICKERS DE WHATSAPP */}
+                        {/* Renderizado Visual de Stickers de WhatsApp */}
                         {esSticker ? (
                           mediaSrc ? (
                             <Box sx={{ textAlign: 'center', py: 0.25 }}>
@@ -2512,12 +2940,12 @@ export default function WhatsappInterface({
                                 src={mediaSrc}
                                 alt="Sticker de WhatsApp"
                                 style={{
-                                  width: 132,
-                                  height: 132,
+                                  width: 136,
+                                  height: 136,
                                   objectFit: 'contain',
                                   display: 'block',
                                   margin: '0 auto',
-                                  filter: 'drop-shadow(0 2px 6px rgba(15,23,42,0.12))'
+                                  filter: 'drop-shadow(0 4px 10px rgba(15,23,42,0.14))'
                                 }}
                               />
                             </Box>
@@ -2530,24 +2958,21 @@ export default function WhatsappInterface({
                                 justifyContent: 'center',
                                 px: 2,
                                 py: 1,
-                                borderRadius: 2,
-                                bgcolor: 'rgba(16, 185, 129, 0.08)',
-                                border: '1px dashed rgba(16, 185, 129, 0.35)'
+                                borderRadius: '8px',
+                                bgcolor: '#f8fafc',
+                                border: '1px dashed #cbd5e1'
                               }}
                             >
-                              <Typography sx={{ fontSize: '42px', lineHeight: 1.1 }}>
-                                🙌✨
-                              </Typography>
+                              <Typography sx={{ fontSize: '36px', lineHeight: 1.1 }}>🙌✨</Typography>
                               <Typography
-                                variant="caption"
-                                sx={{ fontWeight: 700, color: '#0f766e', mt: 0.4, fontSize: '11px' }}
+                                sx={{ fontWeight: 600, color: '#475569', mt: 0.4, fontSize: '0.68rem' }}
                               >
                                 Sticker de WhatsApp
                               </Typography>
                             </Box>
                           )
                         ) : esImagen && mediaSrc ? (
-                          /* 📷 RENDERIZADO VISUAL DE IMÁGENES ENTRANTES O SALIENTES */
+                          /* Renderizado Visual de Imágenes Entrantes o Salientes */
                           <Box>
                             <Box
                               component="a"
@@ -2571,9 +2996,13 @@ export default function WhatsappInterface({
                             </Box>
                             {msg.texto && msg.texto !== '📷 [Foto adjunta]' && (
                               <Typography
-                                variant="body2"
-                                color="#0f172a"
-                                sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '13.5px', lineHeight: 1.45 }}
+                                sx={{
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                  fontSize: '0.83rem',
+                                  color: '#0f172a',
+                                  lineHeight: 1.5
+                                }}
                               >
                                 {msg.texto}
                               </Typography>
@@ -2581,51 +3010,53 @@ export default function WhatsappInterface({
                           </Box>
                         ) : (
                           <Typography
-                            variant="body2"
-                            color="#0f172a"
                             sx={{
                               whiteSpace: 'pre-wrap',
                               wordBreak: 'break-word',
-                              fontSize: '13.5px',
-                              lineHeight: 1.45
+                              fontSize: '0.83rem',
+                              color: '#0f172a',
+                              lineHeight: 1.5
                             }}
                           >
                             {msg.texto}
                           </Typography>
                         )}
 
-                        {/* Reproductor de Notas de Voz (Salientes o Entrantes de WhatsApp) */}
+                        {/* Reproductor de Notas de Voz */}
                         {esAudio && (mediaSrc || msg.media_id) && (
-                          <Box sx={{ mt: 1 }}>
+                          <Box sx={{ mt: 0.85 }}>
                             {mediaSrc ? (
-                              <audio controls src={mediaSrc} style={{ height: 36, maxWidth: '260px' }} />
+                              <audio controls src={mediaSrc} style={{ height: 34, maxWidth: '240px' }} />
                             ) : msg.media_id ? (
                               <Button
                                 size="small"
                                 variant="outlined"
-                                startIcon={cargandoAudioId === msg.id ? <CircularProgress size={12} /> : <Volume2 size={14} />}
+                                startIcon={
+                                  cargandoAudioId === msg.id ? <CircularProgress size={12} /> : <Volume2 size={14} />
+                                }
                                 disabled={cargandoAudioId === msg.id}
                                 onClick={() => handleReproducirAudioMeta(msg)}
                                 sx={{
-                                  fontSize: '11px',
+                                  fontSize: '0.72rem',
                                   textTransform: 'none',
-                                  borderColor: '#0f766e',
-                                  color: '#0f766e',
-                                  mt: 0.5
+                                  borderColor: '#cbd5e1',
+                                  color: '#0f172a',
+                                  borderRadius: '6px',
+                                  mt: 0.4
                                 }}
                               >
-                                {cargandoAudioId === msg.id ? 'Descargando audio...' : 'Escuchar nota de voz'}
+                                {cargandoAudioId === msg.id ? 'Descargando audio...' : 'Reproducir audio'}
                               </Button>
                             ) : null}
                           </Box>
                         )}
 
-                        {/* ❤️ INSIGNIA FLOTANTE DE REACCIÓN CON EMOJI DEL CLIENTE */}
+                        {/* Insignia Flotante de Reacción con Emoji del Cliente */}
                         {msg.reaccion_cliente && (
                           <Box
                             sx={{
                               position: 'absolute',
-                              bottom: -10,
+                              bottom: -11,
                               right: 10,
                               bgcolor: '#ffffff',
                               border: '1px solid #e2e8f0',
@@ -2633,7 +3064,7 @@ export default function WhatsappInterface({
                               px: 0.7,
                               py: 0.1,
                               fontSize: '13px',
-                              boxShadow: '0 2px 4px rgba(15,23,42,0.12)',
+                              boxShadow: '0 2px 5px rgba(15,23,42,0.08)',
                               lineHeight: 1.2
                             }}
                           >
@@ -2641,38 +3072,59 @@ export default function WhatsappInterface({
                           </Box>
                         )}
 
-                        {/* Metadatos y checks de entrega */}
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.4 }}>
-                          <Typography variant="caption" color="#64748b" sx={{ fontSize: '10.5px' }}>
+                        {/* Metadatos y Checks de Entrega */}
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            justifyContent: 'flex-end',
+                            alignItems: 'center',
+                            gap: 0.45,
+                            mt: 0.35,
+                            float: esStickerVisualSinFondo ? 'none' : 'right',
+                            ml: esStickerVisualSinFondo ? 0 : 1.25,
+                            px: esStickerVisualSinFondo ? 0.8 : 0,
+                            py: esStickerVisualSinFondo ? 0.2 : 0,
+                            borderRadius: esStickerVisualSinFondo ? '10px' : 0,
+                            bgcolor: esStickerVisualSinFondo ? 'rgba(255,255,255,0.9)' : 'transparent',
+                            boxShadow: esStickerVisualSinFondo ? '0 1px 3px rgba(15,23,42,0.08)' : 'none'
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              fontSize: '0.65rem',
+                              color: '#64748b',
+                              fontVariantNumeric: 'tabular-nums'
+                            }}
+                          >
                             {formatearFecha(msg.fecha)}
                           </Typography>
-                          
+
                           {esMiMensaje ? (
                             <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
                               {msg.estado === 'read' || msg.estado === 'leido' ? (
-                                <Tooltip title="Leído / Visto por el cliente (Doble check azul)">
-                                  <CheckCheck size={15} color="#0284c7" strokeWidth={2.4} />
+                                <Tooltip title="Leído por el contacto">
+                                  <CheckCheck size={14} color="#0284c7" strokeWidth={2.4} />
                                 </Tooltip>
                               ) : msg.estado === 'delivered' || msg.estado === 'entregado' ? (
-                                <Tooltip title="Entregado al dispositivo del cliente">
-                                  <CheckCheck size={15} color="#64748b" />
+                                <Tooltip title="Entregado al dispositivo">
+                                  <CheckCheck size={14} color="#64748b" />
                                 </Tooltip>
                               ) : msg.estado === 'sent' || msg.estado === 'enviado' ? (
-                                <Tooltip title="Enviado a servidores de WhatsApp">
-                                  <Check size={14} color="#64748b" />
+                                <Tooltip title="Enviado a WhatsApp">
+                                  <Check size={13} color="#64748b" />
                                 </Tooltip>
                               ) : msg.estado === 'failed' || msg.estado === 'error' ? (
                                 <Tooltip
                                   title={
                                     msg.error_detalle
-                                      ? `No entregado (Código ${msg.error_codigo || 'Meta'}): ${msg.error_detalle}`
-                                      : 'No pudo entregarse al destinatario (Ventana de 24h cerrada en WhatsApp; requiere Plantilla Oficial)'
+                                      ? `No entregado (${msg.error_codigo || 'Meta'}): ${msg.error_detalle}`
+                                      : 'No entregado (Ventana de 24h cerrada)'
                                   }
                                 >
-                                  <AlertCircle size={14} color="#dc2626" />
+                                  <AlertCircle size={13} color="#dc2626" />
                                 </Tooltip>
                               ) : (
-                                <Tooltip title="Guardado internamente en Intranet (En espera de llaves de Meta API)">
+                                <Tooltip title="En espera de sincronización">
                                   <Clock size={12} color="#d97706" />
                                 </Tooltip>
                               )}
@@ -2683,7 +3135,7 @@ export default function WhatsappInterface({
                                 title={`Visto en Intranet${msg.leido_por ? ` por ${msg.leido_por}` : ''}`}
                               >
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
-                                  <CheckCheck size={13} color="#0284c7" />
+                                  <CheckCheck size={12} color="#0284c7" />
                                 </Box>
                               </Tooltip>
                             )
@@ -2696,57 +3148,69 @@ export default function WhatsappInterface({
                 <div ref={messagesEndRef} />
               </Box>
 
-              {/* Input de Mensaje, Selector de Emojis/Stickers y Grabador de Nota de Voz */}
-              <Box sx={{ 
-                bgcolor: '#f0f2f5', 
-                px: 2, 
-                py: 1.2, 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 1,
-                borderTop: '1px solid #e2e8f0' 
-              }}>
+              {/* ============================================================== */}
+              {/* COMPOSER INFERIOR: EMOJIS/STICKERS + TEXTO + VOZ + ENVIAR      */}
+              {/* ============================================================== */}
+              <Box
+                sx={{
+                  bgcolor: '#ffffff',
+                  px: { xs: 1.25, sm: 2, md: 2.5 },
+                  py: { xs: 1, md: 1.25 },
+                  borderTop: '1px solid #e2e8f0'
+                }}
+              >
                 {grabandoVoz ? (
                   <Box
                     sx={{
-                      flexGrow: 1,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       bgcolor: '#fef2f2',
                       border: '1px solid #fecaca',
-                      borderRadius: 2.5,
-                      px: 2,
-                      py: 0.8
+                      borderLeft: '3px solid #dc2626',
+                      borderRadius: '0 8px 8px 0',
+                      px: { xs: 1.25, sm: 2 },
+                      py: 0.75,
+                      gap: 1
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Mic size={18} color="#dc2626" />
-                      <Typography variant="body2" fontWeight="700" color="#dc2626">
-                        Grabando nota de voz... {Math.floor(segundosGrabacion / 60)}:
+                      <Mic size={16} color="#dc2626" />
+                      <Typography
+                        sx={{
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          color: '#b91c1c',
+                          fontVariantNumeric: 'tabular-nums'
+                        }}
+                      >
+                        Grabando... {Math.floor(segundosGrabacion / 60)}:
                         {String(segundosGrabacion % 60).padStart(2, '0')}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                       <Button
                         size="small"
                         color="error"
                         onClick={handleCancelarGrabacionVoz}
-                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                        sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}
                       >
                         Cancelar
                       </Button>
                       <Button
                         size="small"
                         variant="contained"
-                        startIcon={<Send size={14} />}
+                        startIcon={<Send size={13} />}
                         onClick={handleDetenerYEnviarNotaVoz}
                         sx={{
-                          bgcolor: '#25D366',
-                          color: 'white',
+                          bgcolor: '#0f172a',
+                          color: '#ffffff',
                           textTransform: 'none',
-                          fontWeight: 700,
-                          '&:hover': { bgcolor: '#20bd5a' }
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                          borderRadius: '6px',
+                          boxShadow: 'none',
+                          '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
                         }}
                       >
                         Enviar Audio
@@ -2754,25 +3218,47 @@ export default function WhatsappInterface({
                     </Box>
                   </Box>
                 ) : (
-                  <>
-                    {/* 😊 BOTÓN SELECTOR DE EMOJIS Y STICKERS DE WHATSAPP */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      gap: { xs: 0.65, sm: 0.85 },
+                      bgcolor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      px: { xs: 0.85, sm: 1.15 },
+                      py: 0.55,
+                      transition: 'all 0.15s ease',
+                      '&:focus-within': {
+                        bgcolor: '#ffffff',
+                        borderColor: '#0f172a',
+                        boxShadow: '0 0 0 2px rgba(15, 23, 42, 0.05)'
+                      }
+                    }}
+                  >
+                    {/* Botón Selector de Emojis y Stickers Nativos */}
                     <Tooltip title="Emojis y Stickers de WhatsApp">
                       <span>
                         <IconButton
+                          size="small"
                           onClick={(e) => setAnchorElEmoji(e.currentTarget)}
                           disabled={isSending || enviandoNotaVoz || enviandoSticker}
                           sx={{
-                            bgcolor: Boolean(anchorElEmoji) ? '#dcfce7' : '#ffffff',
-                            color: '#0f766e',
-                            border: '1px solid #cbd5e1',
-                            p: 1.05,
-                            '&:hover': { bgcolor: '#f0fdf4', borderColor: '#25D366' }
+                            width: 32,
+                            height: 32,
+                            borderRadius: '7px',
+                            bgcolor: Boolean(anchorElEmoji) ? '#0f172a' : 'transparent',
+                            color: Boolean(anchorElEmoji) ? '#ffffff' : '#475569',
+                            '&:hover': {
+                              bgcolor: Boolean(anchorElEmoji) ? '#1e293b' : '#e2e8f0',
+                              color: Boolean(anchorElEmoji) ? '#ffffff' : '#0f172a'
+                            }
                           }}
                         >
                           {enviandoSticker ? (
-                            <CircularProgress size={18} color="inherit" />
+                            <CircularProgress size={16} color="inherit" />
                           ) : (
-                            <Smile size={19} />
+                            <Smile size={18} />
                           )}
                         </IconButton>
                       </span>
@@ -2786,23 +3272,25 @@ export default function WhatsappInterface({
                       transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                       PaperProps={{
                         sx: {
-                          width: 330,
-                          borderRadius: 3,
-                          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.16)',
+                          width: { xs: 'calc(100vw - 24px)', sm: 336 },
+                          maxWidth: 336,
+                          borderRadius: '12px',
+                          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.14)',
                           border: '1px solid #e2e8f0',
                           overflow: 'hidden',
                           mb: 1
                         }
                       }}
                     >
-                      {/* Pestañas: Emojis vs Stickers */}
+                      {/* Pestañas Segmentadas: Emojis vs Stickers */}
                       <Box
                         sx={{
-                          display: 'flex',
-                          bgcolor: '#f8fafc',
-                          borderBottom: '1px solid #e2e8f0',
-                          p: 0.6,
-                          gap: 0.6
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          bgcolor: '#f1f5f9',
+                          p: 0.45,
+                          gap: 0.45,
+                          borderBottom: '1px solid #e2e8f0'
                         }}
                       >
                         <Button
@@ -2811,13 +3299,16 @@ export default function WhatsappInterface({
                           onClick={() => setTabEmojiSticker('emojis')}
                           sx={{
                             textTransform: 'none',
-                            fontWeight: 700,
-                            fontSize: '12px',
-                            borderRadius: 1.5,
-                            bgcolor: tabEmojiSticker === 'emojis' ? '#0f172a' : 'transparent',
-                            color: tabEmojiSticker === 'emojis' ? '#ffffff' : '#475569',
+                            fontWeight: 600,
+                            fontSize: '0.75rem',
+                            borderRadius: '6px',
+                            py: 0.45,
+                            bgcolor: tabEmojiSticker === 'emojis' ? '#ffffff' : 'transparent',
+                            color: tabEmojiSticker === 'emojis' ? '#0f172a' : '#64748b',
+                            boxShadow:
+                              tabEmojiSticker === 'emojis' ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
                             '&:hover': {
-                              bgcolor: tabEmojiSticker === 'emojis' ? '#1e293b' : '#e2e8f0'
+                              bgcolor: tabEmojiSticker === 'emojis' ? '#ffffff' : '#e2e8f0'
                             }
                           }}
                         >
@@ -2829,13 +3320,16 @@ export default function WhatsappInterface({
                           onClick={() => setTabEmojiSticker('stickers')}
                           sx={{
                             textTransform: 'none',
-                            fontWeight: 700,
-                            fontSize: '12px',
-                            borderRadius: 1.5,
-                            bgcolor: tabEmojiSticker === 'stickers' ? '#0f172a' : 'transparent',
-                            color: tabEmojiSticker === 'stickers' ? '#ffffff' : '#475569',
+                            fontWeight: 600,
+                            fontSize: '0.75rem',
+                            borderRadius: '6px',
+                            py: 0.45,
+                            bgcolor: tabEmojiSticker === 'stickers' ? '#ffffff' : 'transparent',
+                            color: tabEmojiSticker === 'stickers' ? '#0f172a' : '#64748b',
+                            boxShadow:
+                              tabEmojiSticker === 'stickers' ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
                             '&:hover': {
-                              bgcolor: tabEmojiSticker === 'stickers' ? '#1e293b' : '#e2e8f0'
+                              bgcolor: tabEmojiSticker === 'stickers' ? '#ffffff' : '#e2e8f0'
                             }
                           }}
                         >
@@ -2846,36 +3340,35 @@ export default function WhatsappInterface({
                       {tabEmojiSticker === 'emojis' ? (
                         <Box sx={{ p: 1.5 }}>
                           <Typography
-                            variant="caption"
                             sx={{
                               display: 'block',
                               mb: 1,
                               color: '#64748b',
                               fontWeight: 700,
-                              fontSize: '11px'
+                              fontSize: '0.67rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.06em'
                             }}
                           >
-                            Toca un emoji para insertarlo en tu mensaje:
+                            Insertar emoji en el mensaje
                           </Typography>
                           <Box
                             sx={{
                               display: 'grid',
                               gridTemplateColumns: 'repeat(8, 1fr)',
-                              gap: 0.5
+                              gap: 0.4
                             }}
                           >
                             {EMOJIS_RAPIDOS.map((em) => (
                               <IconButton
                                 key={em}
                                 size="small"
-                                onClick={() => {
-                                  setMensajeTexto((prev) => `${prev}${em}`);
-                                }}
+                                onClick={() => setMensajeTexto((prev) => `${prev}${em}`)}
                                 sx={{
-                                  fontSize: '20px',
-                                  borderRadius: 1.5,
-                                  p: 0.6,
-                                  '&:hover': { bgcolor: '#f1f5f9', transform: 'scale(1.15)' },
+                                  fontSize: '19px',
+                                  borderRadius: '6px',
+                                  p: 0.55,
+                                  '&:hover': { bgcolor: '#f1f5f9', transform: 'scale(1.12)' },
                                   transition: 'transform 0.12s ease'
                                 }}
                               >
@@ -2887,22 +3380,23 @@ export default function WhatsappInterface({
                       ) : (
                         <Box sx={{ p: 1.5 }}>
                           <Typography
-                            variant="caption"
                             sx={{
                               display: 'block',
                               mb: 1,
                               color: '#64748b',
                               fontWeight: 700,
-                              fontSize: '11px'
+                              fontSize: '0.67rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.06em'
                             }}
                           >
-                            Envía un Sticker oficial de WhatsApp en 1 clic:
+                            Stickers Oficiales IIRESODH (Envío Directo)
                           </Typography>
                           <Box
                             sx={{
                               display: 'grid',
                               gridTemplateColumns: 'repeat(2, 1fr)',
-                              gap: 1,
+                              gap: 0.85,
                               mb: 1.25
                             }}
                           >
@@ -2911,31 +3405,29 @@ export default function WhatsappInterface({
                                 key={st.id}
                                 onClick={() => handleEnviarStickerCatalogo(st)}
                                 sx={{
-                                  p: 1,
-                                  borderRadius: 2,
+                                  p: 0.9,
+                                  borderRadius: '8px',
                                   cursor: 'pointer',
                                   background: `linear-gradient(135deg, ${st.bg1}, ${st.bg2})`,
                                   color: '#ffffff',
                                   textAlign: 'center',
-                                  boxShadow: '0 2px 6px rgba(15,23,42,0.12)',
+                                  boxShadow: '0 2px 6px rgba(15,23,42,0.1)',
                                   transition: 'transform 0.14s ease',
-                                  '&:hover': { transform: 'scale(1.03)' }
+                                  '&:hover': { transform: 'translateY(-1px)' }
                                 }}
                               >
-                                <Typography sx={{ fontSize: '24px', lineHeight: 1.1 }}>
-                                  {st.emoji}
-                                </Typography>
+                                <Typography sx={{ fontSize: '22px', lineHeight: 1.1 }}>{st.emoji}</Typography>
                                 <Typography
                                   sx={{
-                                    fontSize: '10.5px',
+                                    fontSize: '0.65rem',
                                     fontWeight: 800,
-                                    letterSpacing: '0.02em',
+                                    letterSpacing: '0.03em',
                                     mt: 0.3
                                   }}
                                 >
                                   {st.titulo}
                                 </Typography>
-                                <Typography sx={{ fontSize: '9px', opacity: 0.9 }}>
+                                <Typography sx={{ fontSize: '0.58rem', opacity: 0.9 }}>
                                   {st.subtitulo}
                                 </Typography>
                               </Box>
@@ -2947,17 +3439,18 @@ export default function WhatsappInterface({
                             size="small"
                             variant="outlined"
                             component="label"
-                            startIcon={<Upload size={14} />}
+                            startIcon={<Upload size={13} />}
                             sx={{
                               textTransform: 'none',
-                              fontSize: '11.5px',
-                              fontWeight: 700,
-                              borderRadius: 1.5,
+                              fontSize: '0.73rem',
+                              fontWeight: 600,
+                              borderRadius: '7px',
                               borderColor: '#cbd5e1',
-                              color: '#334155'
+                              color: '#0f172a',
+                              '&:hover': { borderColor: '#0f172a', bgcolor: '#f8fafc' }
                             }}
                           >
-                            Subir imagen / WebP como Sticker
+                            Subir imagen propia como Sticker
                             <input
                               type="file"
                               accept="image/webp,image/png,image/jpeg"
@@ -2973,101 +3466,142 @@ export default function WhatsappInterface({
                       fullWidth
                       multiline
                       maxRows={4}
-                      placeholder={`Responder a ${selectedChat.nombre || selectedChat.telefono} (como ${userName})...`}
-                      variant="outlined"
-                      size="small"
+                      placeholder={`Escribe un mensaje a ${selectedChat.nombre || selectedChat.telefono}...`}
+                      variant="standard"
                       value={mensajeTexto}
                       onChange={(e) => setMensajeTexto(e.target.value)}
-                      onKeyDown={(e) => { 
-                        if (e.key === 'Enter' && !e.shiftKey) { 
-                          e.preventDefault(); 
-                          handleSendMessage(); 
-                        } 
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
                       }}
                       disabled={isSending || enviandoNotaVoz}
-                      sx={{ 
-                        bgcolor: 'white', 
-                        borderRadius: 2.5, 
-                        '& fieldset': { borderColor: '#cbd5e1' },
-                        '&:hover fieldset': { borderColor: '#25D366' },
-                        '&.Mui-focused fieldset': { borderColor: '#25D366' },
-                        '& .MuiInputBase-input': { fontSize: '13.5px', py: 1 }
+                      InputProps={{
+                        disableUnderline: true,
+                        sx: {
+                          fontSize: '0.84rem',
+                          color: '#0f172a',
+                          py: 0.45,
+                          px: 0.5,
+                          lineHeight: 1.45
+                        }
                       }}
                     />
 
-                    <Tooltip title="Grabar y enviar Nota de Voz de WhatsApp">
+                    <Tooltip title="Grabar nota de voz">
                       <span>
                         <IconButton
+                          size="small"
                           onClick={handleIniciarGrabacionVoz}
                           disabled={isSending || enviandoNotaVoz}
                           sx={{
-                            bgcolor: '#ffffff',
-                            color: '#0f766e',
-                            border: '1px solid #cbd5e1',
-                            p: 1.1,
-                            '&:hover': { bgcolor: '#f0fdf4', borderColor: '#25D366' }
+                            width: 32,
+                            height: 32,
+                            borderRadius: '7px',
+                            color: '#475569',
+                            '&:hover': { bgcolor: '#e2e8f0', color: '#0f172a' }
                           }}
                         >
-                          {enviandoNotaVoz ? <CircularProgress size={18} color="inherit" /> : <Mic size={18} />}
+                          {enviandoNotaVoz ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <Mic size={17} />
+                          )}
                         </IconButton>
                       </span>
                     </Tooltip>
 
-                    <IconButton 
+                    <IconButton
+                      size="small"
                       onClick={() => handleSendMessage()}
                       disabled={!mensajeTexto.trim() || isSending || enviandoNotaVoz}
-                      sx={{ 
-                        bgcolor: mensajeTexto.trim() ? '#25D366' : '#e2e8f0', 
-                        color: mensajeTexto.trim() ? 'white' : '#94a3b8', 
-                        p: 1.2,
-                        '&:hover': { bgcolor: mensajeTexto.trim() ? '#20bd5a' : '#e2e8f0' } 
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '7px',
+                        bgcolor: mensajeTexto.trim() ? '#0f172a' : '#e2e8f0',
+                        color: mensajeTexto.trim() ? '#ffffff' : '#94a3b8',
+                        transition: 'all 0.15s ease',
+                        '&:hover': {
+                          bgcolor: mensajeTexto.trim() ? '#1e293b' : '#e2e8f0'
+                        }
                       }}
                     >
-                      {isSending ? <CircularProgress size={20} color="inherit" /> : <Send size={18} />}
+                      {isSending ? <CircularProgress size={15} color="inherit" /> : <Send size={15} />}
                     </IconButton>
-                  </>
+                  </Box>
                 )}
               </Box>
             </>
           ) : (
-            /* Estado Inicial cuando no se ha seleccionado chat */
-            <Box sx={{ 
-              flexGrow: 1, 
-              display: 'flex', 
-              flexDirection: 'column', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              p: 4, 
-              textAlign: 'center',
-              bgcolor: '#f8fafc' 
-            }}>
-              <Box sx={{ 
-                bgcolor: '#ffffff', 
-                p: 3, 
-                borderRadius: '50%', 
-                mb: 2.5, 
-                boxShadow: '0 8px 24px rgba(37,211,102,0.15)',
-                border: '1px solid #dcfce7'
-              }}>
-                <MessageCircle size={54} color="#25D366" />
+            /* Estado Inicial cuando no se ha seleccionado chat (Desktop) */
+            <Box
+              sx={{
+                flexGrow: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                p: 4,
+                textAlign: 'center',
+                bgcolor: '#f8fafc'
+              }}
+            >
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '14px',
+                  bgcolor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 4px 12px rgba(15, 23, 42, 0.04)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 2
+                }}
+              >
+                <MessageCircle size={26} color="#10b981" />
               </Box>
-              <Typography variant="h6" color="#1e293b" fontWeight="700" gutterBottom>
-                Bandeja Multi-Usuario de WhatsApp Business
+              <Typography
+                sx={{
+                  fontSize: '1rem',
+                  color: '#0f172a',
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                  mb: 0.75
+                }}
+              >
+                Consola Multi-Operador de WhatsApp Business
               </Typography>
-              <Typography variant="body2" color="#64748b" sx={{ maxWidth: 460, mb: 3, lineHeight: 1.6 }}>
-                Todos los operadores autorizados de IIRESODH pueden responder consultas simultáneamente desde el número institucional oficial.
+              <Typography
+                sx={{
+                  fontSize: '0.8rem',
+                  color: '#64748b',
+                  maxWidth: 420,
+                  mb: 2.5,
+                  lineHeight: 1.55
+                }}
+              >
+                Selecciona una conversación de la bandeja izquierda o inicia un nuevo contacto oficial desde la línea institucional de IIRESODH.
               </Typography>
-              <Button 
-                variant="contained" 
-                startIcon={<Plus size={16} />}
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<Plus size={15} />}
                 onClick={() => setOpenNuevoChatModal(true)}
-                sx={{ 
-                  bgcolor: '#25D366', 
-                  color: 'white', 
-                  textTransform: 'none', 
+                sx={{
+                  bgcolor: '#0f172a',
+                  color: '#ffffff',
+                  textTransform: 'none',
                   fontWeight: 600,
+                  fontSize: '0.78rem',
+                  px: 2,
+                  py: 0.8,
+                  borderRadius: '7px',
                   boxShadow: 'none',
-                  '&:hover': { bgcolor: '#20bd5a' } 
+                  '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
                 }}
               >
                 Iniciar Nueva Conversación
@@ -3080,45 +3614,102 @@ export default function WhatsappInterface({
       {/* ============================================================== */}
       {/* MODAL 0: CONFIRMAR ELIMINACIÓN DE CONVERSACIÓN (SOLO ADMINS)    */}
       {/* ============================================================== */}
-      <Dialog 
-        open={esAdmin && openDeleteChatModal} 
+      <Dialog
+        open={esAdmin && openDeleteChatModal}
         onClose={() => !eliminandoChat && setOpenDeleteChatModal(false)}
         maxWidth="xs"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 40px rgba(15, 23, 42, 0.14)',
+            m: { xs: 1.5, sm: 3 }
+          }
+        }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#b91c1c', fontWeight: 700 }}>
-          <AlertTriangle size={22} color="#dc2626" />
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            color: '#0f172a',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            letterSpacing: '-0.01em',
+            px: 2.5,
+            py: 2,
+            borderBottom: '1px solid #f1f5f9'
+          }}
+        >
+          <Box
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: '7px',
+              bgcolor: '#fef2f2',
+              border: '1px solid #fecaca',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <AlertTriangle size={16} color="#dc2626" />
+          </Box>
           Eliminar Conversación
         </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body2" color="#334155" sx={{ mb: 2 }}>
-            ¿Estás seguro de que deseas eliminar permanentemente la conversación con{' '}
-            <strong>{(chatAEliminar || selectedChat)?.nombre || `+${(chatAEliminar || selectedChat)?.telefono}`}</strong>?
+        <DialogContent sx={{ px: 2.5, py: 2.25 }}>
+          <Typography sx={{ fontSize: '0.83rem', color: '#334155', mb: 1.75, lineHeight: 1.5 }}>
+            ¿Confirmas eliminar permanentemente la conversación con{' '}
+            <Box component="span" sx={{ fontWeight: 700, color: '#0f172a' }}>
+              {(chatAEliminar || selectedChat)?.nombre || `+${(chatAEliminar || selectedChat)?.telefono}`}
+            </Box>
+            ?
           </Typography>
-          <Alert severity="warning" sx={{ fontSize: '12px' }}>
-            Esta acción borrará el contacto de la bandeja y todo su historial de mensajes. Este movimiento quedará registrado con tu cuenta en los <strong>Logs de Auditoría</strong>.
-          </Alert>
+          <Box
+            sx={{
+              p: 1.5,
+              bgcolor: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderLeft: '3px solid #d97706',
+              borderRadius: '0 8px 8px 0',
+              fontSize: '0.76rem',
+              color: '#92400e',
+              lineHeight: 1.45
+            }}
+          >
+            Esta acción borrará el contacto de la bandeja y todo su historial de mensajes. El movimiento quedará registrado en los <strong>Logs de Auditoría</strong>.
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-          <Button 
+        <DialogActions sx={{ px: 2.5, py: 1.75, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0', gap: 0.75 }}>
+          <Button
             onClick={() => {
               setOpenDeleteChatModal(false);
               setChatAEliminar(null);
-            }} 
+            }}
             disabled={eliminandoChat}
-            sx={{ textTransform: 'none', color: '#64748b' }}
+            sx={{ textTransform: 'none', color: '#64748b', fontSize: '0.78rem', fontWeight: 600 }}
           >
             Cancelar
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             color="error"
             onClick={handleEliminarChat}
             disabled={eliminandoChat}
-            startIcon={eliminandoChat ? <CircularProgress size={14} color="inherit" /> : <Trash2 size={16} />}
-            sx={{ textTransform: 'none', fontWeight: 600, bgcolor: '#dc2626', '&:hover': { bgcolor: '#b91c1c' } }}
+            startIcon={eliminandoChat ? <CircularProgress size={14} color="inherit" /> : <Trash2 size={14} />}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              borderRadius: '7px',
+              bgcolor: '#dc2626',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#b91c1c', boxShadow: 'none' }
+            }}
           >
-            {eliminandoChat ? 'Eliminando...' : 'Eliminar Conversación'}
+            {eliminandoChat ? 'Eliminando...' : 'Eliminar Permanentemente'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -3126,159 +3717,253 @@ export default function WhatsappInterface({
       {/* ============================================================== */}
       {/* MODAL 1: CONFIGURACIÓN Y CREDENCIALES DE META CLOUD API        */}
       {/* ============================================================== */}
-      <Dialog 
-        open={esAdmin && openConfigModal} 
+      <Dialog
+        open={esAdmin && openConfigModal}
         onClose={() => setOpenConfigModal(false)}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 45px rgba(15, 23, 42, 0.14)',
+            m: { xs: 1.25, sm: 3 }
+          }
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Key size={20} color="#0f766e" /> Configuración de WhatsApp Cloud API (Meta)
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: '0.96rem',
+            letterSpacing: '-0.01em',
+            color: '#0f172a',
+            bgcolor: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            px: { xs: 2, sm: 3 },
+            py: 2
+          }}
+        >
+          <Box
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: '7px',
+              bgcolor: '#0f172a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <Key size={15} color="#10b981" />
+          </Box>
+          Configuración de WhatsApp Cloud API (Meta)
         </DialogTitle>
-        <DialogContent sx={{ p: 3 }}>
-          <Typography variant="body2" color="#475569" sx={{ mb: 3 }}>
-            Todo el código y la arquitectura están listos. En cuanto tengas los datos de tu aplicación en <strong>developers.facebook.com</strong>, pégalos aquí para habilitar los envíos en tiempo real:
+        <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography sx={{ fontSize: '0.8rem', color: '#475569', mb: 2.5, lineHeight: 1.5 }}>
+            Administra los parámetros de conexión directa con <strong>developers.facebook.com</strong> para el envío y recepción institucional en tiempo real:
           </Typography>
 
-          {/* DATOS QUE DEBES COPIAR EN META */}
-          <Box sx={{ bgcolor: '#f0fdf4', p: 2, borderRadius: 2, border: '1px solid #bbf7d0', mb: 3 }}>
-            <Typography variant="subtitle2" fontWeight="700" color="#166534" gutterBottom>
-              📋 Datos para registrar en tu Webhook de Meta:
+          {/* Datos de Webhook con barra lateral esmeralda y radio cero a la izquierda */}
+          <Box
+            sx={{
+              bgcolor: '#f8fafc',
+              p: 2,
+              borderRadius: '0 8px 8px 0',
+              border: '1px solid #e2e8f0',
+              borderLeft: '3px solid #10b981',
+              mb: 3
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.07em',
+                color: '#047857',
+                mb: 1.25
+              }}
+            >
+              Parámetros del Webhook en Meta
             </Typography>
-            
-            <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Box>
-                <Typography variant="caption" fontWeight="600" color="#15803d">URL de devolución de llamada (Callback URL):</Typography>
-                <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                  <TextField 
-                    size="small" 
-                    fullWidth 
-                    value={WEBHOOK_CALLBACK_URL} 
-                    InputProps={{ readOnly: true, sx: { fontSize: '12px', bgcolor: 'white' } }} 
+                <Typography sx={{ fontSize: '0.73rem', fontWeight: 600, color: '#334155', mb: 0.4 }}>
+                  Callback URL:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    value={WEBHOOK_CALLBACK_URL}
+                    InputProps={{
+                      readOnly: true,
+                      sx: { fontSize: '0.76rem', bgcolor: '#ffffff', borderRadius: '7px' }
+                    }}
                   />
-                  <Button 
-                    variant="outlined" 
-                    size="small" 
-                    startIcon={<Copy size={14} />} 
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Copy size={13} />}
                     onClick={() => copiarAlPortapapeles(WEBHOOK_CALLBACK_URL, 'url')}
-                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                    sx={{
+                      textTransform: 'none',
+                      whiteSpace: 'nowrap',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      borderRadius: '7px',
+                      borderColor: '#cbd5e1',
+                      color: '#0f172a'
+                    }}
                   >
-                    {copiadoCampo === 'url' ? '¡Copiado!' : 'Copiar'}
+                    {copiadoCampo === 'url' ? 'Copiado' : 'Copiar URL'}
                   </Button>
                 </Box>
               </Box>
 
               <Box>
-                <Typography variant="caption" fontWeight="600" color="#15803d">Token de verificación (Verify Token):</Typography>
-                <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                  <TextField 
-                    size="small" 
-                    fullWidth 
-                    value={metaConfig.verify_token || DEFAULT_VERIFY_TOKEN} 
-                    InputProps={{ readOnly: true, sx: { fontSize: '12px', bgcolor: 'white' } }} 
+                <Typography sx={{ fontSize: '0.73rem', fontWeight: 600, color: '#334155', mb: 0.4 }}>
+                  Verify Token:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    value={metaConfig.verify_token || DEFAULT_VERIFY_TOKEN}
+                    InputProps={{
+                      readOnly: true,
+                      sx: { fontSize: '0.76rem', bgcolor: '#ffffff', borderRadius: '7px' }
+                    }}
                   />
-                  <Button 
-                    variant="outlined" 
-                    size="small" 
-                    startIcon={<Copy size={14} />} 
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Copy size={13} />}
                     onClick={() => copiarAlPortapapeles(metaConfig.verify_token || DEFAULT_VERIFY_TOKEN, 'token')}
-                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                    sx={{
+                      textTransform: 'none',
+                      whiteSpace: 'nowrap',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      borderRadius: '7px',
+                      borderColor: '#cbd5e1',
+                      color: '#0f172a'
+                    }}
                   >
-                    {copiadoCampo === 'token' ? '¡Copiado!' : 'Copiar'}
+                    {copiadoCampo === 'token' ? 'Copiado' : 'Copiar Token'}
                   </Button>
                 </Box>
               </Box>
             </Box>
           </Box>
 
-          {/* DATOS QUE META TE ENTREGA */}
-          <Typography variant="subtitle2" fontWeight="700" color="#1e293b" gutterBottom>
-            🔑 Llaves generadas en Meta for Developers:
+          <Typography
+            sx={{
+              fontSize: '0.68rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.07em',
+              color: '#64748b',
+              mb: 1.5
+            }}
+          >
+            Credenciales de Meta for Developers
           </Typography>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
-              label="Identificador de número de teléfono (Phone Number ID)"
+              label="Phone Number ID"
               fullWidth
               size="small"
               placeholder="Ej. 104829384729102"
               value={metaConfig.phone_number_id}
-              onChange={(e) => setMetaConfig(prev => ({ ...prev, phone_number_id: e.target.value }))}
-              helperText="Lo encuentras en Meta Developers > WhatsApp > Primeros pasos o Números de teléfono"
+              onChange={(e) => setMetaConfig((prev) => ({ ...prev, phone_number_id: e.target.value }))}
+              helperText="Identificador del número en Meta Developers > WhatsApp > Configuración de la API"
             />
 
             <TextField
-              label="Token de Acceso Permanente (WhatsApp Access Token / System User)"
+              label="Token de Acceso Permanente (System User Access Token)"
               fullWidth
               multiline
               rows={2}
               size="small"
               placeholder="Ej. EAAQ..."
               value={metaConfig.whatsapp_token}
-              onChange={(e) => setMetaConfig(prev => ({ ...prev, whatsapp_token: e.target.value }))}
-              helperText="⚠️ Para que nunca expire, debe ser un Token de Usuario del Sistema (System User) con permisos 'whatsapp_business_messaging' y caducidad 'Nunca'."
+              onChange={(e) => setMetaConfig((prev) => ({ ...prev, whatsapp_token: e.target.value }))}
+              helperText="Usa un Token de Usuario del Sistema con permisos whatsapp_business_messaging y caducidad 'Nunca'."
             />
 
             <TextField
-              label="ID de Cuenta de WhatsApp Business (WABA ID - Opcional)"
+              label="WhatsApp Business Account ID (WABA ID - Opcional)"
               fullWidth
               size="small"
               placeholder="Ej. 102938481920394"
               value={metaConfig.waba_id}
-              onChange={(e) => setMetaConfig(prev => ({ ...prev, waba_id: e.target.value }))}
+              onChange={(e) => setMetaConfig((prev) => ({ ...prev, waba_id: e.target.value }))}
             />
 
-            {/* BOTÓN PROBAR CONEXIÓN EN VIVO */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
               <Button
                 variant="outlined"
                 size="small"
                 onClick={handleProbarConexion}
                 disabled={probandoConexion || !metaConfig.whatsapp_token?.trim()}
-                startIcon={probandoConexion ? <CircularProgress size={14} /> : <RefreshCw size={14} />}
-                sx={{ textTransform: 'none', color: '#0f766e', borderColor: '#0f766e', fontWeight: 600 }}
+                startIcon={probandoConexion ? <CircularProgress size={13} /> : <RefreshCw size={13} />}
+                sx={{
+                  textTransform: 'none',
+                  color: '#0f172a',
+                  borderColor: '#cbd5e1',
+                  fontWeight: 600,
+                  fontSize: '0.76rem',
+                  borderRadius: '7px'
+                }}
               >
-                {probandoConexion ? 'Comprobando en Meta...' : '🔍 Probar Conexión con Meta'}
+                {probandoConexion ? 'Verificando en Meta...' : 'Probar Conexión en Vivo'}
               </Button>
-              <Typography variant="caption" color="text.secondary">
-                Verifica en vivo si el token es válido o si expiró antes de guardar.
+              <Typography sx={{ fontSize: '0.73rem', color: '#64748b' }}>
+                Comprueba la validez del token antes de guardar cambios.
               </Typography>
             </Box>
 
             {resultadoPrueba && (
-              <Alert 
+              <Alert
                 severity={resultadoPrueba.exito ? 'success' : 'error'}
                 onClose={() => setResultadoPrueba(null)}
-                sx={{ fontSize: '12px', mt: 0.5 }}
+                sx={{ fontSize: '0.76rem', borderRadius: '8px' }}
               >
                 {resultadoPrueba.mensaje}
               </Alert>
             )}
-
-            {/* GUÍA RÁPIDA DE TOKEN PERMANENTE */}
-            <Box sx={{ mt: 1, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px dashed #cbd5e1' }}>
-              <Typography variant="caption" fontWeight="600" color="#475569" sx={{ display: 'block', mb: 0.5 }}>
-                📌 ¿Dónde generar el token permanente para que no vuelva a expirar?
-              </Typography>
-              <Typography variant="caption" color="#64748b" sx={{ display: 'block', lineHeight: 1.5 }}>
-                1. Abre <strong>Meta Business Suite</strong> &gt; Configuración del Negocio &gt; <em>Usuarios del Sistema</em>.<br />
-                2. Crea un usuario con rol Administrador y añade tu App de WhatsApp con Control total.<br />
-                3. Haz clic en <strong>Generar nuevo token</strong> con caducidad <strong>"Nunca"</strong> y permisos <code>whatsapp_business_messaging</code> y <code>whatsapp_business_management</code>.
-              </Typography>
-            </Box>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-          <Button onClick={() => setOpenConfigModal(false)} sx={{ textTransform: 'none', color: '#64748b' }}>
+        <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+          <Button
+            onClick={() => setOpenConfigModal(false)}
+            sx={{ textTransform: 'none', color: '#64748b', fontSize: '0.78rem', fontWeight: 600 }}
+          >
             Cancelar
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={handleGuardarConfigMeta}
             disabled={guardandoConfig}
-            sx={{ bgcolor: '#0f766e', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#115e59' } }}
+            sx={{
+              bgcolor: '#0f172a',
+              color: '#ffffff',
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              borderRadius: '7px',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+            }}
           >
-            {guardandoConfig ? 'Guardando...' : 'Guardar y Activar API'}
+            {guardandoConfig ? 'Guardando...' : 'Guardar Configuración'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -3286,19 +3971,50 @@ export default function WhatsappInterface({
       {/* ============================================================== */}
       {/* MODAL 2: INICIAR NUEVO CHAT                                    */}
       {/* ============================================================== */}
-      <Dialog 
-        open={openNuevoChatModal} 
+      <Dialog
+        open={openNuevoChatModal}
         onClose={() => setOpenNuevoChatModal(false)}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 45px rgba(15, 23, 42, 0.14)',
+            m: { xs: 1.25, sm: 3 }
+          }
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-          💬 Iniciar Nueva Conversación
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            letterSpacing: '-0.01em',
+            color: '#0f172a',
+            bgcolor: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            px: { xs: 2, sm: 3 },
+            py: 2
+          }}
+        >
+          Iniciar Nueva Conversación
         </DialogTitle>
-        <DialogContent sx={{ p: 3 }}>
-          <Alert severity="info" sx={{ mb: 2.5, fontSize: '12.5px', borderRadius: 2 }}>
-            <strong>Regla de Ventana de 24h de Meta WhatsApp API:</strong> Si el contacto <strong>no</strong> ha escrito primero a IIRESODH en las últimas 24 horas, Meta bloquea los mensajes de texto libre (Error 131047) y exige iniciar con una <strong>Plantilla Aprobada</strong>. En cuanto la persona responda, se habilita el chat libre por 24 horas.
-          </Alert>
+        <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Box
+            sx={{
+              mb: 2.5,
+              p: 1.5,
+              bgcolor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderLeft: '3px solid #0f172a',
+              borderRadius: '0 8px 8px 0',
+              fontSize: '0.75rem',
+              color: '#475569',
+              lineHeight: 1.5
+            }}
+          >
+            <strong style={{ color: '#0f172a' }}>Ventana de 24h (Meta API):</strong> Si el contacto no ha escrito primero en las últimas 24 horas, el envío automático emplea la <strong>Plantilla Oficial IIRESODH</strong> para garantizar la entrega inmediata.
+          </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
@@ -3331,15 +4047,15 @@ export default function WhatsappInterface({
                 cargandoPlantillasMeta
                   ? 'Verificando estado de plantillas en Meta...'
                   : estadoPlantillaIiresodh === 'APPROVED'
-                  ? '✅ Plantilla en español "aviso_institucional_iiresodh" APROBADA en Meta.'
-                  : '⏳ Plantilla en español "aviso_institucional_iiresodh" en revisión automática de Meta (PENDING). Mientras se aprueba, el modo automático usa la plantilla aprobada de Meta para garantizar la entrega.'
+                  ? 'Plantilla oficial "aviso_institucional_iiresodh" aprobada y activa.'
+                  : 'Plantilla en revisión de Meta. El modo automático garantiza la entrega.'
               }
             >
               <MenuItem value="auto">
-                📋 Plantilla Oficial de Apertura (Garantiza entrega fuera de ventana de 24h)
+                Plantilla Oficial de Apertura (Garantiza entrega fuera de ventana de 24h)
               </MenuItem>
               <MenuItem value="texto_libre">
-                💬 Texto Libre Directo (Solo llega si el contacto ya escribió hace menos de 24h)
+                Texto Libre Directo (Si el contacto escribió en las últimas 24h)
               </MenuItem>
             </TextField>
 
@@ -3355,15 +4071,27 @@ export default function WhatsappInterface({
             />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-          <Button onClick={() => setOpenNuevoChatModal(false)} sx={{ textTransform: 'none', color: '#64748b' }}>
+        <DialogActions sx={{ px: 3, py: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+          <Button
+            onClick={() => setOpenNuevoChatModal(false)}
+            sx={{ textTransform: 'none', color: '#64748b', fontSize: '0.78rem', fontWeight: 600 }}
+          >
             Cancelar
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={handleCrearNuevoChat}
             disabled={!nuevoTelefono.trim() || isSending}
-            sx={{ bgcolor: '#25D366', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#20bd5a' } }}
+            sx={{
+              bgcolor: '#0f172a',
+              color: '#ffffff',
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              borderRadius: '7px',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+            }}
           >
             {isSending ? 'Enviando...' : 'Abrir Chat y Enviar'}
           </Button>
@@ -3373,21 +4101,39 @@ export default function WhatsappInterface({
       {/* ============================================================== */}
       {/* MODAL 3: EDITAR NOMBRE DE CONTACTO                             */}
       {/* ============================================================== */}
-      <Dialog 
-        open={openEditContactoModal} 
+      <Dialog
+        open={openEditContactoModal}
         onClose={() => setOpenEditContactoModal(false)}
         maxWidth="xs"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 40px rgba(15, 23, 42, 0.14)',
+            m: { xs: 1.5, sm: 3 }
+          }
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-          ✏️ Nombre del Contacto
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: '0.94rem',
+            color: '#0f172a',
+            bgcolor: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            px: 2.5,
+            py: 1.75
+          }}
+        >
+          Renombrar Contacto
         </DialogTitle>
         <DialogContent sx={{ p: 2.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-            Asigna un nombre descriptivo para identificar a este contacto en la bandeja de entrada multiusuario.
+          <Typography sx={{ fontSize: '0.76rem', color: '#64748b', display: 'block', mb: 2, lineHeight: 1.45 }}>
+            Asigna un nombre identificable para todos los operadores en la bandeja institucional.
           </Typography>
           <TextField
-            label="Nombre"
+            label="Nombre del contacto"
             fullWidth
             size="small"
             value={editNombreContacto}
@@ -3395,14 +4141,26 @@ export default function WhatsappInterface({
             autoFocus
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-          <Button onClick={() => setOpenEditContactoModal(false)} sx={{ textTransform: 'none' }}>
+        <DialogActions sx={{ px: 2.5, py: 1.75, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+          <Button
+            onClick={() => setOpenEditContactoModal(false)}
+            sx={{ textTransform: 'none', color: '#64748b', fontSize: '0.78rem', fontWeight: 600 }}
+          >
             Cancelar
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={handleGuardarNombreContacto}
-            sx={{ bgcolor: '#0f766e', textTransform: 'none' }}
+            sx={{
+              bgcolor: '#0f172a',
+              color: '#ffffff',
+              textTransform: 'none',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              borderRadius: '7px',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#1e293b', boxShadow: 'none' }
+            }}
           >
             Guardar
           </Button>
@@ -3416,29 +4174,65 @@ export default function WhatsappInterface({
         anchorEl={anchorElRespuestas}
         open={Boolean(anchorElRespuestas)}
         onClose={() => setAnchorElRespuestas(null)}
-        PaperProps={{ sx: { width: 340, maxHeight: 380, p: 0.5 } }}
+        PaperProps={{
+          sx: {
+            width: { xs: 'calc(100vw - 24px)', sm: 340 },
+            maxWidth: 340,
+            maxHeight: 380,
+            p: 0.5,
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 12px 28px rgba(15, 23, 42, 0.12)'
+          }
+        }}
       >
-        <Box sx={{ px: 2, py: 1, borderBottom: '1px solid #f1f5f9' }}>
-          <Typography variant="caption" fontWeight="700" color="#64748b">
-            RESPUESTAS RÁPIDAS INSTITUCIONALES
+        <Box sx={{ px: 1.75, py: 1, borderBottom: '1px solid #f1f5f9' }}>
+          <Typography
+            sx={{
+              fontSize: '0.66rem',
+              fontWeight: 700,
+              color: '#64748b',
+              letterSpacing: '0.07em',
+              textTransform: 'uppercase'
+            }}
+          >
+            Respuestas Rápidas Institucionales
           </Typography>
         </Box>
         {RESPUESTAS_RAPIDAS.map((item, idx) => (
-          <MenuItem 
-            key={idx} 
+          <MenuItem
+            key={idx}
             onClick={() => handleSeleccionarRespuestaRapida(item.texto)}
-            sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', py: 1, whiteSpace: 'normal' }}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              py: 1,
+              px: 1.75,
+              borderRadius: '6px',
+              whiteSpace: 'normal',
+              '&:hover': { bgcolor: '#f8fafc' }
+            }}
           >
-            <Typography variant="subtitle2" fontWeight="700" color="#0f766e" sx={{ fontSize: '12px' }}>
+            <Typography sx={{ fontWeight: 700, color: '#0f172a', fontSize: '0.76rem', mb: 0.2 }}>
               {item.titulo}
             </Typography>
-            <Typography variant="caption" color="#475569" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <Typography
+              sx={{
+                fontSize: '0.72rem',
+                color: '#64748b',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                lineHeight: 1.4
+              }}
+            >
               {item.texto}
             </Typography>
           </MenuItem>
         ))}
       </Menu>
-
     </Box>
   );
 }
