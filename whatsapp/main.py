@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import base64
 import requests
 from firebase_admin import initialize_app, firestore
 from firebase_functions import https_fn, options
@@ -55,19 +56,73 @@ def obtener_credenciales_meta():
     }
 
 
+def descargar_media_meta(media_id: str, token: str, max_bytes: int = 400000):
+    """
+    Descarga un archivo multimedia (sticker, imagen, audio, documento) desde Meta Graph API.
+    Devuelve (bytes_binarios, mime_type, data_uri_opcional).
+    """
+    if not media_id or not token:
+        return None, None, None
+    try:
+        info_res = requests.get(
+            f"https://graph.facebook.com/v21.0/{media_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=8
+        )
+        if info_res.status_code != 200:
+            return None, None, None
+        info_json = info_res.json() or {}
+        download_url = info_json.get("url")
+        mime_type = info_json.get("mime_type") or "application/octet-stream"
+        if not download_url:
+            return None, None, None
+
+        bin_res = requests.get(
+            download_url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=12
+        )
+        if bin_res.status_code != 200 or not bin_res.content:
+            return None, None, None
+
+        raw_bytes = bin_res.content
+        data_uri = None
+        if len(raw_bytes) <= max_bytes:
+            b64_str = base64.b64encode(raw_bytes).decode("ascii")
+            data_uri = f"data:{mime_type};base64,{b64_str}"
+        return raw_bytes, mime_type, data_uri
+    except Exception as e_med:
+        print("⚠️ Error descargando media de Meta:", str(e_med))
+        return None, None, None
+
+
 @https_fn.on_request(cors=options.CorsOptions(cors_origins="*", cors_methods=["get", "post"]))
 def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
     """
     Ruta: /whatsapp_webhook
-    - GET:  Verificación y Handshake de Webhook de Meta for Developers
-    - POST: Recepción de mensajes entrantes y estados de entrega (sent, delivered, read)
+    - GET:  Verificación Handshake de Webhook de Meta o Proxy Multimedia (?media_id=...)
+    - POST: Recepción de mensajes entrantes, stickers, reacciones y estados de entrega
     """
     creds = obtener_credenciales_meta()
 
     # ==============================================================
-    # 1. VERIFICACIÓN DEL WEBHOOK (HANDSHAKE DE META)
+    # 1. VERIFICACIÓN DEL WEBHOOK O PROXY DE MEDIA (GET)
     # ==============================================================
     if req.method == 'GET':
+        media_id_param = req.args.get("media_id")
+        if media_id_param:
+            raw_bytes, mime_type, _ = descargar_media_meta(
+                media_id_param, creds["whatsapp_token"], max_bytes=0
+            )
+            if raw_bytes:
+                return https_fn.Response(
+                    raw_bytes,
+                    status=200,
+                    mimetype=mime_type or "application/octet-stream",
+                    headers={"Cache-Control": "public, max-age=86400"}
+                )
+            return https_fn.Response("Media not found", status=404)
+
         mode = req.args.get("hub.mode")
         token = req.args.get("hub.verify_token")
         challenge = req.args.get("hub.challenge")
@@ -113,11 +168,36 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                         msg_id = msg.get("id") or f"msg_{int(time.time()*1000)}"
                         msg_type = msg.get("type", "text")
                         nombre_contacto = contact_map.get(remitente, "")
+                        chat_ref = db.collection("whatsapp_chats").document(remitente)
+
+                        # Si es una reacción con emoji a un mensaje existente, anexarla al mensaje original
+                        if msg_type == "reaction":
+                            reac_obj = msg.get("reaction", {}) or {}
+                            emoji_reac = reac_obj.get("emoji", "")
+                            target_wamid = reac_obj.get("message_id")
+                            if target_wamid:
+                                try:
+                                    target_ref = chat_ref.collection("mensajes").document(target_wamid)
+                                    t_snap = target_ref.get()
+                                    if t_snap.exists:
+                                        target_ref.update({"reaccion_cliente": emoji_reac})
+                                except Exception as e_reac:
+                                    print("Error guardando reacción en mensaje:", str(e_reac))
+                            if emoji_reac:
+                                chat_ref.set({
+                                    "telefono": remitente,
+                                    "ultimo_mensaje": f"Reaccionó con {emoji_reac}",
+                                    "ultima_fecha": firestore.SERVER_TIMESTAMP,
+                                    "actualizado_en": firestore.SERVER_TIMESTAMP
+                                }, merge=True)
+                            continue
 
                         # Extraer contenido según el tipo de mensaje
                         cuerpo_texto = ""
                         if msg_type == "text":
                             cuerpo_texto = msg.get("text", {}).get("body", "")
+                        elif msg_type == "sticker":
+                            cuerpo_texto = "🏷️ Sticker"
                         elif msg_type == "image":
                             caption = msg.get("image", {}).get("caption", "")
                             cuerpo_texto = f"📷 Foto: {caption}".strip() if caption else "📷 [Foto adjunta]"
@@ -139,7 +219,6 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                             cuerpo_texto = f"[{msg_type}]"
 
                         # Guardar/Actualizar chat en Firestore
-                        chat_ref = db.collection("whatsapp_chats").document(remitente)
                         chat_snap = chat_ref.get()
 
                         chat_data = {
@@ -159,7 +238,7 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                         chat_ref.set(chat_data, merge=True)
 
                         # Guardar mensaje individual en la subcolección
-                        media_obj = msg.get(msg_type, {}) if msg_type in ["audio", "image", "document", "video"] else {}
+                        media_obj = msg.get(msg_type, {}) if msg_type in ["sticker", "audio", "image", "document", "video"] else {}
                         msg_ref = chat_ref.collection("mensajes").document(msg_id)
                         msg_payload = {
                             "id_meta": msg_id,
@@ -173,8 +252,17 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                             "raw_type": msg_type
                         }
                         if isinstance(media_obj, dict) and media_obj.get("id"):
-                            msg_payload["media_id"] = media_obj.get("id")
+                            m_id = media_obj.get("id")
+                            msg_payload["media_id"] = m_id
                             msg_payload["mime_type"] = media_obj.get("mime_type", "")
+                            msg_payload["media_url"] = f"https://us-central1-litigio-management.cloudfunctions.net/whatsapp_webhook?media_id={m_id}"
+                            # Para stickers e imágenes compactas, guardar también data URI inline para visualización instantánea
+                            if msg_type in ["sticker", "image"]:
+                                _, _, inline_uri = descargar_media_meta(
+                                    m_id, creds["whatsapp_token"], max_bytes=350000
+                                )
+                                if inline_uri:
+                                    msg_payload["media_url"] = inline_uri
                         msg_ref.set(msg_payload)
 
                     # B2. Eventos de Llamadas de Voz de WhatsApp (Calling API / WebRTC)

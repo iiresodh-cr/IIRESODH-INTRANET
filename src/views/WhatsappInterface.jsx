@@ -23,7 +23,8 @@ import {
   Tooltip,
   InputAdornment,
   Menu,
-  MenuItem
+  MenuItem,
+  Popover
 } from '@mui/material';
 import { 
   Send, 
@@ -55,7 +56,9 @@ import {
   PhoneIncoming,
   Video,
   Volume2,
-  VolumeX
+  VolumeX,
+  Smile,
+  Upload
 } from 'lucide-react';
 import { 
   collection, 
@@ -84,6 +87,76 @@ const DEFAULT_VERIFY_TOKEN = 'mi_codigo_secreto_123';
 const DEFAULT_PHONE_ID = '1429140810275241';
 const DEFAULT_WABA_ID = '1431176165105564';
 const DEFAULT_TOKEN = 'EAANXNDTIJbEBS28Th8KMTlVvF1rUVKVPKoCsrMaCaZAUFBRDq8DLuV4ZALBEut3wzxlc29pXqOHF0Uzem8SCJMIo9ZCV1tvPcL8XZCgKoFGrdn6bh19hqw2fCHbjK4SPPp1rQRGz2VZAoHII5V9oTQ8uA6ZBTy8KGbDCS6Fvs810D4xG3weVxh8ZAlkEsO9bwZDZD';
+
+const EMOJIS_RAPIDOS = [
+  '👋', '😊', '🙏', '👍', '🤝', '❤️', '✅', '✨',
+  '📄', '⚖️', '🏛️', '📅', '📞', '📍', '📌', '⚠️',
+  '🚨', '⏳', '🔍', '📝', '📬', '🌎', '🛡️', '🎉',
+  '👏', '🙌', '💬', '📎', '🔒', 'ℹ️', '🟢', '🔵'
+];
+
+const STICKERS_INSTITUCIONALES = [
+  { id: 'recibido', emoji: '✅', titulo: 'RECIBIDO', subtitulo: 'IIRESODH', bg1: '#10b981', bg2: '#047857' },
+  { id: 'gracias', emoji: '🙏', titulo: 'MUCHAS GRACIAS', subtitulo: 'Equipo IIRESODH', bg1: '#2563eb', bg2: '#1d4ed8' },
+  { id: 'saludo', emoji: '👋', titulo: '¡HOLA!', subtitulo: 'Atención IIRESODH', bg1: '#0d9488', bg2: '#0f766e' },
+  { id: 'revision', emoji: '⚖️', titulo: 'EN REVISIÓN', subtitulo: 'Equipo Jurídico', bg1: '#1e293b', bg2: '#0f172a' },
+  { id: 'documento_ok', emoji: '📄', titulo: 'DOCUMENTO OK', subtitulo: 'Integrado al Caso', bg1: '#4f46e5', bg2: '#3730a3' },
+  { id: 'llamada', emoji: '📞', titulo: 'TE LLAMAMOS', subtitulo: 'En unos minutos', bg1: '#0284c7', bg2: '#0369a1' },
+  { id: 'cita', emoji: '📅', titulo: 'CONFIRMADO', subtitulo: 'Agenda IIRESODH', bg1: '#7c3aed', bg2: '#5b21b6' },
+  { id: 'acuerdo', emoji: '👍', titulo: 'DE ACUERDO', subtitulo: 'Enterado', bg1: '#f59e0b', bg2: '#d97706' }
+];
+
+// Genera un Sticker oficial 512x512 en formato image/webp compatible con Meta WhatsApp Cloud API
+async function generarStickerWebp512(stickerCfg) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, 512, 512);
+
+  // Sombra suave exterior
+  ctx.save();
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.28)';
+  ctx.shadowBlur = 24;
+  ctx.shadowOffsetY = 10;
+
+  // Fondo circular/escudo con gradiente
+  const grad = ctx.createLinearGradient(60, 40, 452, 472);
+  grad.addColorStop(0, stickerCfg.bg1);
+  grad.addColorStop(1, stickerCfg.bg2);
+
+  ctx.beginPath();
+  ctx.roundRect(44, 44, 424, 424, 96);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Borde blanco tipo sticker de WhatsApp
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+  ctx.restore();
+
+  // Emoji central grande
+  ctx.font = '170px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(stickerCfg.emoji, 256, 200);
+
+  // Etiqueta principal
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 40px "Inter", "Segoe UI", Arial, sans-serif';
+  ctx.fillText(stickerCfg.titulo, 256, 355);
+
+  // Subtítulo institucional
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.font = '700 24px "Inter", "Segoe UI", Arial, sans-serif';
+  ctx.fillText(stickerCfg.subtitulo, 256, 405);
+
+  const dataUrl = canvas.toDataURL('image/webp', 0.92);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.92));
+  return { dataUrl, blob };
+}
 
 export default function WhatsappInterface({ 
   onVolver, 
@@ -172,6 +245,11 @@ export default function WhatsappInterface({
 
   // Sala de Voz / Meet en 1 clic
   const [creandoSalaMeet, setCreandoSalaMeet] = useState(false);
+
+  // Selector de Emojis y Stickers Nativos de WhatsApp
+  const [anchorElEmoji, setAnchorElEmoji] = useState(null);
+  const [tabEmojiSticker, setTabEmojiSticker] = useState('emojis'); // 'emojis' | 'stickers'
+  const [enviandoSticker, setEnviandoSticker] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -1571,26 +1649,149 @@ export default function WhatsappInterface({
     if (audiosResueltos[msg.id]) return;
     setCargandoAudioId(msg.id);
     try {
-      const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
-      const infoRes = await fetch(`https://graph.facebook.com/v21.0/${msg.media_id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const infoData = await infoRes.json();
-      if (!infoData?.url) throw new Error('No se encontró la URL del audio en Meta');
-
-      const binRes = await fetch(infoData.url, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const blob = await binRes.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      setAudiosResueltos((prev) => ({ ...prev, [msg.id]: blobUrl }));
+      const proxyUrl = `${WEBHOOK_CALLBACK_URL}?media_id=${encodeURIComponent(msg.media_id)}`;
+      setAudiosResueltos((prev) => ({ ...prev, [msg.id]: proxyUrl }));
     } catch (e) {
       setNotificacion({
         tipo: 'warning',
-        mensaje: 'No se pudo descargar el audio desde Meta API: ' + e.message
+        mensaje: 'No se pudo cargar el audio desde Meta API: ' + e.message
       });
     } finally {
       setCargandoAudioId(null);
+    }
+  };
+
+  // Enviar un Sticker Nativo 512x512 (.webp) a WhatsApp y mostrarlo en el chat
+  const enviarBlobStickerAWhatsApp = async (webpBlob, dataUrlPreview, etiquetaResumen = '🏷️ Sticker') => {
+    if (!selectedChat || !webpBlob) return;
+    setEnviandoSticker(true);
+    setAnchorElEmoji(null);
+    try {
+      const telClean = String(selectedChat.telefono || selectedChat.id).replace(/\D/g, '');
+      const phoneId = metaConfig.phone_number_id || DEFAULT_PHONE_ID;
+      const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+      let wamidSticker = null;
+
+      if (phoneId && token) {
+        const form = new FormData();
+        form.append('messaging_product', 'whatsapp');
+        form.append('file', new File([webpBlob], `sticker_${Date.now()}.webp`, { type: 'image/webp' }));
+        form.append('type', 'image/webp');
+
+        const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/media`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form
+        });
+        const uploadData = await uploadRes.json().catch(() => ({}));
+
+        if (uploadRes.ok && uploadData.id) {
+          const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: telClean,
+              type: 'sticker',
+              sticker: { id: uploadData.id }
+            })
+          });
+          const sendData = await sendRes.json().catch(() => ({}));
+          if (sendRes.ok) {
+            wamidSticker = sendData.messages?.[0]?.id || null;
+          }
+        }
+      }
+
+      const msgPayload = {
+        id_meta: wamidSticker,
+        texto: etiquetaResumen,
+        media_url: dataUrlPreview,
+        mime_type: 'image/webp',
+        es_mio: true,
+        agente_nombre: userName,
+        agente_email: currentUserEmail,
+        fecha: serverTimestamp(),
+        estado: wamidSticker ? 'sent' : 'enviado',
+        tipo: 'sticker'
+      };
+
+      if (wamidSticker) {
+        await setDoc(doc(db, 'whatsapp_chats', telClean, 'mensajes', wamidSticker), msgPayload);
+      } else {
+        await addDoc(collection(db, 'whatsapp_chats', telClean, 'mensajes'), msgPayload);
+      }
+
+      await setDoc(
+        doc(db, 'whatsapp_chats', telClean),
+        {
+          telefono: telClean,
+          ultimo_mensaje: etiquetaResumen,
+          ultima_fecha: serverTimestamp(),
+          actualizado_en: serverTimestamp(),
+          ultimo_agente: userName,
+          no_leidos: 0
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'No se pudo enviar el sticker: ' + err.message
+      });
+    } finally {
+      setEnviandoSticker(false);
+    }
+  };
+
+  const handleEnviarStickerCatalogo = async (stickerCfg) => {
+    try {
+      const { dataUrl, blob } = await generarStickerWebp512(stickerCfg);
+      await enviarBlobStickerAWhatsApp(blob, dataUrl, `🏷️ Sticker: ${stickerCfg.emoji} ${stickerCfg.titulo}`);
+    } catch (err) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'Error preparando sticker: ' + err.message
+      });
+    }
+  };
+
+  const handleSubirImagenComoSticker = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const imgUrl = URL.createObjectURL(file);
+      const img = new window.Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = imgUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 512, 512);
+      const scale = Math.min(512 / img.width, 512 / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (512 - w) / 2, (512 - h) / 2, w, h);
+      URL.revokeObjectURL(imgUrl);
+
+      const dataUrl = canvas.toDataURL('image/webp', 0.9);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9));
+      await enviarBlobStickerAWhatsApp(blob, dataUrl, '🏷️ Sticker');
+    } catch (err) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'No se pudo convertir la imagen en sticker: ' + err.message
+      });
+    } finally {
+      e.target.value = null;
     }
   };
 
@@ -2256,18 +2457,32 @@ export default function WhatsappInterface({
                 ) : (
                   mensajesChat.map((msg) => {
                     const esMiMensaje = msg.es_mio === true;
-                    const audioSrc = msg.media_url || audiosResueltos[msg.id];
+                    const mediaSrc =
+                      msg.media_url ||
+                      audiosResueltos[msg.id] ||
+                      (msg.media_id
+                        ? `${WEBHOOK_CALLBACK_URL}?media_id=${encodeURIComponent(msg.media_id)}`
+                        : null);
+                    const esSticker =
+                      msg.tipo === 'sticker' ||
+                      msg.raw_type === 'sticker' ||
+                      msg.texto === '[sticker]' ||
+                      (typeof msg.texto === 'string' && msg.texto.startsWith('🏷️ Sticker'));
+                    const esImagen = msg.tipo === 'image' || msg.raw_type === 'image';
+                    const esAudio = msg.tipo === 'audio' || msg.raw_type === 'audio';
+
                     return (
                       <Box 
                         key={msg.id} 
                         sx={{ 
                           alignSelf: esMiMensaje ? 'flex-end' : 'flex-start', 
                           bgcolor: esMiMensaje ? '#d9fdd3' : '#ffffff', 
-                          p: 1.5, 
+                          p: esSticker ? 1.1 : 1.5, 
                           borderRadius: 2.5, 
                           maxWidth: { xs: '85%', md: '68%' }, 
                           boxShadow: '0 1px 1px rgba(11,20,26,.12)',
-                          position: 'relative'
+                          position: 'relative',
+                          mb: msg.reaccion_cliente ? 1 : 0
                         }}
                       >
                         {/* 👤 ATRIBUCIÓN MULTI-AGENTE: Muestra qué operador de IIRESODH respondió */}
@@ -2289,15 +2504,101 @@ export default function WhatsappInterface({
                           </Box>
                         )}
 
-                        <Typography variant="body2" color="#0f172a" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '13.5px', lineHeight: 1.45 }}>
-                          {msg.texto}
-                        </Typography>
+                        {/* 🏷️ RENDERIZADO VISUAL DE STICKERS DE WHATSAPP */}
+                        {esSticker ? (
+                          mediaSrc ? (
+                            <Box sx={{ textAlign: 'center', py: 0.25 }}>
+                              <img
+                                src={mediaSrc}
+                                alt="Sticker de WhatsApp"
+                                style={{
+                                  width: 132,
+                                  height: 132,
+                                  objectFit: 'contain',
+                                  display: 'block',
+                                  margin: '0 auto',
+                                  filter: 'drop-shadow(0 2px 6px rgba(15,23,42,0.12))'
+                                }}
+                              />
+                            </Box>
+                          ) : (
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                px: 2,
+                                py: 1,
+                                borderRadius: 2,
+                                bgcolor: 'rgba(16, 185, 129, 0.08)',
+                                border: '1px dashed rgba(16, 185, 129, 0.35)'
+                              }}
+                            >
+                              <Typography sx={{ fontSize: '42px', lineHeight: 1.1 }}>
+                                🙌✨
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                sx={{ fontWeight: 700, color: '#0f766e', mt: 0.4, fontSize: '11px' }}
+                              >
+                                Sticker de WhatsApp
+                              </Typography>
+                            </Box>
+                          )
+                        ) : esImagen && mediaSrc ? (
+                          /* 📷 RENDERIZADO VISUAL DE IMÁGENES ENTRANTES O SALIENTES */
+                          <Box>
+                            <Box
+                              component="a"
+                              href={mediaSrc}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{ display: 'block', mb: msg.texto ? 0.75 : 0 }}
+                            >
+                              <img
+                                src={mediaSrc}
+                                alt="Imagen de WhatsApp"
+                                style={{
+                                  maxWidth: '260px',
+                                  maxHeight: '260px',
+                                  width: '100%',
+                                  borderRadius: 8,
+                                  objectFit: 'cover',
+                                  display: 'block'
+                                }}
+                              />
+                            </Box>
+                            {msg.texto && msg.texto !== '📷 [Foto adjunta]' && (
+                              <Typography
+                                variant="body2"
+                                color="#0f172a"
+                                sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '13.5px', lineHeight: 1.45 }}
+                              >
+                                {msg.texto}
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            color="#0f172a"
+                            sx={{
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontSize: '13.5px',
+                              lineHeight: 1.45
+                            }}
+                          >
+                            {msg.texto}
+                          </Typography>
+                        )}
 
                         {/* Reproductor de Notas de Voz (Salientes o Entrantes de WhatsApp) */}
-                        {(msg.tipo === 'audio' || audioSrc || msg.media_id) && (
+                        {esAudio && (mediaSrc || msg.media_id) && (
                           <Box sx={{ mt: 1 }}>
-                            {audioSrc ? (
-                              <audio controls src={audioSrc} style={{ height: 36, maxWidth: '260px' }} />
+                            {mediaSrc ? (
+                              <audio controls src={mediaSrc} style={{ height: 36, maxWidth: '260px' }} />
                             ) : msg.media_id ? (
                               <Button
                                 size="small"
@@ -2316,6 +2617,27 @@ export default function WhatsappInterface({
                                 {cargandoAudioId === msg.id ? 'Descargando audio...' : 'Escuchar nota de voz'}
                               </Button>
                             ) : null}
+                          </Box>
+                        )}
+
+                        {/* ❤️ INSIGNIA FLOTANTE DE REACCIÓN CON EMOJI DEL CLIENTE */}
+                        {msg.reaccion_cliente && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              bottom: -10,
+                              right: 10,
+                              bgcolor: '#ffffff',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '12px',
+                              px: 0.7,
+                              py: 0.1,
+                              fontSize: '13px',
+                              boxShadow: '0 2px 4px rgba(15,23,42,0.12)',
+                              lineHeight: 1.2
+                            }}
+                          >
+                            {msg.reaccion_cliente}
                           </Box>
                         )}
 
@@ -2374,14 +2696,14 @@ export default function WhatsappInterface({
                 <div ref={messagesEndRef} />
               </Box>
 
-              {/* Input de Mensaje o Grabador de Nota de Voz */}
+              {/* Input de Mensaje, Selector de Emojis/Stickers y Grabador de Nota de Voz */}
               <Box sx={{ 
                 bgcolor: '#f0f2f5', 
                 px: 2, 
                 py: 1.2, 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: 1.2,
+                gap: 1,
                 borderTop: '1px solid #e2e8f0' 
               }}>
                 {grabandoVoz ? (
@@ -2433,6 +2755,220 @@ export default function WhatsappInterface({
                   </Box>
                 ) : (
                   <>
+                    {/* 😊 BOTÓN SELECTOR DE EMOJIS Y STICKERS DE WHATSAPP */}
+                    <Tooltip title="Emojis y Stickers de WhatsApp">
+                      <span>
+                        <IconButton
+                          onClick={(e) => setAnchorElEmoji(e.currentTarget)}
+                          disabled={isSending || enviandoNotaVoz || enviandoSticker}
+                          sx={{
+                            bgcolor: Boolean(anchorElEmoji) ? '#dcfce7' : '#ffffff',
+                            color: '#0f766e',
+                            border: '1px solid #cbd5e1',
+                            p: 1.05,
+                            '&:hover': { bgcolor: '#f0fdf4', borderColor: '#25D366' }
+                          }}
+                        >
+                          {enviandoSticker ? (
+                            <CircularProgress size={18} color="inherit" />
+                          ) : (
+                            <Smile size={19} />
+                          )}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+
+                    <Popover
+                      open={Boolean(anchorElEmoji)}
+                      anchorEl={anchorElEmoji}
+                      onClose={() => setAnchorElEmoji(null)}
+                      anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+                      transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                      PaperProps={{
+                        sx: {
+                          width: 330,
+                          borderRadius: 3,
+                          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.16)',
+                          border: '1px solid #e2e8f0',
+                          overflow: 'hidden',
+                          mb: 1
+                        }
+                      }}
+                    >
+                      {/* Pestañas: Emojis vs Stickers */}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          bgcolor: '#f8fafc',
+                          borderBottom: '1px solid #e2e8f0',
+                          p: 0.6,
+                          gap: 0.6
+                        }}
+                      >
+                        <Button
+                          fullWidth
+                          size="small"
+                          onClick={() => setTabEmojiSticker('emojis')}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '12px',
+                            borderRadius: 1.5,
+                            bgcolor: tabEmojiSticker === 'emojis' ? '#0f172a' : 'transparent',
+                            color: tabEmojiSticker === 'emojis' ? '#ffffff' : '#475569',
+                            '&:hover': {
+                              bgcolor: tabEmojiSticker === 'emojis' ? '#1e293b' : '#e2e8f0'
+                            }
+                          }}
+                        >
+                          😊 Emojis
+                        </Button>
+                        <Button
+                          fullWidth
+                          size="small"
+                          onClick={() => setTabEmojiSticker('stickers')}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '12px',
+                            borderRadius: 1.5,
+                            bgcolor: tabEmojiSticker === 'stickers' ? '#0f172a' : 'transparent',
+                            color: tabEmojiSticker === 'stickers' ? '#ffffff' : '#475569',
+                            '&:hover': {
+                              bgcolor: tabEmojiSticker === 'stickers' ? '#1e293b' : '#e2e8f0'
+                            }
+                          }}
+                        >
+                          🏷️ Stickers (1 Clic)
+                        </Button>
+                      </Box>
+
+                      {tabEmojiSticker === 'emojis' ? (
+                        <Box sx={{ p: 1.5 }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              display: 'block',
+                              mb: 1,
+                              color: '#64748b',
+                              fontWeight: 700,
+                              fontSize: '11px'
+                            }}
+                          >
+                            Toca un emoji para insertarlo en tu mensaje:
+                          </Typography>
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(8, 1fr)',
+                              gap: 0.5
+                            }}
+                          >
+                            {EMOJIS_RAPIDOS.map((em) => (
+                              <IconButton
+                                key={em}
+                                size="small"
+                                onClick={() => {
+                                  setMensajeTexto((prev) => `${prev}${em}`);
+                                }}
+                                sx={{
+                                  fontSize: '20px',
+                                  borderRadius: 1.5,
+                                  p: 0.6,
+                                  '&:hover': { bgcolor: '#f1f5f9', transform: 'scale(1.15)' },
+                                  transition: 'transform 0.12s ease'
+                                }}
+                              >
+                                {em}
+                              </IconButton>
+                            ))}
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Box sx={{ p: 1.5 }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              display: 'block',
+                              mb: 1,
+                              color: '#64748b',
+                              fontWeight: 700,
+                              fontSize: '11px'
+                            }}
+                          >
+                            Envía un Sticker oficial de WhatsApp en 1 clic:
+                          </Typography>
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(2, 1fr)',
+                              gap: 1,
+                              mb: 1.25
+                            }}
+                          >
+                            {STICKERS_INSTITUCIONALES.map((st) => (
+                              <Box
+                                key={st.id}
+                                onClick={() => handleEnviarStickerCatalogo(st)}
+                                sx={{
+                                  p: 1,
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  background: `linear-gradient(135deg, ${st.bg1}, ${st.bg2})`,
+                                  color: '#ffffff',
+                                  textAlign: 'center',
+                                  boxShadow: '0 2px 6px rgba(15,23,42,0.12)',
+                                  transition: 'transform 0.14s ease',
+                                  '&:hover': { transform: 'scale(1.03)' }
+                                }}
+                              >
+                                <Typography sx={{ fontSize: '24px', lineHeight: 1.1 }}>
+                                  {st.emoji}
+                                </Typography>
+                                <Typography
+                                  sx={{
+                                    fontSize: '10.5px',
+                                    fontWeight: 800,
+                                    letterSpacing: '0.02em',
+                                    mt: 0.3
+                                  }}
+                                >
+                                  {st.titulo}
+                                </Typography>
+                                <Typography sx={{ fontSize: '9px', opacity: 0.9 }}>
+                                  {st.subtitulo}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Box>
+
+                          <Button
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            component="label"
+                            startIcon={<Upload size={14} />}
+                            sx={{
+                              textTransform: 'none',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              borderRadius: 1.5,
+                              borderColor: '#cbd5e1',
+                              color: '#334155'
+                            }}
+                          >
+                            Subir imagen / WebP como Sticker
+                            <input
+                              type="file"
+                              accept="image/webp,image/png,image/jpeg"
+                              hidden
+                              onChange={handleSubirImagenComoSticker}
+                            />
+                          </Button>
+                        </Box>
+                      )}
+                    </Popover>
+
                     <TextField
                       fullWidth
                       multiline
