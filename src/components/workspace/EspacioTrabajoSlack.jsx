@@ -2686,6 +2686,7 @@ export default function EspacioTrabajoSlack({
               currentUser={user}
               userName={currentUserName}
               userRole={userRole}
+              isFullscreen={isFullscreen}
               usuariosEquipo={usuariosEquipo}
               canalesDisponibles={canales}
               canalActivoInicialId={canalActivo?.tipo !== 'dm' ? canalActivo?.id : 'general'}

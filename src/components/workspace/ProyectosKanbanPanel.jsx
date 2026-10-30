@@ -117,6 +117,7 @@ export default function ProyectosKanbanPanel({
   currentUser,
   userName,
   userRole,
+  isFullscreen = false,
   usuariosEquipo = [],
   canalesDisponibles = [],
   canalActivoInicialId = 'general',
@@ -130,6 +131,8 @@ export default function ProyectosKanbanPanel({
   const [responsableFiltro, setResponsableFiltro] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
   const [vistaModo, setVistaModo] = useState('kanban'); // 'kanban' | 'lista'
+  const [proyectoAEliminar, setProyectoAEliminar] = useState(null);
+  const [eliminandoProyecto, setEliminandoProyecto] = useState(false);
 
   const userEmail = (currentUser?.email || '').toLowerCase();
   const esAdminOSuper = userRole === 'Superadmin' || userRole === 'Admin';
@@ -866,6 +869,46 @@ export default function ProyectosKanbanPanel({
     });
   };
 
+  // Determina si el usuario actual puede eliminar un proyecto personalizado
+  // Pueden borrarlo: Superadmin, Admin, el creador del proyecto (creadoPorEmail), o proyectos de prueba sin creador asignado (excepto los 3 proyectos institucionales base)
+  const SLUGS_PROYECTOS_BASE = ['litigios-cidh', 'gestion-administrativa', 'comunicacion-institucional'];
+  const puedeEliminarProyecto = useCallback(
+    (proy) => {
+      if (!proy || SLUGS_PROYECTOS_BASE.includes(proy.id)) return false;
+      if (esAdminOSuper) return true;
+      const creador = (proy.creadoPorEmail || '').toLowerCase();
+      if (!creador || creador === userEmail) return true;
+      return false;
+    },
+    [esAdminOSuper, userEmail]
+  );
+
+  const handleConfirmarEliminarProyecto = async () => {
+    if (!proyectoAEliminar || !puedeEliminarProyecto(proyectoAEliminar)) return;
+    setEliminandoProyecto(true);
+    try {
+      await deleteDoc(doc(db, 'workspace_proyectos', proyectoAEliminar.id));
+      if (proyectoFiltro === proyectoAEliminar.id) {
+        setProyectoFiltro('todos');
+      }
+      setSnackbar({
+        open: true,
+        message: `Proyecto "${proyectoAEliminar.nombre}" eliminado correctamente.`,
+        severity: 'info'
+      });
+      setProyectoAEliminar(null);
+    } catch (err) {
+      console.error('Error eliminando proyecto:', err);
+      setSnackbar({
+        open: true,
+        message: 'No se pudo eliminar el proyecto.',
+        severity: 'error'
+      });
+    } finally {
+      setEliminandoProyecto(false);
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#f8fafc', overflow: 'hidden' }}>
       {/* BARRA SUPERIOR DE PROYECTOS Y TAREAS */}
@@ -1007,18 +1050,42 @@ export default function ProyectosKanbanPanel({
           />
           {proyectosVisibles.map((p) => {
             const chProy = canalesDisponibles.find((c) => c.id === p.canalId);
+            const esBorrable = puedeEliminarProyecto(p);
+            const seleccionado = proyectoFiltro === p.id;
             return (
               <Chip
                 key={p.id}
                 label={chProy?.esPrivado ? `🔒 ${p.nombre}` : p.nombre}
                 size="small"
                 onClick={() => setProyectoFiltro(p.id)}
+                onDelete={
+                  esBorrable
+                    ? (e) => {
+                        e.stopPropagation();
+                        setProyectoAEliminar(p);
+                      }
+                    : undefined
+                }
+                deleteIcon={
+                  esBorrable ? (
+                    <Tooltip title={`Eliminar proyecto "${p.nombre}"`}>
+                      <Trash2
+                        size={12}
+                        color={seleccionado ? '#ffffff' : '#94a3b8'}
+                        style={{ marginRight: 4 }}
+                      />
+                    </Tooltip>
+                  ) : undefined
+                }
                 sx={{
                   fontWeight: 700,
                   fontSize: '0.75rem',
                   cursor: 'pointer',
-                  bgcolor: proyectoFiltro === p.id ? p.color || '#1a365d' : '#f1f5f9',
-                  color: proyectoFiltro === p.id ? '#ffffff' : '#334155'
+                  bgcolor: seleccionado ? p.color || '#1a365d' : '#f1f5f9',
+                  color: seleccionado ? '#ffffff' : '#334155',
+                  '& .MuiChip-deleteIcon:hover': {
+                    color: seleccionado ? '#fca5a5' : '#dc2626'
+                  }
                 }}
               />
             );
@@ -1092,19 +1159,27 @@ export default function ProyectosKanbanPanel({
       {/* ===================================================================== */}
       {/* CUERPO PRINCIPAL: VISTA TABLERO KANBAN O VISTA DE LISTA               */}
       {/* ===================================================================== */}
-      <Box sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2.5 }, overflow: 'auto' }}>
+      <Box
+        sx={{
+          flexGrow: 1,
+          p: isFullscreen ? { xs: 1.5, sm: 2.5 } : { xs: 1.25, sm: 1.5 },
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}
+      >
         {vistaModo === 'kanban' ? (
           <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: {
                 xs: '1fr',
-                sm: 'repeat(2, minmax(260px, 1fr))',
-                lg: 'repeat(4, minmax(255px, 1fr))'
+                sm: 'repeat(2, minmax(0, 1fr))',
+                md: 'repeat(4, minmax(0, 1fr))'
               },
-              gap: 2,
+              gap: isFullscreen ? 2 : 1.25,
               alignItems: 'flex-start',
-              minHeight: '100%'
+              minHeight: '100%',
+              width: '100%'
             }}
           >
             {COLUMNAS_KANBAN.map((col, colIndex) => {
@@ -1116,14 +1191,16 @@ export default function ProyectosKanbanPanel({
                   key={col.id}
                   elevation={0}
                   sx={{
-                    p: 1.5,
-                    borderRadius: 3,
+                    p: isFullscreen ? 1.5 : 1.1,
+                    borderRadius: 2.5,
                     bgcolor: '#f1f5f9',
                     border: '1px solid #e2e8f0',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 1.25,
-                    minHeight: 420
+                    gap: isFullscreen ? 1.25 : 1,
+                    minHeight: isFullscreen ? 420 : 360,
+                    minWidth: 0,
+                    overflow: 'hidden'
                   }}
                 >
                   {/* CABECERA DE COLUMNA KANBAN */}
@@ -1132,40 +1209,49 @@ export default function ProyectosKanbanPanel({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      px: 0.75,
-                      py: 0.5
+                      px: 0.5,
+                      py: 0.35,
+                      minWidth: 0
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <span>{col.emoji}</span>
-                      <Typography variant="subtitle2" fontWeight="800" color="#0f233c">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: isFullscreen ? 1 : 0.65, minWidth: 0 }}>
+                      <span style={{ fontSize: isFullscreen ? '1rem' : '0.88rem', flexShrink: 0 }}>{col.emoji}</span>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight="800"
+                        color="#0f233c"
+                        noWrap
+                        sx={{ fontSize: isFullscreen ? '0.88rem' : '0.78rem' }}
+                      >
                         {col.titulo}
                       </Typography>
                       <Chip
                         label={tareasColumna.length}
                         size="small"
                         sx={{
-                          height: 20,
-                          fontSize: '0.72rem',
+                          height: isFullscreen ? 20 : 18,
+                          fontSize: isFullscreen ? '0.72rem' : '0.66rem',
                           fontWeight: 800,
                           bgcolor: col.bg,
                           color: col.color,
-                          border: `1px solid ${col.border}`
+                          border: `1px solid ${col.border}`,
+                          flexShrink: 0,
+                          '& .MuiChip-label': { px: 0.8 }
                         }}
                       />
                     </Box>
 
                     {permiteCrearDirecto && (
                       <Tooltip title={`Añadir tarea en ${col.titulo}`}>
-                        <IconButton size="small" onClick={() => abrirModalNuevaTarea(col.id)}>
-                          <Plus size={16} />
+                        <IconButton size="small" onClick={() => abrirModalNuevaTarea(col.id)} sx={{ p: 0.35 }}>
+                          <Plus size={isFullscreen ? 16 : 14} />
                         </IconButton>
                       </Tooltip>
                     )}
                   </Box>
 
                   {/* TARJETAS DE LA COLUMNA */}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: isFullscreen ? 1.25 : 0.9, minWidth: 0 }}>
                     {tareasColumna.map((tarea) => {
                       const prio = PRIORIDADES_TAREA[tarea.prioridad] || PRIORIDADES_TAREA.media;
                       const { total: totalSub, completadas: compSub, pct: pctSub, todasListas } =
@@ -1183,16 +1269,18 @@ export default function ProyectosKanbanPanel({
                           elevation={0}
                           onClick={() => setTareaSeleccionada(tarea)}
                           sx={{
-                            p: 1.75,
+                            p: isFullscreen ? 1.75 : 1.2,
                             borderRadius: '0 10px 10px 0',
                             bgcolor: '#ffffff',
                             border: inconsistenteEnCompletado
                               ? '1.5px solid #ef4444'
                               : '1px solid #e2e8f0',
-                            borderLeft: `4px solid ${
+                            borderLeft: `3px solid ${
                               inconsistenteEnCompletado ? '#dc2626' : tarea.proyectoColor || '#1a365d'
                             }`,
                             cursor: 'pointer',
+                            minWidth: 0,
+                            overflow: 'hidden',
                             transition: 'all 0.15s',
                             '&:hover': {
                               transform: 'translateY(-2px)',
@@ -2425,6 +2513,56 @@ export default function ProyectosKanbanPanel({
             sx={{ bgcolor: '#1a365d', textTransform: 'none', fontWeight: 'bold' }}
           >
             Crear Proyecto
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MODAL CONFIRMAR ELIMINACIÓN DE PROYECTO */}
+      <Dialog
+        open={Boolean(proyectoAEliminar)}
+        onClose={() => !eliminandoProyecto && setProyectoAEliminar(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#0f172a', fontSize: '1rem' }}>
+          Eliminar Proyecto
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="#334155" sx={{ mb: 1.5, lineHeight: 1.55 }}>
+            ¿Estás seguro de que deseas eliminar el proyecto{' '}
+            <strong>{proyectoAEliminar?.nombre}</strong>?
+          </Typography>
+          <Box
+            sx={{
+              p: 1.5,
+              borderRadius: '0 8px 8px 0',
+              bgcolor: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderLeft: '3px solid #d97706'
+            }}
+          >
+            <Typography variant="caption" color="#92400e" sx={{ fontWeight: 600, display: 'block' }}>
+              Esta acción retirará la etiqueta del proyecto del tablero. Solo el creador del proyecto o un administrador pueden eliminarlo.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setProyectoAEliminar(null)}
+            disabled={eliminandoProyecto}
+            sx={{ textTransform: 'none', fontWeight: 600, color: '#475569' }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={eliminandoProyecto}
+            onClick={handleConfirmarEliminarProyecto}
+            startIcon={<Trash2 size={15} />}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, bgcolor: '#b91c1c' }}
+          >
+            {eliminandoProyecto ? 'Eliminando...' : 'Sí, eliminar proyecto'}
           </Button>
         </DialogActions>
       </Dialog>
