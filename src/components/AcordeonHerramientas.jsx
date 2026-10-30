@@ -6,8 +6,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Chip,
-  Avatar
+  Chip
 } from '@mui/material';
 import {
   MessageSquare,
@@ -15,7 +14,6 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import EspacioTrabajoSlack from './workspace/EspacioTrabajoSlack';
-import { useAuth } from '../context/AuthContext';
 
 export default function AcordeonHerramientas({
   activePanel,
@@ -23,8 +21,6 @@ export default function AcordeonHerramientas({
   userRole = 'Abogado/a',
   userName = ''
 }) {
-  const { user } = useAuth();
-
   // Estado del acordeón controlado o interno: 'chat' | 'calendario' | false
   const [internalExpanded, setInternalExpanded] = useState('chat');
   const expanded = activePanel !== undefined ? activePanel : internalExpanded;
@@ -129,19 +125,6 @@ export default function AcordeonHerramientas({
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-              {user && (
-                <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1, px: 1.2, py: 0.4, borderRadius: '6px', bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                  <Avatar
-                    src={user.photoURL}
-                    sx={{ width: 20, height: 20, fontSize: '0.68rem', fontWeight: 800, bgcolor: '#0f172a' }}
-                  >
-                    {user.displayName ? user.displayName.charAt(0) : 'U'}
-                  </Avatar>
-                  <Typography variant="caption" sx={{ color: '#334155', fontWeight: 600, fontSize: '0.72rem' }}>
-                    {user.email}
-                  </Typography>
-                </Box>
-              )}
               <Chip
                 icon={<ShieldCheck size={13} color="#0f766e" />}
                 label="En línea"
