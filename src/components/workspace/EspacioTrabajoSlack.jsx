@@ -1607,6 +1607,13 @@ export default function EspacioTrabajoSlack({
   // 7. HELPERS DE FORMATO Y PRESENCIA
   // =========================================================================
   const miPresencia = presenciaMap[currentUserEmail] || {};
+  const miRegistroEquipo = useMemo(
+    () => usuariosEquipo.find((u) => u.email.toLowerCase() === currentUserEmail),
+    [usuariosEquipo, currentUserEmail]
+  );
+  const nombrePersonaConectada =
+    miRegistroEquipo?.nombre || miPresencia?.nombre || currentUserName;
+
   const miEstadoActual = useMemo(() => {
     if (miPresencia.estadoId === 'personalizado' && miPresencia.estadoTexto) {
       return {
@@ -1989,23 +1996,6 @@ export default function EspacioTrabajoSlack({
             </Button>
           </Tooltip>
 
-          <Tooltip title="Cambiar tu estado en el espacio de trabajo">
-            <Chip
-              onClick={(e) => setAnchorEstadoUsuario(e.currentTarget)}
-              label={`${miEstadoActual.emoji} ${miEstadoActual.texto}`}
-              size="small"
-              sx={{
-                bgcolor: 'rgba(255,255,255,0.12)',
-                color: '#ffffff',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                maxWidth: { xs: 140, sm: 220 },
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
-              }}
-            />
-          </Tooltip>
-
           <Popover
             anchorEl={anchorEstadoUsuario}
             open={Boolean(anchorEstadoUsuario)}
@@ -2013,8 +2003,8 @@ export default function EspacioTrabajoSlack({
               setAnchorEstadoUsuario(null);
               setMostrarSelectorEmojiEstado(false);
             }}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             PaperProps={{
               sx: {
                 width: 315,
@@ -2031,7 +2021,7 @@ export default function EspacioTrabajoSlack({
                 ESTADO DE DISPONIBILIDAD
               </Typography>
               <Typography variant="caption" sx={{ fontSize: '0.68rem', color: '#64748b' }}>
-                Elige ícono y estado
+                {nombrePersonaConectada}
               </Typography>
             </Box>
 
@@ -2183,7 +2173,7 @@ export default function EspacioTrabajoSlack({
       {/* ===================================================================== */}
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', position: 'relative' }}>
         {/* ------------------------------------------------------------------- */}
-        {/* 1. BARRA LATERAL IZQUIERDA (GUARDADOS, CANALES Y MENSAJES DIRECTOS) */}
+        {/* 1. BARRA LATERAL IZQUIERDA (PERFIL/ESTADO, GUARDADOS, CANALES Y DM) */}
         {/* ------------------------------------------------------------------- */}
         <Box
           sx={{
@@ -2202,8 +2192,100 @@ export default function EspacioTrabajoSlack({
             flexShrink: 0
           }}
         >
+          {/* BLOQUE DE PERSONA CONECTADA + DISPONIBILIDAD Y ESTADO PERSONALIZADO (DEBAJO DE IIRESODH WORKSPACE) */}
+          <Box sx={{ px: 1.5, pt: 1.25, pb: 0.5 }}>
+            <Tooltip title="Haz clic para cambiar tu disponibilidad o escribir un estado personalizado">
+              <Box
+                onClick={(e) => setAnchorEstadoUsuario(e.currentTarget)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  px: 1.2,
+                  py: 0.75,
+                  borderRadius: '0 8px 8px 0',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderLeft: `3px solid ${miEstadoActual.color || '#22c55e'}`,
+                  bgcolor: 'rgba(15, 28, 48, 0.55)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.09)',
+                    borderColor: 'rgba(255,255,255,0.24)'
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                  <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                    <Avatar
+                      src={user?.photoURL}
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        fontSize: '0.76rem',
+                        fontWeight: 800,
+                        bgcolor: '#457B9D',
+                        color: '#ffffff',
+                        border: '1px solid rgba(255,255,255,0.22)'
+                      }}
+                    >
+                      {(nombrePersonaConectada || 'U').charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        bottom: -1,
+                        right: -1,
+                        width: 9,
+                        height: 9,
+                        borderRadius: '50%',
+                        bgcolor: miEstadoActual.color || '#22c55e',
+                        border: '1.5px solid #162944'
+                      }}
+                    />
+                  </Box>
+
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography
+                      noWrap
+                      sx={{
+                        fontSize: '0.79rem',
+                        fontWeight: 800,
+                        color: '#ffffff',
+                        lineHeight: 1.15
+                      }}
+                    >
+                      {nombrePersonaConectada}
+                    </Typography>
+                    <Typography
+                      noWrap
+                      sx={{
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        color: '#A8DADC',
+                        lineHeight: 1.2,
+                        mt: 0.15,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.4
+                      }}
+                    >
+                      <span>{miEstadoActual.emoji}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {miEstadoActual.texto}
+                      </span>
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Edit3 size={13} color="#94a3b8" style={{ flexShrink: 0, opacity: 0.85 }} />
+              </Box>
+            </Tooltip>
+          </Box>
+
           {/* BUSCADOR DE CANALES Y COLEGAS */}
-          <Box sx={{ p: 1.5, pb: 1 }}>
+          <Box sx={{ p: 1.5, pt: 1, pb: 1 }}>
             <TextField
               size="small"
               placeholder="Ir a canal o colega..."
