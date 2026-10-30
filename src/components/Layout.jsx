@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { 
   Briefcase, ShieldAlert, LogOut, UserCheck, Home, 
-  Globe, MessageCircle, FolderArchive, Menu, X 
+  Globe, MessageCircle, FolderArchive, Menu, X, Smartphone 
 } from 'lucide-react';
 import { ref as rtdbRef, update as rtdbUpdate, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import { rtdb } from '../config/firebase';
@@ -242,6 +242,31 @@ export default function Layout({ children, currentView, setView, userRole, userP
           
           {/* SECCIÓN DERECHA: Rol, Email y botón de cierre de sesión */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
+            <Tooltip title="Abrir vista móvil de Comunicaciones (WhatsApp + Workspace)">
+              <Button
+                size="small"
+                onClick={() => setView('pwa_comms')}
+                startIcon={<Smartphone size={14} />}
+                sx={{
+                  color: '#34d399',
+                  textTransform: 'none',
+                  fontSize: '0.73rem',
+                  fontWeight: 700,
+                  px: 1.15,
+                  py: 0.35,
+                  borderRadius: '7px',
+                  bgcolor: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  '&:hover': {
+                    bgcolor: 'rgba(16, 185, 129, 0.22)',
+                    borderColor: '#10b981'
+                  }
+                }}
+              >
+                App Móvil
+              </Button>
+            </Tooltip>
+
             {userRole && (
               <Chip
                 label={userRole}

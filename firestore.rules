@@ -125,6 +125,11 @@ service cloud.firestore {
       allow read, write: if isAuthorized();
     }
 
+    // Tokens de Notificaciones Push PWA (Android e iOS) para WhatsApp y Workspace
+    match /pwa_fcm_tokens/{tokenId} {
+      allow read, create, update, delete: if isAuthorized();
+    }
+
     // =================================================================
     // SEGURIDAD: ESPACIO DE TRABAJO COLABORATIVO (SLACK + CALENDARIO HÍBRIDO)
     // =================================================================

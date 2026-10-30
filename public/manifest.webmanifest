@@ -1,0 +1,50 @@
+{
+  "id": "/?app=comms",
+  "name": "IIRESODH Comunicaciones · WhatsApp & Workspace",
+  "short_name": "IIRESODH",
+  "description": "Plataforma móvil de mensajería oficial WhatsApp Business y canales internos de IIRESODH.",
+  "lang": "es",
+  "start_url": "/?app=comms",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "categories": ["business", "productivity", "social"],
+  "icons": [
+    {
+      "src": "/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "WhatsApp Oficial",
+      "short_name": "WhatsApp",
+      "description": "Abrir bandeja de WhatsApp Business",
+      "url": "/?app=comms&tab=whatsapp",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Workspace Mensajes",
+      "short_name": "Workspace",
+      "description": "Abrir canales y mensajes directos internos",
+      "url": "/?app=comms&tab=workspace",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

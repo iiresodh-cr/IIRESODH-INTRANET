@@ -58,7 +58,11 @@ import {
   Volume2,
   VolumeX,
   Smile,
-  Upload
+  Upload,
+  Paperclip,
+  Camera,
+  FileText,
+  Image as ImageIcon
 } from 'lucide-react';
 import { 
   collection, 
@@ -162,7 +166,10 @@ export default function WhatsappInterface({
   onVolver, 
   currentUserEmail = '', 
   userName = 'Operador IIRESODH',
-  userRole = 'Operador'
+  userRole = 'Operador',
+  isMobilePwa = false,
+  initialChatId = null,
+  onActiveChatChange = null
 }) {
   // --- Control de Privilegios Administrativos ---
   const esAdmin = 
@@ -251,7 +258,32 @@ export default function WhatsappInterface({
   const [tabEmojiSticker, setTabEmojiSticker] = useState('emojis'); // 'emojis' | 'stickers'
   const [enviandoSticker, setEnviandoSticker] = useState(false);
 
+  // Adjuntos Multimedia desde Móvil / Escritorio (Cámara, Galería, Documentos PDF/Word)
+  const [anchorElAdjunto, setAnchorElAdjunto] = useState(null);
+  const [enviandoAdjunto, setEnviandoAdjunto] = useState(false);
+
   const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof onActiveChatChange === 'function') {
+      onActiveChatChange(Boolean(selectedChat));
+    }
+  }, [selectedChat, onActiveChatChange]);
+
+  // Selección directa por Deep Link de Notificación Push (?chatId=...)
+  useEffect(() => {
+    if (!initialChatId || chats.length === 0) return;
+    const cleanTarget = String(initialChatId).replace(/\D/g, '');
+    const encontrado = chats.find(
+      (c) =>
+        c.id === initialChatId ||
+        c.id === cleanTarget ||
+        String(c.telefono || '').replace(/\D/g, '') === cleanTarget
+    );
+    if (encontrado && selectedChat?.id !== encontrado.id) {
+      setSelectedChat(encontrado);
+    }
+  }, [initialChatId, chats]);
 
   // Auto-scroll al final del chat cuando llegan o se envían mensajes
   const scrollToBottom = () => {
@@ -1795,6 +1827,145 @@ export default function WhatsappInterface({
     }
   };
 
+  // Envío nativo de Fotos (Cámara / Galería) y Documentos (PDF / Word / Excel) a WhatsApp
+  const handleEnviarArchivoAdjuntoWhatsApp = async (e, tipoForzado = null) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedChat) return;
+    setAnchorElAdjunto(null);
+    setEnviandoAdjunto(true);
+
+    try {
+      const telClean = String(selectedChat.telefono || selectedChat.id).replace(/\D/g, '');
+      const esImagen =
+        tipoForzado === 'image' ||
+        (file.type && file.type.startsWith('image/') && tipoForzado !== 'document');
+      const tipoMeta = esImagen ? 'image' : 'document';
+      const safeFileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+
+      // 1. Subir a Firebase Storage para respaldo y visualización instantánea en la Intranet
+      const refFile = storageRef(storage, `whatsapp_adjuntos/${telClean}/${safeFileName}`);
+      await uploadBytes(refFile, file, { contentType: file.type || 'application/octet-stream' });
+      const publicUrl = await getDownloadURL(refFile);
+
+      // 2. Subir a Meta Graph API y despachar al teléfono del contacto
+      const phoneId = metaConfig.phone_number_id || DEFAULT_PHONE_ID;
+      const token = metaConfig.whatsapp_token || DEFAULT_TOKEN;
+      let wamidMedia = null;
+      const captionTexto = mensajeTexto.trim();
+
+      if (phoneId && token) {
+        try {
+          const form = new FormData();
+          form.append('messaging_product', 'whatsapp');
+          form.append('file', file, file.name);
+          form.append('type', file.type || (esImagen ? 'image/jpeg' : 'application/pdf'));
+
+          const upRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/media`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: form
+          });
+          const upData = await upRes.json().catch(() => ({}));
+
+          let bodyMeta = null;
+          if (upRes.ok && upData.id) {
+            bodyMeta = {
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: telClean,
+              type: tipoMeta,
+              [tipoMeta]: esImagen
+                ? { id: upData.id, ...(captionTexto ? { caption: captionTexto } : {}) }
+                : {
+                    id: upData.id,
+                    filename: file.name,
+                    ...(captionTexto ? { caption: captionTexto } : {})
+                  }
+            };
+          } else {
+            bodyMeta = {
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: telClean,
+              type: 'text',
+              text: {
+                body: `${esImagen ? '📷 Imagen' : `📄 ${file.name}`}${
+                  captionTexto ? ` — ${captionTexto}` : ''
+                }: ${publicUrl}`
+              }
+            };
+          }
+
+          const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(bodyMeta)
+          });
+          const sendData = await sendRes.json().catch(() => ({}));
+          if (sendRes.ok) {
+            wamidMedia = sendData.messages?.[0]?.id || null;
+          }
+        } catch (errMeta) {
+          console.warn('Error enviando media a Meta API:', errMeta);
+        }
+      }
+
+      const resumenTexto = esImagen
+        ? captionTexto
+          ? `📷 Foto: ${captionTexto}`
+          : '📷 [Foto adjunta]'
+        : `📄 Archivo: ${file.name}${captionTexto ? ` — ${captionTexto}` : ''}`;
+
+      const payloadMsg = {
+        id_meta: wamidMedia,
+        texto: resumenTexto,
+        media_url: publicUrl,
+        nombre_archivo: file.name,
+        mime_type: file.type || (esImagen ? 'image/jpeg' : 'application/pdf'),
+        es_mio: true,
+        agente_nombre: userName,
+        agente_email: currentUserEmail,
+        fecha: serverTimestamp(),
+        estado: wamidMedia ? 'sent' : 'enviado',
+        tipo: tipoMeta
+      };
+
+      if (wamidMedia) {
+        await setDoc(doc(db, 'whatsapp_chats', telClean, 'mensajes', wamidMedia), payloadMsg);
+      } else {
+        await addDoc(collection(db, 'whatsapp_chats', telClean, 'mensajes'), payloadMsg);
+      }
+
+      await setDoc(
+        doc(db, 'whatsapp_chats', telClean),
+        {
+          telefono: telClean,
+          ultimo_mensaje: resumenTexto,
+          ultima_fecha: serverTimestamp(),
+          actualizado_en: serverTimestamp(),
+          ultimo_agente: userName,
+          no_leidos: 0
+        },
+        { merge: true }
+      );
+
+      if (captionTexto) {
+        setMensajeTexto('');
+      }
+    } catch (err) {
+      setNotificacion({
+        tipo: 'error',
+        mensaje: 'No se pudo enviar el archivo adjunto: ' + err.message
+      });
+    } finally {
+      setEnviandoAdjunto(false);
+      e.target.value = null;
+    }
+  };
+
   // Opción 3: Crear y enviar Sala de Voz / Videollamada (Google Meet Nativo) en 1 Clic al WhatsApp del cliente
   const handleEnviarSalaVozMeet = async () => {
     if (!selectedChat || creandoSalaMeet) return;
@@ -1863,15 +2034,19 @@ export default function WhatsappInterface({
   return (
     <Box
       sx={{
-        height: { xs: 'calc(100dvh - 76px)', sm: 'calc(100dvh - 88px)', md: 'calc(100vh - 104px)' },
-        minHeight: { xs: 480, md: 600 },
+        height: isMobilePwa
+          ? '100%'
+          : { xs: 'calc(100dvh - 76px)', sm: 'calc(100dvh - 88px)', md: 'calc(100vh - 104px)' },
+        minHeight: isMobilePwa ? 0 : { xs: 480, md: 600 },
         display: 'flex',
         flexDirection: 'column',
         bgcolor: '#ffffff',
-        borderRadius: { xs: '8px', md: '12px' },
+        borderRadius: isMobilePwa ? 0 : { xs: '8px', md: '12px' },
         overflow: 'hidden',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.03)',
+        border: isMobilePwa ? 'none' : '1px solid #e2e8f0',
+        boxShadow: isMobilePwa
+          ? 'none'
+          : '0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.03)',
         fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
       }}
     >
@@ -1885,7 +2060,7 @@ export default function WhatsappInterface({
         sx={{
           bgcolor: '#ffffff',
           px: { xs: 1.5, sm: 2, md: 2.5 },
-          py: { xs: 1, md: 1.15 },
+          py: { xs: 0.85, md: 1.15 },
           display: { xs: selectedChat ? 'none' : 'flex', md: 'flex' },
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -3008,6 +3183,38 @@ export default function WhatsappInterface({
                               </Typography>
                             )}
                           </Box>
+                        ) : (msg.tipo === 'document' || msg.raw_type === 'document') && mediaSrc ? (
+                          <Box
+                            component="a"
+                            href={mediaSrc}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1.1,
+                              p: 1,
+                              borderRadius: '8px',
+                              bgcolor: 'rgba(15, 23, 42, 0.04)',
+                              border: '1px solid #cbd5e1',
+                              textDecoration: 'none',
+                              color: '#0f172a',
+                              mb: 0.35
+                            }}
+                          >
+                            <FileText size={18} color="#0f766e" style={{ flexShrink: 0 }} />
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography
+                                noWrap
+                                sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}
+                              >
+                                {msg.nombre_archivo || msg.texto || 'Documento adjunto'}
+                              </Typography>
+                              <Typography sx={{ fontSize: '0.68rem', color: '#0f766e', fontWeight: 600 }}>
+                                Toca para abrir o descargar
+                              </Typography>
+                            </Box>
+                          </Box>
                         ) : (
                           <Typography
                             sx={{
@@ -3460,6 +3667,142 @@ export default function WhatsappInterface({
                           </Button>
                         </Box>
                       )}
+                    </Popover>
+
+                    {/* Botón Adjuntar Cámara / Galería / Documento PDF */}
+                    <Tooltip title="Adjuntar foto, cámara o documento">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => setAnchorElAdjunto(e.currentTarget)}
+                          disabled={isSending || enviandoNotaVoz || enviandoSticker || enviandoAdjunto}
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '7px',
+                            bgcolor: Boolean(anchorElAdjunto) ? '#0f172a' : 'transparent',
+                            color: Boolean(anchorElAdjunto) ? '#ffffff' : '#475569',
+                            '&:hover': {
+                              bgcolor: Boolean(anchorElAdjunto) ? '#1e293b' : '#e2e8f0',
+                              color: Boolean(anchorElAdjunto) ? '#ffffff' : '#0f172a'
+                            }
+                          }}
+                        >
+                          {enviandoAdjunto ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <Paperclip size={17} />
+                          )}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+
+                    <Popover
+                      open={Boolean(anchorElAdjunto)}
+                      anchorEl={anchorElAdjunto}
+                      onClose={() => setAnchorElAdjunto(null)}
+                      anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+                      transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                      PaperProps={{
+                        sx: {
+                          width: 245,
+                          borderRadius: '12px',
+                          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.16)',
+                          border: '1px solid #e2e8f0',
+                          p: 1,
+                          mb: 1
+                        }
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          px: 1,
+                          py: 0.5,
+                          fontSize: '0.66rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                          color: '#64748b'
+                        }}
+                      >
+                        Enviar a WhatsApp
+                      </Typography>
+
+                      <Button
+                        fullWidth
+                        component="label"
+                        startIcon={<Camera size={16} color="#10b981" />}
+                        sx={{
+                          justifyContent: 'flex-start',
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          color: '#0f172a',
+                          py: 0.85,
+                          px: 1.25,
+                          borderRadius: '8px',
+                          '&:hover': { bgcolor: '#f1f5f9' }
+                        }}
+                      >
+                        Tomar foto (Cámara)
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          hidden
+                          onChange={(e) => handleEnviarArchivoAdjuntoWhatsApp(e, 'image')}
+                        />
+                      </Button>
+
+                      <Button
+                        fullWidth
+                        component="label"
+                        startIcon={<ImageIcon size={16} color="#0284c7" />}
+                        sx={{
+                          justifyContent: 'flex-start',
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          color: '#0f172a',
+                          py: 0.85,
+                          px: 1.25,
+                          borderRadius: '8px',
+                          '&:hover': { bgcolor: '#f1f5f9' }
+                        }}
+                      >
+                        Foto de galería
+                        <input
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={(e) => handleEnviarArchivoAdjuntoWhatsApp(e, 'image')}
+                        />
+                      </Button>
+
+                      <Button
+                        fullWidth
+                        component="label"
+                        startIcon={<FileText size={16} color="#6366f1" />}
+                        sx={{
+                          justifyContent: 'flex-start',
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          color: '#0f172a',
+                          py: 0.85,
+                          px: 1.25,
+                          borderRadius: '8px',
+                          '&:hover': { bgcolor: '#f1f5f9' }
+                        }}
+                      >
+                        Documento (PDF / Word)
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,application/pdf"
+                          hidden
+                          onChange={(e) => handleEnviarArchivoAdjuntoWhatsApp(e, 'document')}
+                        />
+                      </Button>
                     </Popover>
 
                     <TextField

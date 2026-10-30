@@ -3,7 +3,7 @@ import json
 import time
 import base64
 import requests
-from firebase_admin import initialize_app, firestore
+from firebase_admin import initialize_app, firestore, messaging
 from firebase_functions import https_fn, options
 
 # 🚀 1. Inicialización diferida (Lazy) de Firebase Admin SDK para evitar timeouts de carga
@@ -100,6 +100,106 @@ def descargar_media_meta(media_id: str, token: str, max_bytes: int = 400000):
     except Exception as e_med:
         print("⚠️ Error descargando media de Meta:", str(e_med))
         return None, None, None
+
+
+def enviar_push_fcm_dispositivos(
+    titulo: str,
+    cuerpo: str,
+    data_payload: dict,
+    excluir_email: str = None,
+    solo_emails: list = None
+):
+    """
+    Envía notificaciones Web Push / FCM de alta prioridad a todos los teléfonos
+    (Android e iOS 16.4+ PWA) registrados en la colección `pwa_fcm_tokens`.
+    """
+    try:
+        db = get_db()
+        docs = list(db.collection("pwa_fcm_tokens").stream())
+        if not docs:
+            return 0
+
+        excluir_norm = (excluir_email or "").strip().lower()
+        solo_norm = (
+            {str(e).strip().lower() for e in solo_emails if e}
+            if solo_emails
+            else None
+        )
+
+        tokens = []
+        token_doc_map = {}
+
+        for d in docs:
+            info = d.to_dict() or {}
+            if not info.get("activo", True):
+                continue
+            tok = info.get("token")
+            email = (info.get("email") or "").strip().lower()
+            if not tok:
+                continue
+            if excluir_norm and email == excluir_norm:
+                continue
+            if solo_norm and email not in solo_norm:
+                continue
+            if tok not in token_doc_map:
+                tokens.append(tok)
+                token_doc_map[tok] = d.reference
+
+        if not tokens:
+            return 0
+
+        str_data = {str(k): str(v) for k, v in (data_payload or {}).items() if v is not None}
+        target_url = str_data.get("url", "/?app=comms")
+        tag = str_data.get("tag", f"iiresodh-{int(time.time())}")
+
+        multicast = messaging.MulticastMessage(
+            tokens=tokens,
+            notification=messaging.Notification(
+                title=titulo[:100],
+                body=cuerpo[:240]
+            ),
+            data=str_data,
+            webpush=messaging.WebpushConfig(
+                headers={"Urgency": "high", "TTL": "86400"},
+                notification=messaging.WebpushNotification(
+                    title=titulo[:100],
+                    body=cuerpo[:240],
+                    icon="/pwa-icon-192.png",
+                    badge="/pwa-icon-192.png",
+                    tag=tag,
+                    renotify=True
+                ),
+                fcm_options=messaging.WebpushFCMOptions(link=target_url)
+            ),
+            android=messaging.AndroidConfig(priority="high"),
+            apns=messaging.APNSConfig(
+                headers={"apns-priority": "10"},
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(sound="default", badge=1)
+                )
+            )
+        )
+
+        response = messaging.send_each_for_multicast(multicast)
+
+        # Limpiar tokens expirados o desinstalados automáticamente
+        for idx, resp in enumerate(response.responses):
+            if not resp.success and resp.exception:
+                err_code = getattr(resp.exception, "code", "") or str(resp.exception)
+                if "UNREGISTERED" in err_code or "NOT_FOUND" in err_code or "registration-token-not-registered" in err_code:
+                    bad_tok = tokens[idx]
+                    ref = token_doc_map.get(bad_tok)
+                    if ref:
+                        try:
+                            ref.delete()
+                        except Exception:
+                            pass
+
+        return response.success_count
+    except Exception as e_push:
+        print("⚠️ Error enviando notificación Push FCM:", str(e_push))
+        return 0
+
 
 
 @https_fn.on_request(cors=options.CorsOptions(cors_origins="*", cors_methods=["get", "post"]))
@@ -272,6 +372,24 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                                     msg_payload["media_url"] = inline_uri
                         msg_ref.set(msg_payload)
 
+                        # Disparar Notificación Push FCM a dispositivos móviles registrados (Android / iOS PWA)
+                        nombre_push = (
+                            nombre_contacto
+                            or (chat_snap.to_dict() or {}).get("nombre")
+                            or f"+{remitente}"
+                        )
+                        enviar_push_fcm_dispositivos(
+                            titulo=f"🟢 WhatsApp · {nombre_push}",
+                            cuerpo=cuerpo_texto or "Nuevo mensaje recibido",
+                            data_payload={
+                                "tab": "whatsapp",
+                                "chatId": remitente,
+                                "tipo": msg_type,
+                                "tag": f"wa-chat-{remitente}",
+                                "url": f"/?app=comms&tab=whatsapp&chatId={remitente}"
+                            }
+                        )
+
                     # B2. Eventos de Llamadas de Voz de WhatsApp (Calling API / WebRTC)
                     calls = value.get("calls", [])
                     if calls:
@@ -300,16 +418,31 @@ def whatsapp_webhook(req: https_fn.Request) -> https_fn.Response:
                                 continue
 
                             # Registrar llamada en Firestore para que timbre en tiempo real en la Intranet
+                            from_name_call = contact_map.get(call_from, f"+{call_from}")
                             db.collection("whatsapp_calls").document(call_id).set({
                                 "call_id": call_id,
                                 "from": call_from,
-                                "from_name": contact_map.get(call_from, f"+{call_from}"),
+                                "from_name": from_name_call,
                                 "event": call_event_type,
                                 "sdp_type": session_data.get("sdp_type", ""),
                                 "sdp": session_data.get("sdp", ""),
                                 "estado": "entrante" if call_event_type == "connect" else "finalizada",
                                 "fecha": firestore.SERVER_TIMESTAMP
                             }, merge=True)
+
+                            if call_event_type == "connect":
+                                enviar_push_fcm_dispositivos(
+                                    titulo=f"📞 Llamada WhatsApp · {from_name_call}",
+                                    cuerpo="Llamada entrante en línea oficial IIRESODH. Toca para contestar.",
+                                    data_payload={
+                                        "tab": "whatsapp",
+                                        "chatId": call_from or "",
+                                        "callId": call_id,
+                                        "tipo": "call",
+                                        "tag": f"wa-call-{call_id}",
+                                        "url": f"/?app=comms&tab=whatsapp&chatId={call_from or ''}&callId={call_id}"
+                                    }
+                                )
 
                     # C. Notificaciones de estado (enviado, entregado, leído, error)
                     statuses = value.get("statuses", [])
@@ -494,4 +627,46 @@ def enviar_mensaje(req: https_fn.Request) -> https_fn.Response:
         }),
         status=200,
         mimetype='application/json'
+    )
+
+
+@https_fn.on_request(cors=options.CorsOptions(cors_origins="*", cors_methods=["post"]))
+def notificar_workspace(req: https_fn.Request) -> https_fn.Response:
+    """
+    Ruta: /notificar_workspace
+    Envía notificaciones Push FCM (Android e iOS PWA) cuando un colega envía
+    un mensaje directo (DM) o publica en un canal interno de IIRESODH Workspace.
+    """
+    data = req.get_json(silent=True) or {}
+    canal_id = (data.get("canal_id") or "general").strip()
+    canal_nombre = (data.get("canal_nombre") or canal_id).strip()
+    es_dm = bool(data.get("es_dm"))
+    texto = (data.get("texto") or "Nuevo mensaje en IIRESODH Workspace").strip()
+    autor_email = (data.get("autor_email") or "").strip().lower()
+    autor_nombre = (data.get("autor_nombre") or "Colega IIRESODH").strip()
+    destinatarios = data.get("destinatarios") or []
+
+    if es_dm:
+        titulo = f"💬 IIRESODH · {autor_nombre}"
+    else:
+        titulo = f"💬 #{canal_nombre} · {autor_nombre}"
+
+    enviados = enviar_push_fcm_dispositivos(
+        titulo=titulo,
+        cuerpo=texto,
+        data_payload={
+            "tab": "workspace",
+            "channelId": canal_id,
+            "tipo": "dm" if es_dm else "canal",
+            "tag": f"ws-chan-{canal_id}",
+            "url": f"/?app=comms&tab=workspace&channelId={canal_id}"
+        },
+        excluir_email=autor_email,
+        solo_emails=destinatarios if isinstance(destinatarios, list) and len(destinatarios) > 0 else None
+    )
+
+    return https_fn.Response(
+        json.dumps({"success": True, "enviados": enviados}),
+        status=200,
+        mimetype="application/json"
     )

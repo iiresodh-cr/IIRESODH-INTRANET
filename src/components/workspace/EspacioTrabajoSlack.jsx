@@ -104,6 +104,7 @@ import {
 import { db, rtdb, storage } from '../../config/firebase';
 import { useAuth, crearEspacioGoogleMeet } from '../../context/AuthContext';
 import { registrarLogAuditoria } from '../../utils/auditLogger';
+import { dispararPushWorkspaceBackend } from '../../utils/pwaNotifications';
 import CalendarioHibridoPanel, { CATEGORIAS_EVENTO } from './CalendarioHibridoPanel';
 import ProyectosKanbanPanel from './ProyectosKanbanPanel';
 import GoogleDriveWorkspacePanel from './GoogleDriveWorkspacePanel';
@@ -1056,6 +1057,21 @@ export default function EspacioTrabajoSlack({
                   ultimoMensajeTexto: '🎙️ Nota de voz',
                   ultimoMensajeAutor: currentUserName
                 });
+
+                dispararPushWorkspaceBackend({
+                  canalId: canalActivoId,
+                  canalNombre: obtenerTituloCanal(canalActivo),
+                  esDm: canalActivo?.tipo === 'dm',
+                  texto: '🎙️ Nota de voz',
+                  autorEmail: currentUserEmail,
+                  autorNombre: nombrePersonaConectada || currentUserName,
+                  destinatarios:
+                    canalActivo?.tipo === 'dm'
+                      ? canalActivo.participantes || []
+                      : canalActivo?.esPrivado
+                      ? canalActivo.miembros || []
+                      : []
+                });
                 resolve();
               }
             );
@@ -1521,6 +1537,21 @@ export default function EspacioTrabajoSlack({
           ultimoMensajeAutor: currentUserName
         });
       }
+
+      dispararPushWorkspaceBackend({
+        canalId: canalActivoId,
+        canalNombre: obtenerTituloCanal(canalActivo),
+        esDm: canalActivo?.tipo === 'dm',
+        texto: texto || `📎 ${adjuntos.length} archivo(s) adjunto(s)`,
+        autorEmail: currentUserEmail,
+        autorNombre: nombrePersonaConectada || currentUserName,
+        destinatarios:
+          canalActivo?.tipo === 'dm'
+            ? canalActivo.participantes || []
+            : canalActivo?.esPrivado
+            ? canalActivo.miembros || []
+            : []
+      });
     } catch (err) {
       console.error('Error enviando mensaje:', err);
     }
