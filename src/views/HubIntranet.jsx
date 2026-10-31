@@ -525,18 +525,13 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: '9px',
-                    bgcolor: tieneAccesoLitigio ? '#f1f5f9' : '#f8fafc',
                     color: tieneAccesoLitigio ? '#0f172a' : '#94a3b8',
-                    border: '1px solid #e2e8f0',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <Scale size={20} />
+                  <Scale size={28} strokeWidth={1.75} />
                 </Box>
                 <Chip
                   label={tieneAccesoLitigio ? 'Área Jurídica · Corte IDH / ONU' : 'Restringido'}
@@ -607,18 +602,13 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: '9px',
-                    bgcolor: '#fef2f2',
                     color: '#b91c1c',
-                    border: '1px solid #fecaca',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <FolderArchive size={20} />
+                  <FolderArchive size={28} strokeWidth={1.75} />
                 </Box>
                 <Chip
                   label="Normativa & Identidad"
@@ -689,18 +679,13 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: '9px',
-                    bgcolor: tieneAccesoWeb ? '#f0f9ff' : '#f8fafc',
                     color: tieneAccesoWeb ? '#0369a1' : '#94a3b8',
-                    border: tieneAccesoWeb ? '1px solid #bae6fd' : '1px solid #e2e8f0',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <Globe size={20} />
+                  <Globe size={28} strokeWidth={1.75} />
                 </Box>
                 <Chip
                   label={tieneAccesoWeb ? 'Portal Público · CMS' : 'Restringido'}
@@ -772,25 +757,25 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: '9px',
-                    bgcolor: tieneAccesoWhatsapp ? '#f0fdf4' : '#f8fafc',
                     color: tieneAccesoWhatsapp ? '#0f766e' : '#94a3b8',
-                    border: tieneAccesoWhatsapp ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
                   <svg
-                    width="20"
-                    height="20"
+                    width="28"
+                    height="28"
                     viewBox="0 0 24 24"
-                    fill="currentColor"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                     xmlns="http://www.w3.org/2000/svg"
                   >
-                    <path d="M12.031 2C6.508 2 2.023 6.484 2.023 12.006c0 1.766.461 3.49 1.337 5.011L2 22l5.122-1.343a9.969 9.969 0 0 0 4.906 1.298h.004c5.522 0 10.007-4.484 10.007-10.006C22.039 6.484 17.553 2 12.031 2zm5.847 14.28c-.244.688-1.425 1.318-1.972 1.399-.506.075-1.147.107-1.856-.118-.429-.136-.979-.318-1.682-.622-2.961-1.278-4.894-4.262-5.042-4.459-.148-.197-1.205-1.603-1.205-3.058 0-1.455.762-2.171 1.033-2.467.271-.296.591-.37.788-.37.197 0 .394.002.567.01.182.009.426-.069.667.509.246.592.838 2.047.912 2.195.074.148.123.321.025.518-.099.197-.148.321-.296.493-.148.173-.311.386-.444.518-.148.148-.302.309-.13.605.173.296.766 1.264 1.645 2.048 1.13 1.008 2.083 1.32 2.379 1.468.296.148.469.123.641-.074.173-.197.74-.863.937-1.159.197-.296.395-.247.666-.148.271.099 1.726.814 2.022.962.296.148.493.222.567.345.075.124.075.716-.169 1.404z" />
+                    <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
+                    <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1" />
                   </svg>
                 </Box>
                 <Chip
@@ -852,18 +837,13 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: '9px',
-                    bgcolor: '#ffffff',
                     color: '#64748b',
-                    border: '1px solid #e2e8f0',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <Users size={20} />
+                  <Users size={28} strokeWidth={1.75} />
                 </Box>
                 <Chip
                   label="Hoja de Ruta"
@@ -906,18 +886,13 @@ export default function HubIntranet({ setView, userRole, userPermisos, user: pro
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: '9px',
-                    bgcolor: '#ffffff',
                     color: '#64748b',
-                    border: '1px solid #e2e8f0',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <FileSpreadsheet size={20} />
+                  <FileSpreadsheet size={28} strokeWidth={1.75} />
                 </Box>
                 <Chip
                   label="Hoja de Ruta"
