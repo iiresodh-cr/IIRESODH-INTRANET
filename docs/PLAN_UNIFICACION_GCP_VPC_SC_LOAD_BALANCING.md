@@ -1,156 +1,304 @@
-# Plan Arquitectónico y de Migración: Unificación de Sitios Web IIRESODH en un Único Proyecto GCP con VPC Service Controls (VPC-SC) y Cloud Load Balancing
+# Plan Maestro y Bitácora de Ejecución Paso a Paso: Unificación en `IIRESODH-UNI` bajo VPC Service Controls (VPC-SC) y Global Load Balancing
 
-**Documento de Ingeniería de Infraestructura — IIRESODH**  
-**Estado:** Planificado (Pendiente de ejecución)  
-**Alcance:** Consolidación de múltiples sitios web y portales institucionales (`iiresodh.org`, `intranet.iiresodh.org`, `campus.iiresodh.org`, APIs y Webhooks) en un solo proyecto de Google Cloud Platform (GCP), protegidos bajo un perímetro de **VPC Service Controls (VPC-SC)** y servidos a través de un **Global External Application Load Balancer**.
-
----
-
-## 1. Resumen Ejecutivo
-
-Actualmente, los distintos sistemas de IIRESODH operan en proyectos independientes de Firebase/GCP (por ejemplo, `litigio-management` para la Intranet, `iiresodh-web` para el portal público `iiresodh.org`, e `iiresodh-cursos-lms` para el Campus Virtual).
-
-Este plan detalla la arquitectura y la hoja de ruta paso a paso para **unificar todos los sitios y sus servicios backend dentro de un único Proyecto de GCP** perteneciente a la Organización de Google Cloud de la institución, cumpliendo simultáneamente con:
-1. **Aislamiento lógico de datos** (bases de datos Firestore independientes con nombre y buckets de Cloud Storage separados dentro del mismo proyecto).
-2. **Punto de entrada único global** mediante **Cloud Load Balancing (Global External Application Load Balancer)** con IP Anycast fija, certificados SSL gestionados por Google, enrutamiento por dominio (*Host Rules*) y protección WAF con **Google Cloud Armor**.
-3. **Blindaje anti-exfiltración con VPC Service Controls (VPC-SC)**, garantizando que las bases de datos (`Firestore`), archivos (`Cloud Storage`), secretos (`Secret Manager`), inteligencia artificial (`Vertex AI`) y microservicios (`Cloud Run`) operen dentro de un perímetro de seguridad a nivel de Organización.
-4. **Eliminación de la dependencia de Firebase Realtime Database (`rtdb`)** para lograr compatibilidad del **100% con VPC-SC**, manteniendo detección de presencia y escritura en **tiempo real**.
+**Documento Oficial de Ingeniería de Infraestructura — IIRESODH**  
+**Proyecto Destino en GCP / Firebase:** Nombre visible `IIRESODH-UNI` | Project ID: `iiresodh-uni`  
+**Estado General:** 🟡 Fase 0 (Pre-vuelo completado — Listo para iniciar Paso 1)  
+**Última actualización:** 31 de octubre de 2026
 
 ---
 
-## 2. Arquitectura Objetivo
+## 1. Resumen Ejecutivo y Garantía de Infraestructura Paralela (Zero-Downtime)
+
+Este documento constituye el **plan operativo numerado y la bitácora oficial de registro** para trasladar y unificar los **3 sistemas principales de IIRESODH** dentro de un único proyecto corporativo de Google Cloud Platform (`IIRESODH-UNI` / `iiresodh-uni`), blindado bajo un perímetro de **VPC Service Controls (VPC-SC)** y servido mediante un único **Global External Application Load Balancer** con **Google Cloud Armor (WAF)**.
+
+### 🛡️ Garantía de Estructura Paralela (Cero Interrupción durante la Implementación)
+1. **Nada de lo actual se apaga ni se modifica en producción mientras construimos:** Los tres proyectos actuales (`litigio-management`, `iiresodh-web` e `iiresodh-cursos-lms`) seguirán operando con normalidad y atendiendo a los usuarios en sus dominios actuales durante toda la construcción.
+2. **Entorno paralelo completo en `iiresodh-uni`:** Crearemos el proyecto `iiresodh-uni`, sus bases de datos Firestore aisladas, sus buckets de Cloud Storage, sus servicios de Cloud Run, el Load Balancer Global y el perímetro VPC-SC de manera **100% paralela**.
+3. **Pruebas integrales previas al cambio de DNS:** Antes de tocar un solo registro DNS de `iiresodh.org`, probaremos la Intranet (incluyendo la nueva PWA Móvil), el Sitio Web Institucional y el Campus de Cursos directamente contra la nueva infraestructura en `iiresodh-uni`.
+4. **Cambio de DNS (*Cutover*) solo al final:** Únicamente cuando demos el visto bueno a todas las pruebas en el entorno paralelo, apuntaremos los registros `A` del DNS hacia la IP Anycast del nuevo Load Balancer. Si en cualquier paso surge un imprevisto, **hacemos una pausa inmediata, lo diagnosticamos, lo resolvemos y documentamos antes de avanzar al siguiente punto**.
+
+---
+
+## 2. Inventario Auditado de los 3 Sistemas a Unificar (Pre-Flight Check)
+
+La auditoría técnica de los repositorios locales arrojó el siguiente inventario exacto que será trasladado a `iiresodh-uni`:
+
+| # | Sistema | Ruta Local Exacta del Proyecto | Proyecto Actual (`Project ID` / `Number`) | Base de Datos Firestore en `iiresodh-uni` | Bucket Cloud Storage en `iiresodh-uni` | Cloud Functions / Microservicios Detectados |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1** | **Intranet IIRESODH + PWA Móvil** | `C:\Users\durquilla\Documentos\PROYECTOS DESARROLLO\iiresodh-intranet` | `litigio-management` (`684823202496`) | `(default)` | `gs://iiresodh-uni-intranet` | **Node.js (`functions/`):** `webhookSendGrid`, `crearEventoCalendario`, `obtenerEventosCalendario`, `eliminarEventoCalendario`, `actualizarEventoCalendario`, `enviarComunicadoInstitucional`, `confirmarLecturaComunicado`, `consultarVertexLitigioIA`<br>**Python 3.12 (`whatsapp/`):** `whatsapp_webhook`, `notificar_workspace` |
+| **2** | **Sitio Web Institucional (`iiresodh.org`)** | `C:\Users\durquilla\Documentos\PROYECTOS DESARROLLO\IIRESODH-WEB\iiresodh-web` *(Nota: el código fuente está dentro de la subcarpeta `iiresodh-web`)* | `iiresodh-web` (`943078828913`) | `portal-web` | `gs://iiresodh-uni-web` | **Node.js (`functions/`):** `generarResumenGemini`, `noticiaMeta` (SSR OpenGraph), `enviarFormularioContacto`, `chatPidaStream` (Chatbot IRENE), `validarCuponStripe` (con lectura cruzada a PIDA), `crearIntentoPago`, `stripeWebhook` (Social DRM PDF), `traductorAutomatico`, `descargarDocumento`, `crearIntentoPagoCurso`, `stripeWebhookCursos`, `procesarCobrosYRecordatoriosCuotasCursos` (Cron), `reenviarConfirmacionCurso`, `generarEnlacePagoCurso`, `validarCuponDescuento`, `crearCuponCursoStripe`, `toggleEstadoCuponCursoStripe`, `eliminarCuponCursoStripe`, `sincronizarComisionesStripeCursos`, `consultarEstadoMercuryCursos` |
+| **3** | **Campus Virtual de Cursos (LMS)** | `C:\Users\durquilla\Documentos\ANTIGRAVITY\CURSOS-LMS` | `iiresodh-cursos-lms` (`761983185419`) | `campus-lms` | `gs://iiresodh-uni-cursos` | **TypeScript/Node.js (`functions/src/`):** `streamTutorResponse`, `gradeOpenAnswer`, `generateStudyAids`, `generateCourseQuiz`, `generateRemediationGuide`, `sendInstitutionalEmail`, `processInstitutionalMailQueue`, `generateCourseFromDocument` |
+
+---
+
+## 3. ¿Podemos Agregar Más Sitios y Sistemas en el Futuro bajo VPC-SC?
+
+**Sí, 100% confirmado.** La arquitectura en `iiresodh-uni` queda diseñada como un **Hub Institucional Escalable**. Cuando en el futuro deseemos incorporar otros sistemas (por ejemplo, `agoracr`, `observatorio-laboral-cr`, `sigel-colombia`, `sipdh-intranet` o cualquier portal nuevo), **no habrá que crear otro Load Balancer ni otro perímetro VPC-SC**. El procedimiento para sumar un sistema adicional tomará solo minutos:
+1. Crear una nueva base de datos Firestore con nombre dentro de `iiresodh-uni` (ej. `observatorio-cr`) y su bucket dedicado (`gs://iiresodh-uni-observatorio`). Al nacer dentro del proyecto `iiresodh-uni`, **queda automáticamente protegida por el perímetro VPC-SC**.
+2. Desplegar el frontend/API del nuevo sitio en un nuevo servicio de **Cloud Run** dentro de `iiresodh-uni` con `--ingress internal-and-cloud-load-balancing`.
+3. Añadir una sola regla de subdominio (*Host Rule*, ej. `observatorio.iiresodh.org`) al **URL Map del mismo Global Load Balancer** y actualizar el certificado SSL.
+
+---
+
+## 4. Arquitectura Objetivo en `IIRESODH-UNI` (`iiresodh-uni`)
 
 ```mermaid
 flowchart TD
-    User["Usuarios / Navegadores (Internet)"] --> LB["Global External Application Load Balancer + Cloud Armor (WAF)"]
-    Meta["Meta WhatsApp Cloud API"] -->|"POST /webhooks/whatsapp"| LB
+    User["Usuarios / Navegadores y PWA Móvil"] --> LB["Global External Application Load Balancer + Cloud Armor (WAF)"]
+    Webhooks["Webhooks Externos: Meta WhatsApp, Stripe, SendGrid"] --> LB
 
-    subgraph Perimetro["Perímetro VPC Service Controls (Proyecto Único GCP — Organización IIRESODH)"]
-        LB -->|"Host: iiresodh.org"| WebRun["Cloud Run / Backend Bucket: Portal Público"]
-        LB -->|"Host: intranet.iiresodh.org"| IntraRun["Cloud Run: Intranet IIRESODH"]
-        LB -->|"Host: campus.iiresodh.org"| LMSRun["Cloud Run: Campus Virtual LMS"]
-        LB -->|"Host: api.iiresodh.org"| APIRun["Cloud Run / Functions 2nd Gen: APIs, BFF & WebSockets"]
+    subgraph Perimetro["Perímetro VPC Service Controls — Proyecto Único: IIRESODH-UNI (iiresodh-uni)"]
+        LB -->|"Host: iiresodh.org"| WebRun["Cloud Run: Sitio Web Institucional (SPA + SSR noticiaMeta)"]
+        LB -->|"Host: intranet.iiresodh.org"| IntraRun["Cloud Run: Intranet IIRESODH + PWA Móvil"]
+        LB -->|"Host: campus.iiresodh.org"| LMSRun["Cloud Run: Campus Virtual Cursos LMS"]
+        LB -->|"Host: api.iiresodh.org"| APIRun["Cloud Run / Functions 2nd Gen: APIs, Webhooks & WebSocket Presencia"]
 
         WebRun --> APIRun
         IntraRun --> APIRun
         LMSRun --> APIRun
 
-        APIRun --> FS1[("Firestore DB: (default) — Intranet")]
-        APIRun --> FS2[("Firestore DB: portal-web — Sitio Público")]
-        APIRun --> FS3[("Firestore DB: campus-lms — Cursos LMS")]
+        APIRun --> FS1[("Firestore DB: (default)\nIntranet & WhatsApp")]
+        APIRun --> FS2[("Firestore DB: portal-web\nSitio Institucional")]
+        APIRun --> FS3[("Firestore DB: campus-lms\nCursos LMS")]
 
-        APIRun --> GCS1[("Bucket: gs://iiresodh-intranet-files")]
-        APIRun --> GCS2[("Bucket: gs://iiresodh-web-public")]
-        APIRun --> GCS3[("Bucket: gs://iiresodh-lms-media")]
+        APIRun --> GCS1[("Bucket: gs://iiresodh-uni-intranet")]
+        APIRun --> GCS2[("Bucket: gs://iiresodh-uni-web")]
+        APIRun --> GCS3[("Bucket: gs://iiresodh-uni-cursos")]
     end
 ```
 
 ---
 
-## 3. Decisiones Técnicas Clave
+## 5. Diagnóstico Pre-Vuelo Actual y Puntos Detectados Antes de Empezar
 
-### 3.1. Reemplazo de Firebase Hosting Clásico por Cloud Load Balancing
-- *Firebase Hosting clásico* (`*.web.app`) no puede colocarse detrás de un Cloud Load Balancer de GCP ni forma parte de un perímetro VPC-SC.
-- **Solución:** Cada sitio compilado (`dist/`) se empaqueta en un servicio ligero de **Cloud Run** (con `ingress: internal-and-cloud-load-balancing`) o en un **Backend Bucket de Cloud Storage con Cloud CDN**, conectado a un único **Global External Application Load Balancer** mediante un **URL Map** que enruta por subdominio (`iiresodh.org`, `intranet.iiresodh.org`, `campus.iiresodh.org`, `api.iiresodh.org`).
+Antes de ejecutar el **Paso 1**, revisamos el estado de las herramientas y encontramos lo siguiente:
 
-### 3.2. Separación de Datos en un Solo Proyecto GCP
-- **Cloud Firestore Multi-Database:** Dentro del mismo proyecto de GCP se crean bases de datos Firestore independientes:
-  - `(default)`: Intranet IIRESODH (casos, litigios, workspace, WhatsApp, recursos institucionales).
-  - `portal-web`: Contenidos públicos editoriales de `iiresodh.org` (noticias, libros, artículos, informes, equipo, cursos).
-  - `campus-lms`: Datos académicos del Campus Virtual.
-- **Cloud Storage Multi-Bucket:** Un bucket dedicado por cada sistema dentro del mismo proyecto, con sus respectivas reglas de acceso y permisos IAM.
-- **Identity Platform (Firebase Auth con Multi-Tenancy):**
-  - El personal interno (`@iiresodh.org`) disfruta de **Single Sign-On (SSO)** automático entre la Intranet y el panel de administración del Sitio Web sin necesidad de doble inicio de sesión.
-  - Para usuarios externos (por ejemplo, estudiantes del Campus LMS), se habilita **Multi-tenancy** en Identity Platform para mantener su padrón de cuentas 100% aislado del directorio interno.
-
-### 3.3. Compatibilidad con VPC Service Controls (VPC-SC)
-- **¿Cómo afecta VPC-SC a las llamadas desde el navegador?**
-  - VPC-SC bloquea las llamadas directas desde Internet abierto a `firestore.googleapis.com` y `storage.googleapis.com` si no cumplen una política de ingreso (*Ingress Policy*).
-- **Solución en dos frentes:**
-  1. **Portal Público (`iiresodh.org`):** Los visitantes anónimos en Internet no consultan Firestore directamente desde el navegador; las lecturas públicas pasan por un endpoint de **Cloud Run (BFF / API)** situado **dentro del perímetro VPC-SC** y acelerado con **Cloud CDN** en el Load Balancer.
-  2. **Intranet (`intranet.iiresodh.org`):** Se configura una **Ingress Policy en Access Context Manager (ACM)** que autoriza a las identidades corporativas autenticadas (`@iiresodh.org`) y a la cuenta de servicio de Cloud Run dentro del perímetro.
-
-### 3.4. Resolución de Firebase Realtime Database (`rtdb`) en Tiempo Real Puro
-- En el código actual de la Intranet, Realtime Database (`rtdb`) solo se utiliza en dos archivos (`src/components/workspace/EspacioTrabajoSlack.jsx` y `src/components/Layout.jsx`) para **3 datos efímeros**:
-  1. Presencia en línea (`presencia/{userKey}/enLinea`).
-  2. Estado de disponibilidad y estado personalizado (`estadoId`, `estadoEmoji`, `estadoTexto`, `lecturasCanales`).
-  3. Aviso efímero `"Está escribiendo..."` (`typing/{canalId}/{userKey}`).
-- Dado que Realtime Database **no es compatible con VPC-SC**, se migra al 100% a **Cloud Firestore + WebSocket en Cloud Run**:
-  - **Cambios en vivo (~100 ms):** `onSnapshot` de Firestore notifica instantáneamente al entrar, cambiar de estado, escribir en un canal o cerrar sesión/pestaña (`pagehide` / `visibilitychange`).
-  - **Detección instantánea de caídas abruptas de red/energía (`onDisconnect`):** Un canal **WebSocket nativo en Cloud Run** (`/ws/presencia`), ubicado detrás del Load Balancer y dentro del perímetro VPC-SC, detecta en milisegundos el cierre abrupto del socket TCP (`socket.on('close')`) y actualiza `enLinea: false` en Firestore inmediatamente, con un *heartbeat* de respaldo.
+1. ✅ **Firebase CLI (`npx firebase-tools`)**: Ya está autenticado correctamente con `webmaster@iiresodh.org` y tiene visibilidad sobre los 3 proyectos origen (`litigio-management`, `iiresodh-web`, `iiresodh-cursos-lms`).
+2. ⚠️ **Google Cloud SDK (`gcloud` CLI)**: Aunque la cuenta `webmaster@iiresodh.org` aparece registrada en `gcloud auth list`, su token OAuth en `gcloud` expiró (`Reauthentication failed`) y la cuenta activa de `gcloud` es `webmaster@pida-ai.com`. **Se resuelve en el Paso 1** autenticando `gcloud` con `webmaster@iiresodh.org`.
+3. ✅ **Archivos con Realtime Database (`rtdb`) en la Intranet**: Como hoy creamos la PWA Móvil (`src/views/PwaComunicacionesMobile.jsx`), además de `src/components/workspace/EspacioTrabajoSlack.jsx` y `src/components/Layout.jsx`, ahora son **3 archivos** los que usan `rtdb` para presencia en línea y aviso *"Escribiendo..."*. Los 3 están contemplados en el **Paso 9** para migrarlos a Firestore en tiempo real + WebSocket en Cloud Run (100% compatible con VPC-SC).
+4. ✅ **Secretos y Conexiones Externas Detectadas**:
+   - **Sitio Web (`iiresodh-web`)**: Usa secretos en Secret Manager (`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CURSOS_SECRET_KEY`, `STRIPE_CURSOS_WEBHOOK_SECRET`, `PIDA_SERVICE_ACCOUNT`, `MERCURY_API_KEY`, `MERCURY_CURSOS_ACCOUNT_ID`) y se conecta al Firestore de PIDA (`getPidaFirestore`) para validar cupones `PIDA*`.
+   - **Intranet (`litigio-management`)**: Usa tokens de Meta WhatsApp Cloud API, credenciales de Google Calendar / SMTP / SendGrid y Vertex AI.
+   - **Cursos (`iiresodh-cursos-lms`)**: Usa Vertex AI / Gemini y envío de correo institucional.
+   - Todo esto se migrará al Secret Manager de `iiresodh-uni` y tendrá sus reglas de salida (*Egress*) en el perímetro VPC-SC.
 
 ---
 
-## 4. Requisitos Previos (Checklist del Administrador antes de Iniciar)
+## 6. Plan de Implementación Paso a Paso (Con Asignación de Responsable y Bitácora)
 
-Antes de ejecutar la automatización, se requiere contar con estos **5 puntos**:
+> [!IMPORTANT]
+> **Metodología de Trabajo:**  
+> Avanzaremos **estrictamente un paso a la vez** en orden numérico.  
+> - En cada paso se indica **`[EJECUTA: USUARIO]`** o **`[EJECUTA: AGENTE]`** (o **`[CONJUNTO]`**).  
+> - Cuando sea tu turno, te daré el comando o instrucción exacta y esperaré tu confirmación.  
+> - Cuando sea mi turno, ejecutaré la acción, verificaré que no haya errores, actualizaré la tabla de bitácora en este documento y te informaré exactamente qué hice antes de pasar al siguiente punto.
 
-- [ ] **1. Autenticación en `gcloud` CLI con la cuenta Superadmin de la Organización:**
+---
+
+### ETAPA 1: Autenticación, Verificación de Organización GCP y Creación del Proyecto `IIRESODH-UNI`
+
+#### **Paso 1 — Autenticación de `gcloud` CLI con `webmaster@iiresodh.org`**
+- **Responsable:** `[EJECUTA: USUARIO]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:** Abrir una terminal en tu equipo y ejecutar:
   ```powershell
   gcloud auth login webmaster@iiresodh.org
   gcloud config set account webmaster@iiresodh.org
   ```
-- [ ] **2. Permisos IAM a nivel de Organización (`Google Cloud Organization`):**
-  La cuenta administradora debe contar con los roles:
-  - `roles/resourcemanager.organizationAdmin` (Organization Administrator)
-  - `roles/resourcemanager.projectCreator` (Project Creator)
-  - `roles/billing.user` (Billing Account User)
-  - `roles/accesscontextmanager.policyAdmin` (Access Context Manager Admin — requerido para VPC-SC)
-  - `roles/compute.networkAdmin` y `roles/compute.securityAdmin` (para Load Balancer y Cloud Armor)
-- [ ] **3. Rutas locales o repositorios Git de todos los sitios a unificar:**
-  - `iiresodh-intranet` (actual)
-  - `iiresodh-web` (portal público `iiresodh.org`)
-  - `iiresodh-cursos-lms` (Campus Virtual)
-  - Cualquier otro micrositio institucional adicional.
-- [ ] **4. Acceso a la consola de Google Cloud (APIs & Services > Credentials):**
-  Para agregar las URLs definitivas en los *Authorized JavaScript Origins* y *Authorized Redirect URIs* del cliente OAuth 2.0.
-- [ ] **5. Acceso al panel DNS del dominio `iiresodh.org` y a Meta for Developers:**
-  Para apuntar los registros `A` a la IP Anycast del Load Balancer una vez validada toda la infraestructura (migración *Zero-Downtime*) y actualizar la URL del webhook de WhatsApp.
+- **Objetivo:** Renovar el token de `gcloud` para la cuenta administradora de `iiresodh.org`.
+
+#### **Paso 2 — Auditoría de Organización GCP, Cuenta de Facturación y Permisos VPC-SC**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:** Ejecutar comandos de solo lectura en `gcloud` para:
+  1. Obtener el `ORGANIZATION_ID` de `iiresodh.org` (`gcloud organizations list`).
+  2. Obtener el `BILLING_ACCOUNT_ID` activo (`gcloud billing accounts list`).
+  3. Verificar que `webmaster@iiresodh.org` posea los permisos a nivel de Organización para crear el proyecto y configurar Access Context Manager / VPC-SC (`organizationAdmin`, `accesscontextmanager.policyAdmin`, `billing.user`). Si falta algún rol en el nodo de Organización, el agente dará el comando exacto para auto-asignarlo.
+
+#### **Paso 3 — Creación del Proyecto `IIRESODH-UNI` (`iiresodh-uni`) y Vinculación de Facturación + Firebase**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Crear el proyecto en GCP dentro de la Organización de `iiresodh.org`:
+     - **Nombre visible:** `IIRESODH-UNI`
+     - **Project ID:** `iiresodh-uni` (o `iiresodh-uni-core` si el ID global estuviese tomado, previa confirmación).
+  2. Vincular la cuenta de facturación institucional (Plan Blaze requerido para Cloud Run, Cloud Build y múltiples bases de datos).
+  3. Agregar los recursos de Firebase al proyecto (`firebase projects:addfirebase iiresodh-uni`) y crear las Web Apps registradas en Firebase para obtener las credenciales SDK (`apiKey`, `appId`) del nuevo proyecto unificado.
+
+#### **Paso 4 — Habilitación de APIs en `iiresodh-uni` y Creación de la Red VPC Institucional**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Habilitar en `iiresodh-uni` todas las APIs necesarias: `compute.googleapis.com`, `run.googleapis.com`, `cloudfunctions.googleapis.com`, `cloudbuild.googleapis.com`, `artifactregistry.googleapis.com`, `firestore.googleapis.com`, `storage.googleapis.com`, `identitytoolkit.googleapis.com`, `fcm.googleapis.com`, `secretmanager.googleapis.com`, `aiplatform.googleapis.com`, `cloudscheduler.googleapis.com`, `accesscontextmanager.googleapis.com`, `vpcaccess.googleapis.com`.
+  2. Crear la red VPC `vpc-iiresodh-uni` y su subred en `us-central1` con **Private Google Access** activado (necesario para que el tráfico interno hacia APIs de Google viaje de forma privada dentro del perímetro VPC-SC).
 
 ---
 
-## 5. Fases de Ejecución Automatizada (Paso a Paso)
+### ETAPA 2: Creación de Bases de Datos Aisladas, Buckets, Secretos y Copia de Datos en Paralelo
 
-### Fase 1: Aprovisionamiento del Proyecto Único y Red Base
-1. Crear el proyecto unificado (ej. `iiresodh-cloud-core`) dentro del nodo de Organización de GCP y vincular la cuenta de facturación.
-2. Habilitar las APIs necesarias:
-   - `compute.googleapis.com`, `run.googleapis.com`, `cloudfunctions.googleapis.com`, `cloudbuild.googleapis.com`, `artifactregistry.googleapis.com`
-   - `firestore.googleapis.com`, `storage.googleapis.com`, `identitytoolkit.googleapis.com`
-   - `secretmanager.googleapis.com`, `aiplatform.googleapis.com`
-   - `accesscontextmanager.googleapis.com`, `vpcaccess.googleapis.com`
-3. Crear la red VPC institucional (`vpc-iiresodh-core`) con *Private Google Access* habilitado en las subredes para tráfico interno hacia APIs de Google (`restricted.googleapis.com`).
+#### **Paso 5 — Creación de las 3 Bases de Datos Firestore y los 3 Buckets de Cloud Storage**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Crear en `iiresodh-uni` (región `nam5` / `us-central1`) las 3 bases de datos Firestore nativas independientes:
+     - `(default)` $\rightarrow$ Intranet IIRESODH + WhatsApp + Workspace.
+     - `portal-web` $\rightarrow$ Sitio Web Institucional (`iiresodh.org`).
+     - `campus-lms` $\rightarrow$ Campus Virtual de Cursos (`CURSOS-LMS`).
+  2. Crear en `iiresodh-uni` los 3 buckets independientes de Cloud Storage:
+     - `gs://iiresodh-uni-intranet` (además del bucket default de Firebase Storage)
+     - `gs://iiresodh-uni-web`
+     - `gs://iiresodh-uni-cursos`
+  3. Desplegar los índices compuestos (`firestore.indexes.json`) y las reglas de seguridad (`firestore.rules` y `storage.rules`) correspondientes a cada base de datos y bucket.
 
-### Fase 2: Creación y Migración de Bases de Datos y Cloud Storage
-1. Crear las bases de datos Firestore dentro del nuevo proyecto:
-   - `(default)` (Intranet)
-   - `portal-web` (Sitio Web Público)
-   - `campus-lms` (Campus Virtual)
-2. Crear los buckets de Cloud Storage por entorno/sitio y desplegar sus reglas de seguridad.
-3. Ejecutar exportación e importación completa (`gcloud firestore export` / `import` y `gcloud storage rsync`) desde `litigio-management`, `iiresodh-web` e `iiresodh-cursos-lms` hacia el proyecto unificado.
-4. Migrar los secretos (`GEMINI_API_KEY`, tokens de Meta WhatsApp, credenciales SMTP) a **Secret Manager** en el nuevo proyecto.
+#### **Paso 6 — Clonación (Export / Import) de Firestore, Cloud Storage y Usuarios de Auth hacia `iiresodh-uni`**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Exportar los datos actuales de Firestore de `litigio-management`, `iiresodh-web` e `iiresodh-cursos-lms` a un bucket puente temporal y realizar `gcloud firestore import` hacia `(default)`, `portal-web` y `campus-lms` en `iiresodh-uni` (los proyectos originales no sufren ninguna alteración).
+  2. Sincronizar todos los archivos de Cloud Storage (`gcloud storage rsync -r`) desde los 3 proyectos originales hacia los nuevos buckets en `iiresodh-uni`.
+  3. Configurar **Identity Platform / Firebase Auth** en `iiresodh-uni` y migrar las cuentas de usuarios existentes (`firebase auth:export` / `auth:import`), habilitando un *Tenant* aislado si se desea separar el padrón de estudiantes externos del directorio interno `@iiresodh.org`.
 
-### Fase 3: Refactorización de Presencia (Eliminación de Realtime Database) y Unificación de SDKs
-1. Actualizar `src/components/workspace/EspacioTrabajoSlack.jsx` y `src/components/Layout.jsx` para usar la colección `workspace_presencia` en Firestore + WebSocket en Cloud Run, retirando `firebase/database` (`rtdb`).
-2. Actualizar `src/config/firebase.js` y `src/config/firebaseWeb.js` para apuntar al proyecto único, utilizando `getFirestore(app, 'portal-web')` para la base de datos secundaria del portal web (aprovechando la misma sesión de autenticación de Firebase Auth).
+#### **Paso 7 — Migración de Secretos a Secret Manager en `iiresodh-uni`**
+- **Responsable:** `[CONJUNTO: AGENTE + USUARIO]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. **`[AGENTE]`**: Copiar automáticamente todos los secretos existentes en Secret Manager de `litigio-management`, `iiresodh-web` e `iiresodh-cursos-lms` (`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CURSOS_SECRET_KEY`, `STRIPE_CURSOS_WEBHOOK_SECRET`, `PIDA_SERVICE_ACCOUNT`, `MERCURY_API_KEY`, `MERCURY_CURSOS_ACCOUNT_ID`, tokens de WhatsApp, etc.) hacia el Secret Manager de `iiresodh-uni`, y otorgar permisos IAM (`secretAccessor`) a la cuenta de servicio de `iiresodh-uni`.
+  2. **`[USUARIO]`**: Únicamente si algún secreto antiguo estuviera en variables locales no accesibles por `gcloud secrets`, confirmarlo o proporcionarlo cuando el agente lo indique.
 
-### Fase 4: Despliegue en Cloud Run y Configuración del Global Load Balancer
-1. Contenerizar y desplegar cada aplicación web y los microservicios (`whatsapp_webhook`, `api-portal-web`, funciones de correo y PIDA AI) en **Cloud Run** con restricción de ingreso `internal-and-cloud-load-balancing`.
-2. Reservar una **IPv4 estática global** (`ip-iiresodh-global-lb`).
-3. Crear los **Serverless Network Endpoint Groups (Serverless NEGs)**, **Backend Services**, el **URL Map** con reglas por host (`iiresodh.org`, `intranet.iiresodh.org`, `campus.iiresodh.org`, `api.iiresodh.org`), el certificado SSL gestionado (`Managed SSL Certificate`) y la política WAF de **Cloud Armor**.
+#### **Paso 8 — Configuración de Proveedores de Inicio de Sesión (Google Sign-In / OAuth) en `iiresodh-uni`**
+- **Responsable:** `[CONJUNTO: AGENTE + USUARIO]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. **`[AGENTE]`**: Habilitar Email/Password, Anonymous (usado por catálogo de cursos) y Google Sign-In mediante la API de Identity Platform en `iiresodh-uni`.
+  2. **`[USUARIO]`**: En la consola de Google Cloud de `IIRESODH-UNI` (`APIs & Services > Credentials`), verificar que en el *OAuth 2.0 Client ID* web estén agregados los dominios autorizados (`iiresodh.org`, `intranet.iiresodh.org`, `campus.iiresodh.org` y las URLs de prueba del Load Balancer). El agente te dará la lista exacta para copiar y pegar.
 
-### Fase 5: Configuración de VPC Service Controls (VPC-SC)
-1. Crear la política de acceso en **Access Context Manager (ACM)** y definir los niveles de acceso (*Access Levels*) para identidades institucionales `@iiresodh.org` y cuentas de servicio internas.
-2. Configurar el perímetro **VPC-SC** en **Modo de Prueba (*Dry-Run Mode*)** incluyendo:
-   - `firestore.googleapis.com`
-   - `storage.googleapis.com`
-   - `run.googleapis.com`
-   - `secretmanager.googleapis.com`
-   - `aiplatform.googleapis.com`
-3. Configurar las reglas de *Ingress* (para usuarios autorizados y el webhook de Meta a través del Load Balancer) y *Egress* (para llamadas salientes a `graph.facebook.com` de WhatsApp y Google Workspace APIs).
-4. Auditar los registros de *Dry-Run* en Cloud Logging para confirmar cero bloqueos falsos positivos y activar el perímetro en **Modo Enforced (Activo)**.
+---
 
-### Fase 6: Cutover DNS Sin Tiempo de Inactividad (Zero-Downtime)
-1. Validar cada portal a través del balanceador de carga.
-2. Actualizar los registros `A` en el DNS de `iiresodh.org` hacia la IP global del Load Balancer.
-3. Actualizar la URL del webhook de WhatsApp en el panel de Meta for Developers.
-4. Mantener los proyectos antiguos en modo solo lectura de respaldo durante el periodo de estabilización antes de su retiro definitivo.
+### ETAPA 3: Adaptación de los 3 Repositorios para `IIRESODH-UNI` y Compatibilidad 100% VPC-SC
+
+#### **Paso 9 — Reemplazo de Realtime Database (`rtdb`) por Firestore en Tiempo Real + WebSocket en la Intranet y PWA Móvil**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Crear el microservicio ligero de presencia WebSocket (`/ws/presencia`) para detectar desconexiones abruptas (`socket.on('close')`) y marcar `enLinea: false` en Firestore de inmediato.
+  2. Actualizar los 3 archivos de `iiresodh-intranet` que usan `rtdb`:
+     - `src/components/workspace/EspacioTrabajoSlack.jsx`
+     - `src/components/Layout.jsx`
+     - `src/views/PwaComunicacionesMobile.jsx`
+     para que consuman presencia, estados personalizados y el indicador *"Escribiendo..."* desde Firestore (`workspace_presencia` y `workspace_typing`) + el WebSocket, eliminando la dependencia de `firebase/database` (`rtdb`) para lograr compatibilidad del 100% con VPC-SC.
+
+#### **Paso 10 — Actualización de Configuración en los 3 Repositorios (`.firebaserc`, SDKs y `functions`)**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. En **`iiresodh-intranet`**:
+     - Apuntar `src/config/firebase.js` al proyecto `iiresodh-uni` (base de datos `(default)` y bucket `gs://iiresodh-uni-intranet`).
+     - Apuntar `src/config/firebaseWeb.js` (el módulo CMS de Administración del Sitio Web integrado en la Intranet) a la base de datos `portal-web` (`getFirestore(app, 'portal-web')`) y al bucket `gs://iiresodh-uni-web` dentro del **mismo proyecto `iiresodh-uni`**, logrando **Single Sign-On (SSO) nativo** con la misma sesión de `@iiresodh.org`.
+  2. En **`IIRESODH-WEB/iiresodh-web`**:
+     - Apuntar `src/firebase/config.js` y `functions/index.js` al proyecto `iiresodh-uni`, base de datos `portal-web` (`getFirestore(app, 'portal-web')`) y bucket `gs://iiresodh-uni-web`.
+  3. En **`CURSOS-LMS`**:
+     - Apuntar `src/firebase.js` y `functions/src/index.ts` al proyecto `iiresodh-uni`, base de datos `campus-lms` (`getFirestore(app, 'campus-lms')`) y bucket `gs://iiresodh-uni-cursos`.
+
+---
+
+### ETAPA 4: Despliegue en Cloud Run y Configuración del Global Load Balancer + Cloud Armor
+
+#### **Paso 11 — Despliegue de Microservicios Backend y Cloud Functions 2nd Gen en `iiresodh-uni`**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Desplegar los grupos de funciones (*codebases*) en `iiresodh-uni`:
+     - Codebase `intranet-node` (funciones de `iiresodh-intranet/functions`)
+     - Codebase `intranet-whatsapp` (`whatsapp_webhook` y `notificar_workspace` en Python 3.12)
+     - Codebase `portal-web` (funciones de `IIRESODH-WEB/iiresodh-web/functions`, incluyendo `noticiaMeta`, `chatPidaStream`, `stripeWebhook`, etc.)
+     - Codebase `campus-lms` (funciones de `CURSOS-LMS/functions`)
+  2. Configurar el control de ingreso (`--ingress internal-and-cloud-load-balancing`) en los servicios expuestos a través del balanceador.
+
+#### **Paso 12 — Contenerización y Despliegue de los 3 Frontends en Cloud Run (`iiresodh-uni`)**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Compilar (`npm run build`) y empaquetar cada uno de los 3 sitios en contenedores Nginx/Node ultraligeros en Cloud Run dentro de `iiresodh-uni`:
+     - Servicio `cr-iiresodh-web`: sirve el Portal Institucional (`iiresodh.org`) con las redirecciones 301 y rewrites a `noticiaMeta` y `descargarDocumento`.
+     - Servicio `cr-iiresodh-intranet`: sirve la Intranet y la PWA Móvil (`intranet.iiresodh.org`) con los encabezados COOP y Service Worker (`firebase-messaging-sw.js`).
+     - Servicio `cr-iiresodh-cursos`: sirve el Campus Virtual LMS (`campus.iiresodh.org`).
+  2. Configurar en los 3 servicios `--ingress internal-and-cloud-load-balancing` para que nadie pueda invocarlos saltándose el Load Balancer y Cloud Armor.
+
+#### **Paso 13 — Creación del Global External Application Load Balancer y Cloud Armor (WAF)**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Reservar la dirección **IPv4 Anycast Global estática** (`ip-iiresodh-uni-lb`).
+  2. Crear los **Serverless Network Endpoint Groups (Serverless NEGs)** y **Backend Services** (con Cloud CDN activado para activos estáticos públicos).
+  3. Configurar el **URL Map (`lb-iiresodh-uni`)** con enrutamiento por dominio (*Host Rules*):
+     - `iiresodh.org` y `www.iiresodh.org` $\rightarrow$ `cr-iiresodh-web`
+     - `intranet.iiresodh.org` $\rightarrow$ `cr-iiresodh-intranet`
+     - `campus.iiresodh.org` (o el subdominio de cursos que definamos) $\rightarrow$ `cr-iiresodh-cursos`
+     - `api.iiresodh.org` $\rightarrow$ Webhooks y APIs (`whatsapp_webhook`, `stripeWebhook`, `webhookSendGrid`, etc.)
+  4. Crear el **Certificado SSL Gestionado por Google (`Managed SSL Certificate`)** para todos los dominios y adjuntar la política de seguridad de **Google Cloud Armor**.
+
+---
+
+### ETAPA 5: Configuración y Activación del Perímetro VPC Service Controls (VPC-SC)
+
+#### **Paso 14 — Creación de Política en Access Context Manager (ACM) y Perímetro VPC-SC en Modo Prueba (*Dry-Run*)**
+- **Responsable:** `[EJECUTA: AGENTE]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. Crear el *Access Level* institucional en Access Context Manager autorizando a las identidades de `@iiresodh.org` y a las cuentas de servicio de `iiresodh-uni`.
+  2. Crear el perímetro **VPC Service Controls (`perimetro_iiresodh_uni`)** inicialmente en **Modo de Prueba (*Dry-Run Mode*)** protegiendo el proyecto `iiresodh-uni` y los servicios:
+     - `firestore.googleapis.com`
+     - `storage.googleapis.com`
+     - `run.googleapis.com`
+     - `cloudfunctions.googleapis.com`
+     - `secretmanager.googleapis.com`
+     - `aiplatform.googleapis.com`
+  3. Configurar las reglas de **Ingress** (acceso de aplicaciones cliente autenticadas y entrada por el Load Balancer) y **Egress** (permiso hacia el proyecto PIDA para la validación de cupones `PIDA*` y servicios externos autorizados).
+
+#### **Paso 15 — Pruebas Integrales en Paralelo y Activación del Perímetro VPC-SC (*Enforced Mode*)**
+- **Responsable:** `[CONJUNTO: AGENTE + USUARIO]`
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. **`[AGENTE + USUARIO]`**: Probar en paralelo (sin haber cambiado aún el DNS en producción) los 3 sistemas en `iiresodh-uni`:
+     - Sitio Web Institucional (`iiresodh.org` en el nuevo entorno): noticias, libros, chatbot IRENE, formulario de contacto.
+     - Intranet + PWA Móvil: login con `@iiresodh.org`, casos de litigio, WhatsApp, Workspace en tiempo real, administración del sitio web desde la Intranet.
+     - Campus Virtual LMS: catálogo de cursos, aula virtual, tutor IA.
+  2. **`[AGENTE]`**: Auditar los logs de `VPC Service Controls Dry-Run` en Cloud Logging para verificar que haya **0 bloqueos legítimos** y pasar el perímetro VPC-SC a **Modo Activo (*Enforced Mode*)**.
+
+---
+
+### ETAPA 6: Cambio de DNS (*Cutover* Final) y Actualización de Webhooks
+
+#### **Paso 16 — Cambio de Registros DNS y Actualización de Webhooks en Meta / Stripe / SendGrid**
+- **Responsable:** `[EJECUTA: USUARIO]` (con acompañamiento en vivo del Agente)
+- **Estado:** ⏳ Pendiente
+- **Acción a realizar:**
+  1. En el panel de DNS de `iiresodh.org`, apuntar los registros `A` de `iiresodh.org`, `www.iiresodh.org`, `intranet.iiresodh.org`, `campus.iiresodh.org` y `api.iiresodh.org` a la IP Anycast Global (`ip-iiresodh-uni-lb`) que te entregará el Agente.
+  2. Actualizar la URL del Webhook en **Meta for Developers (WhatsApp)**, **Stripe Dashboard** y **SendGrid** hacia el nuevo dominio en `iiresodh-uni`.
+  3. **`[AGENTE]`**: Verificar la activación del certificado SSL (`ACTIVE`), monitorear el tráfico en vivo y confirmar que toda la operación esté 100% estable en `IIRESODH-UNI`. (Los proyectos antiguos quedan intactos como respaldo en frío durante el periodo de gracia que decidas).
+
+---
+
+## 7. Bitácora de Registro de Ejecución
+
+Cada vez que completemos un paso, actualizaremos esta tabla con la fecha/hora exacta, los recursos creados y el resultado:
+
+| Paso | Descripción Corta | Ejecuta | Estado | Fecha / Hora | Notas y Recursos Creados |
+| :---: | :--- | :---: | :---: | :---: | :--- |
+| **0** | Auditoría Pre-Vuelo de los 3 repositorios y plan paso a paso en `/DOCS` | `AGENTE` | ✅ Completado | 2026-10-31 11:02 | Auditados `iiresodh-intranet` (`litigio-management`), `IIRESODH-WEB/iiresodh-web` (`iiresodh-web`) y `CURSOS-LMS` (`iiresodh-cursos-lms`). |
+| **1** | Autenticación de `gcloud` CLI con `webmaster@iiresodh.org` | `USUARIO` | ⏳ Pendiente | — | Esperando ejecución de `gcloud auth login webmaster@iiresodh.org`. |
+| **2** | Auditoría de Organización GCP, Facturación y Permisos VPC-SC | `AGENTE` | ⏳ Pendiente | — | — |
+| **3** | Creación del proyecto `IIRESODH-UNI` (`iiresodh-uni`) + Billing + Firebase | `AGENTE` | ⏳ Pendiente | — | — |
+| **4** | Habilitación de APIs y creación de red VPC `vpc-iiresodh-uni` | `AGENTE` | ⏳ Pendiente | — | — |
+| **5** | Creación de 3 bases Firestore (`(default)`, `portal-web`, `campus-lms`) y 3 Buckets | `AGENTE` | ⏳ Pendiente | — | — |
+| **6** | Clonación en paralelo de Firestore, Storage y Auth a `iiresodh-uni` | `AGENTE` | ⏳ Pendiente | — | — |
+| **7** | Migración de Secretos a Secret Manager en `iiresodh-uni` | `CONJUNTO` | ⏳ Pendiente | — | — |
+| **8** | Configuración de Google Sign-In / OAuth en `iiresodh-uni` | `CONJUNTO` | ⏳ Pendiente | — | — |
+| **9** | Migración de `rtdb` a Firestore + WebSocket en Intranet y PWA Móvil | `AGENTE` | ⏳ Pendiente | — | — |
+| **10** | Conexión de los 3 repositorios a `iiresodh-uni` y SSO | `AGENTE` | ⏳ Pendiente | — | — |
+| **11** | Despliegue de Cloud Functions 2nd Gen y Microservicios en `iiresodh-uni` | `AGENTE` | ⏳ Pendiente | — | — |
+| **12** | Despliegue de los 3 Frontends en Cloud Run (`iiresodh-uni`) | `AGENTE` | ⏳ Pendiente | — | — |
+| **13** | Configuración del Global Load Balancer, URL Map, SSL y Cloud Armor | `AGENTE` | ⏳ Pendiente | — | — |
+| **14** | Configuración de Access Context Manager y VPC-SC en modo *Dry-Run* | `AGENTE` | ⏳ Pendiente | — | — |
+| **15** | Pruebas integrales en paralelo y activación de VPC-SC en modo *Enforced* | `CONJUNTO` | ⏳ Pendiente | — | — |
+| **16** | Cutover DNS final y actualización de URLs de Webhooks | `USUARIO` | ⏳ Pendiente | — | — |
